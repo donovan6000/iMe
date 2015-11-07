@@ -7,8 +7,7 @@ COPY = /opt/avr-toolchain/bin/avr-objcopy
 M3DLINUX = /usr/sbin/m3d-linux
 
 # C source files
-CSRCS = main.c \
-	ASF/common/boards/user_board/init.c \
+CSRCS = ASF/common/boards/user_board/init.c \
 	ASF/common/services/clock/xmega/sysclk.c \
 	ASF/common/services/sleepmgr/xmega/sleepmgr.c \
 	ASF/common/services/usb/class/cdc/device/udi_cdc.c \
@@ -16,6 +15,9 @@ CSRCS = main.c \
 	ASF/common/services/usb/udc/udc.c \
 	ASF/xmega/drivers/nvm/nvm.c \
 	ASF/xmega/drivers/usb/usb_device.c
+
+# C++ source files
+CPPSRCS = main.cpp
 
 # Assembly source files
 ASSRCS = ASF/xmega/drivers/cpu/ccp.s \
@@ -46,13 +48,16 @@ INCPATH = . \
 	ASF/xmega/utils/preprocessor
 
 # Compiler flags
-CFLAGS = -Wall -Os -std=gnu99 -D BOARD=USER_BOARD -mmcu=atxmega32a4u -Wl,--section-start=.BOOT=0x8000 -ffunction-sections -fdata-sections -Wl,--gc-sections -mrelax -funsigned-char -fno-strict-aliasing
+FLAGS = -Wall -Os -D BOARD=USER_BOARD -mmcu=atxmega32a4u -Wl,--section-start=.BOOT=0x8000 -ffunction-sections -fdata-sections -Wl,--gc-sections -mrelax -funsigned-char -fno-strict-aliasing
+CFLAGS = -std=gnu99
+CPPFLAGS = -std=c++14
 
 # Make all
 all: $(CSRCS)
-	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(CFLAGS) -x assembler-with-cpp -D__ASSEMBLY__ -c $(ASSRCS) $(LIBS)
-	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(CFLAGS) -o $(PROG) $(CSRCS) *.o $(LIBS)
-	@rm -f *.o
+	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CPPFLAGS) -x assembler-with-cpp -D__ASSEMBLY__ -c $(ASSRCS) $(LIBS)
+	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CFLAGS) -c $(CSRCS) $(LIBS)
+	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CPPFLAGS) -o $(PROG) $(CPPSRCS) *.o $(LIBS)
+	@rm -f *.hex *.o
 	@$(COPY) -O binary $(PROG) $(shell date +"%Y%m%d%H").hex
 	@echo *.hex is ready
 
