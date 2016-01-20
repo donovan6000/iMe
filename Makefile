@@ -1,5 +1,6 @@
 # Program name
 PROG = iMe.elf
+VERSION = 1900000001
 
 # Tool locations
 CC = /opt/avr-toolchain/bin/avr-gcc
@@ -48,7 +49,7 @@ INCPATH = . \
 	ASF/xmega/utils/preprocessor
 
 # Compiler flags
-FLAGS = -Wall -Os -D BOARD=USER_BOARD -mmcu=atxmega32a4u -Wl,--section-start=.BOOT=0x8000 -ffunction-sections -fdata-sections -Wl,--gc-sections -mrelax -funsigned-char -fno-strict-aliasing
+FLAGS = -Wall -Os -D VERSION="\"$(VERSION)\"" -D BOARD=USER_BOARD -mmcu=atxmega32a4u -Wl,--section-start=.BOOT=0x8000 -ffunction-sections -fdata-sections -Wl,--gc-sections -mrelax -funsigned-char -fno-strict-aliasing
 CFLAGS = -std=gnu99
 CPPFLAGS = -std=c++14
 

@@ -5,6 +5,7 @@
 #include <avr/eeprom.h>
 #define F_CPU 24000000UL
 #include <util/delay.h>
+#include <string.h>
 
 extern "C" {
 	#include <asf.h>
@@ -63,7 +64,9 @@ extern "C" {
 // Global variables
 uint8_t serialNumber[USB_DEVICE_GET_SERIAL_NAME_LENGTH];
 uint8_t bufferSize = 0;
-uint8_t buffer[64];
+uint8_t buffer[255];
+
+char responseBuffer[255];
 
 
 // Function prototypes
@@ -135,18 +138,38 @@ int main(void) {
 		// Check if data has been received
 		if(bufferSize) {
 		
+			if(strlen(reinterpret_cast<char*>(buffer)) >= 9 && !strncmp(reinterpret_cast<char*>(buffer), "M115 S628", 9)) {
+			
+				// Trigger software reset
+				CPU_CCP = CCP_IOREG_gc;
+				RST.CTRL = RST_SWRST_bm;
+			}
+			else if(strlen(reinterpret_cast<char*>(buffer)) >= 4 && !strncmp(reinterpret_cast<char*>(buffer), "M115", 4)) {
+			
+				strcpy(responseBuffer, "ok REPRAP_PROTOCOL:1 FIRMWARE_NAME:iMe FIRMWARE_VERSION:" VERSION " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
+				strncat(responseBuffer, reinterpret_cast<char*>(serialNumber), 16);
+				strcat(responseBuffer, "\n");
+			}
+				
+			else if(strlen(reinterpret_cast<char*>(buffer)) >= 4 && !strncmp(reinterpret_cast<char*>(buffer), "M105", 4))
+			
+				strcpy(responseBuffer, "ok T:0\n");
+			
+			else
+				strcpy(responseBuffer, "ok\n");
+			
+			// Clear buffer size
+			bufferSize = 0;
+		
 			// Go through all data
-			for(uint8_t i = 0; i < bufferSize; i++) {
+			for(uint8_t i = 0; i < strlen(responseBuffer); i++) {
 			
 				// Wait until USB transmitter is ready
 				while(!udi_cdc_is_tx_ready());
 				
 				// Send data to USB
-				udi_cdc_putc(buffer[i]);
+				udi_cdc_putc(responseBuffer[i]);
 			}
-			
-			// Clear buffer size
-			bufferSize = 0;
 		}
 	}
 	
@@ -174,7 +197,11 @@ void cdcDisableCallback(void) {
 
 void cdcRxNotifyCallback(uint8_t port) {
 
-	// Get received data
-	for(bufferSize = 0; udi_cdc_is_rx_ready(); bufferSize++)
-		buffer[bufferSize] = udi_cdc_getc();
+	if(!bufferSize) {
+
+		// Get received data
+		for(bufferSize = 0; udi_cdc_is_rx_ready(); bufferSize++)
+			buffer[bufferSize] = udi_cdc_getc();
+		buffer[bufferSize] = 0;
+	}
 }
