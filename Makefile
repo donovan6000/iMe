@@ -1,5 +1,5 @@
 # Program name
-PROG = iMe.elf
+PROG = iMe
 VERSION = 1900000001
 
 # Tool locations
@@ -57,15 +57,15 @@ CPPFLAGS = -std=c++14
 all: $(CSRCS)
 	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CPPFLAGS) -x assembler-with-cpp -D__ASSEMBLY__ -c $(ASSRCS) $(LIBS)
 	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CFLAGS) -c $(CSRCS) $(LIBS)
-	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CPPFLAGS) -o $(PROG) $(CPPSRCS) *.o $(LIBS)
-	@rm -f *.hex *.o
-	@$(COPY) -O binary $(PROG) $(shell date +"%Y%m%d%H").hex
+	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CPPFLAGS) -o $(PROG).elf $(CPPSRCS) *.o $(LIBS)
+	@rm -f *.o
+	@$(COPY) -O binary $(PROG).elf "iMe $(VERSION).hex"
 	@echo *.hex is ready
 
 # Make clean
 clean:
-	rm -f $(PROG) *.hex *.o
+	rm -f $(PROG).elf "iMe $(VERSION).hex" *.o
 
 # Make run
 run:
-	@$(M3DLINUX) -a -x -r $(wildcard *.hex)
+	@$(M3DLINUX) -a -x -r "iMe $(VERSION).hex"
