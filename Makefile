@@ -18,7 +18,8 @@ CSRCS = ASF/common/boards/user_board/init.c \
 	ASF/xmega/drivers/usb/usb_device.c
 
 # C++ source files
-CPPSRCS = main.cpp
+CPPSRCS = main.cpp \
+	gcode.cpp
 
 # Assembly source files
 ASSRCS = ASF/xmega/drivers/cpu/ccp.s \
