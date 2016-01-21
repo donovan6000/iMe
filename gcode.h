@@ -89,7 +89,7 @@ class Gcode {
 		bool hasParameterN();
 		
 		// Get parameter N
-		uint64_t getParameterN();
+		uint32_t getParameterN();
 	
 	// Private
 	private :
@@ -108,7 +108,7 @@ class Gcode {
 		float valueZ;
 		float valueF;
 		float valueE;
-		uint64_t valueN;
+		uint32_t valueN;
 };
 
 

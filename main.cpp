@@ -125,11 +125,33 @@ extern "C" {
 #define EEPROM_SERIAL_NUMBER_LENGTH 16
 
 
+// Request class
+class Request {
+
+	// Public
+	public :
+	
+		// Constructor
+		Request() {
+		
+			// Clear size
+			size = 0;
+		}
+	
+	// Size and buffer
+	uint8_t size;
+	uint8_t buffer[UDI_CDC_COMM_EP_SIZE + 1];
+};
+
+
 // Global variables
 uint8_t serialNumber[USB_DEVICE_GET_SERIAL_NAME_LENGTH];
-uint8_t requestBufferSize = 0;
-uint8_t requestBuffer[255];
 char responseBuffer[255];
+uint8_t currentProcessingRequest = 0;
+uint8_t currentReceivingRequest = 0;
+Request requests[10];
+uint32_t currentLineNumber = 0;
+char lineNumberBuffer[sizeof("4294967295")];
 
 
 // Function prototypes
@@ -182,6 +204,8 @@ int main() {
 	PORTE.DIR = 0x0E;
 	PORTE.PIN0CTRL = 0x18;
 	
+	//PORTE.OUTCLR = PIN3_bm;
+	
 	// Set serial number
 	setSerialNumber();
 	
@@ -201,53 +225,130 @@ int main() {
 		// Delay to allow enough time for a response to be received
 		_delay_us(1);
 		
-		// Check if a request has been received
-		if(requestBufferSize) {
+		// Check if a current processing request is ready
+		if(requests[currentProcessingRequest].size) {
 		
 			// Parse command
-			gcode.parseCommand(reinterpret_cast<char*>(requestBuffer));
+			gcode.parseCommand(reinterpret_cast<char*>(requests[currentProcessingRequest].buffer));
 		
 			// Clear request buffer size
-			requestBufferSize = 0;
+			requests[currentProcessingRequest].size = 0;
+			
+			// Increment current processing request
+			if(currentProcessingRequest == 9)
+				currentProcessingRequest = 0;
+			else
+				currentProcessingRequest++;
+			
+			// Clear response buffer
+			*responseBuffer = 0;
 		
 			// Check if command contains valid G-code
 			if(!gcode.isEmpty()) {
 			
-				// Check if command is to reset
-				if(gcode.getParameterM() == 115 && gcode.getParameterS() == 628) {
-		
-					// Trigger software reset
-					CPU_CCP = CCP_IOREG_gc;
-					RST.CTRL = RST_SWRST_bm;
+				// Check if command has an N parameter
+				if(gcode.hasParameterN()) {
+				
+					// Check if command is a starting line number
+					if(gcode.getParameterN() == 0 && gcode.getParameterM() == 110)
+					
+						// Reset current line number
+						currentLineNumber = 0;
+					
+					// Check if line number is correct
+					if(gcode.getParameterN() == currentLineNumber)
+					
+						// Increment current line number
+						currentLineNumber++;
+					
+					// Otherwise
+					else {
+					
+						// Set response to resend
+						strcpy(responseBuffer, "rs ");
+						ultoa(currentLineNumber, lineNumberBuffer, 10);
+						strcat(responseBuffer, lineNumberBuffer);
+						strcat(responseBuffer, "\n");
+					}
 				}
-		
-				// Otherwise check if command is requesting device details
-				else if(gcode.getParameterM() == 115) {
-		
-					// Put device details into response
-					strcpy(responseBuffer, "ok REPRAP_PROTOCOL:1 FIRMWARE_NAME:iMe FIRMWARE_VERSION:" VERSION " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
-					strncat(responseBuffer, reinterpret_cast<char*>(serialNumber), EEPROM_SERIAL_NUMBER_LENGTH);
+				
+				// Check if response wasn't set
+				if(!*responseBuffer) {
+			
+					// Check if command has an M parameter
+					if(gcode.hasParameterM()) {
+				
+						switch(gcode.getParameterM()) {
+					
+							// M105
+							case 105 :
+						
+								// Put temperature into response
+								strcpy(responseBuffer, "ok T:0\n");
+							break;
+							
+							// M110
+							case 110 :
+							
+								// Set response to confirmation
+								strcpy(responseBuffer, "ok\n");
+							break;
+							
+							// M115
+							case 115 :
+							
+								// Check if command is to reset
+								if(gcode.getParameterS() == 628) {
+							
+									// Trigger software reset
+									CPU_CCP = CCP_IOREG_gc;
+									RST.CTRL = RST_SWRST_bm;
+								}
+							
+								// Otherwise
+								else {
+							
+									// Put device details into response
+									strcpy(responseBuffer, "ok REPRAP_PROTOCOL:1 FIRMWARE_NAME:iMe FIRMWARE_VERSION:" VERSION " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
+									strncat(responseBuffer, reinterpret_cast<char*>(serialNumber), EEPROM_SERIAL_NUMBER_LENGTH);
+									strcat(responseBuffer, "\n");
+								}
+							break;
+						}
+					}
+					
+					// Otherwise check if command has a G parameter
+					else if(gcode.hasParameterG()) {
+				
+						switch(gcode.getParameterG()) {
+					
+							// G0 or G1
+							case 0 :
+							case 1 :
+							
+								// Set response to confirmation
+								strcpy(responseBuffer, "ok\n");
+							break;
+						}
+					}
+				}
+				
+				// Check if command has an N parameter and it was successfully processed
+				if(gcode.hasParameterN() && !strncmp(responseBuffer, "ok", 2)) {
+				
+					// Append line number to response
+					responseBuffer[strlen(responseBuffer) - 1] = ' ';
+					ultoa(gcode.getParameterN(), lineNumberBuffer, 10);
+					strcat(responseBuffer, lineNumberBuffer);
 					strcat(responseBuffer, "\n");
 				}
-		
-				// Otherwise check if command is requesting temperature
-				else if(gcode.getParameterM() == 105)
-		
-					// Put temperature into response
-					strcpy(responseBuffer, "ok T:0\n");
-		
-				// Otherwise
-				else
-		
-					// Put confirmation into response
-					strcpy(responseBuffer, "ok\n");
 			}
 			
-			// Otherwise
-			else
+			// Check if response wasn't set
+			if(!*responseBuffer)
 			
-				// Put error into response
-				strcpy(responseBuffer, "ok Error: Invalid command\n");
+				// Set response to error
+				strcpy(responseBuffer, "ok Error: Unknown command\n");
 			
 			// Send response
 			udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
@@ -278,12 +379,18 @@ void cdcDisableCallback() {
 
 void cdcRxNotifyCallback(uint8_t port) {
 
-	// Check if last request as been processed
-	if(!requestBufferSize) {
+	// Check if currently receiving request is empty
+	if(!requests[currentReceivingRequest].size) {
 	
 		// Get request
-		requestBufferSize = udi_cdc_get_nb_received_data();
-		udi_cdc_read_buf(requestBuffer, requestBufferSize);
-		requestBuffer[requestBufferSize] = 0;
+		requests[currentReceivingRequest].size = udi_cdc_multi_get_nb_received_data(port);
+		udi_cdc_multi_read_buf(port, requests[currentReceivingRequest].buffer, requests[currentReceivingRequest].size);
+		requests[currentReceivingRequest].buffer[requests[currentReceivingRequest].size] = 0;
+		
+		// Increment current receiving request
+		if(currentReceivingRequest == 9)
+			currentReceivingRequest = 0;
+		else
+			currentReceivingRequest++;
 	}
 }
