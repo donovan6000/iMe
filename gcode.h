@@ -17,10 +17,13 @@ class Gcode {
 		Gcode(const char *command = NULL);
 		
 		// Parse command
-		void parseCommand(const char *command);
+		bool parseCommand(const char *command);
 		
 		// Clear command
 		void clearCommand();
+		
+		// Is empty
+		bool isEmpty();
 		
 		// Has parameter G
 		bool hasParameterG();

@@ -36,9 +36,10 @@ Gcode::Gcode(const char *command) {
 		clearCommand();
 }
 
-void Gcode::parseCommand(const char *command) {
+bool Gcode::parseCommand(const char *command) {
 
 	// Initialize variables
+	const char *parameterIndex;
 	uint16_t parameterOffset;
 	char *lastParameterCharacter;
 	uint8_t stopParsingOffset;
@@ -67,79 +68,106 @@ void Gcode::parseCommand(const char *command) {
 	// Go through each character in the command
 	for(uint8_t i = 0; i < stopParsingOffset; i++) {
 	
-		// Check if character indicates a parameter
-		if(isalpha(command[i])) {
+		// Check if character is a valid parameter
+		if(isalpha(command[i]) && (parameterIndex = strchr(PARAMETER_ORDER, command[i])) != NULL) {
 		
 			// Get parameter's offset
-			parameterOffset = 1 << (strchr(PARAMETER_ORDER, command[i]) - PARAMETER_ORDER);
+			parameterOffset = 1 << (parameterIndex - PARAMETER_ORDER);
 			
-			// Set command parameters
-			commandParameters |= parameterOffset;
+			// Go through parameter's value
+			lastParameterCharacter = const_cast<char *>(&command[++i]);
+			for(uint8_t j = i; j < stopParsingOffset; j++)
 			
-			// Get end offset of parameter's value
-			lastParameterCharacter = strchr(const_cast<char *>(&command[++i]), ' ');
+				// Check if at end of parameter's value
+				if(isspace(command[j]) || isalpha(command[j])) {
+				
+					// Save offset
+					lastParameterCharacter = const_cast<char *>(&command[j]);
+					break;
+				}
+				
+				// Otherwise check if parameter goes to the end of the command
+				else if(j == stopParsingOffset - 1) {
+				
+					// Set offset
+					lastParameterCharacter = NULL;
+					break;
+				}
 			
-			// Save parameter's value
-			switch(parameterOffset) {
+			// Check if parameter exists
+			if(lastParameterCharacter != &command[i]) {
 			
-				case PARAMETER_G_OFFSET :
-					valueG = strtol(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
-				break;
+				// Set command parameters
+				commandParameters |= parameterOffset;
 				
-				case PARAMETER_M_OFFSET :
-					valueM = strtol(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
-				break;
+				// Save parameter's value
+				switch(parameterOffset) {
 				
-				case PARAMETER_T_OFFSET :
-					valueT = strtol(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
-				break;
+					case PARAMETER_G_OFFSET :
+						valueG = strtol(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
+					break;
+					
+					case PARAMETER_M_OFFSET :
+						valueM = strtol(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
+					break;
+					
+					case PARAMETER_T_OFFSET :
+						valueT = strtol(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
+					break;
+					
+					case PARAMETER_S_OFFSET :
+						valueS = strtol(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
+					break;
+					
+					case PARAMETER_P_OFFSET :
+						valueP = strtol(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
+					break;
+					
+					case PARAMETER_X_OFFSET :
+						valueX = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
+					break;
+					
+					case PARAMETER_Y_OFFSET :
+						valueY = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
+					break;
+					
+					case PARAMETER_Z_OFFSET :
+						valueZ = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
+					break;
+					
+					case PARAMETER_F_OFFSET :
+						valueF = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
+					break;
+					
+					case PARAMETER_E_OFFSET :
+						valueE = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
+					break;
+					
+					case PARAMETER_N_OFFSET :
+						valueN = strtoul(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
+					break;
+				}
 				
-				case PARAMETER_S_OFFSET :
-					valueS = strtol(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
-				break;
+				// Check if parameter's value went to the end of the command
+				if(lastParameterCharacter == NULL || lastParameterCharacter - command >= stopParsingOffset)
 				
-				case PARAMETER_P_OFFSET :
-					valueP = strtol(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
-				break;
+					// Break
+					break;
 				
-				/*case PARAMETER_X_OFFSET :
-					valueX = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
-				break;
+				// Otherwise
+				else
 				
-				case PARAMETER_Y_OFFSET :
-					valueY = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
-				break;
-				
-				case PARAMETER_Z_OFFSET :
-					valueZ = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
-				break;
-				
-				case PARAMETER_F_OFFSET :
-					valueF = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
-				break;
-				
-				case PARAMETER_E_OFFSET :
-					valueE = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
-				break;*/
-				
-				case PARAMETER_N_OFFSET :
-					valueN = strtoul(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
-				break;
+					// Increment index
+					i += lastParameterCharacter - &command[i];
 			}
 			
-			// Check if parameter's value went to the end of the command
-			if(lastParameterCharacter == NULL || lastParameterCharacter - command >= stopParsingOffset)
-			
-				// Break
-				break;
-			
-			// Otherwise
-			else
-			
-				// Increment index
-				i += lastParameterCharacter - &command[i];
+			// Decrement index
+			i--;
 		}
 	}
+	
+	// Return if command contains parameters
+	return commandParameters;
 }
 
 void Gcode::clearCommand() {
@@ -157,6 +185,12 @@ void Gcode::clearCommand() {
 	valueF = 0;
 	valueE = 0;
 	valueN = 0;
+}
+
+bool Gcode::isEmpty() {
+
+	// Return if command contains no parameters
+	return !commandParameters;
 }
 
 bool Gcode::hasParameterG() {

@@ -6,67 +6,129 @@
 #define F_CPU 24000000UL
 #include <util/delay.h>
 #include <string.h>
-#include "gcode.h"
 
 extern "C" {
 	#include <asf.h>
 }
 
+#include "gcode.h"
+
 
 // Definitions
 
+#ifndef VERSION
+	#define VERSION "1900000001"
+#endif
+
 // EEPROM offsets
-#define EEPROM_BACKLASH_EXPANSION_E 0x42
-#define EEPROM_BACKLASH_EXPANSION_X_PLUS 0x2E
-#define EEPROM_BACKLASH_EXPANSION_YL_PLUS 0x32
-#define EEPROM_BACKLASH_EXPANSION_YR_MINUS 0x3A
-#define EEPROM_BACKLASH_EXPANSION_YR_PLUS 0x36
-#define EEPROM_BACKLASH_EXPANSION_Z 0x3E
-#define EEPROM_BACKLASH_SPEED 0x5E
-#define EEPROM_BACKLASH_X 0x0C
-#define EEPROM_BACKLASH_Y 0x10
-#define EEPROM_BED_COMPENSATION_BACK_LEFT 0x18
-#define EEPROM_BED_COMPENSATION_BACK_RIGHT 0x14
-#define EEPROM_BED_COMPENSATION_FRONT_LEFT 0x1C
-#define EEPROM_BED_COMPENSATION_FRONT_RIGHT 0x20
-#define EEPROM_BED_COMPENSATION_VERSION 0x62
-#define EEPROM_E_AXIS_STEPS_PER_MM 0x2E2
-#define EEPROM_EXTRUDER_CURRENT 0x2E8
-#define EEPROM_FAN_OFFSET 0x2AC
-#define EEPROM_FAN_SCALE 0x2AD
-#define EEPROM_FAN_TYPE 0x2AB
-#define EEPROM_FILAMENT_AMOUNT 0x2A
-#define EEPROM_FILAMENT_TEMPERATURE 0x29
-#define EEPROM_FILAMENT_TYPE_ID 0x28
-#define EEPROM_FIRMWARE_CRC 0x04
-#define EEPROM_FIRMWARE_VERSION 0x00
-#define EEPROM_HARDWARE_STATUS 0x2B8
-#define EEPROM_HEATER_CALIBRATION_MODE 0x2B1
-#define EEPROM_HEATER_RESISTANCE_M 0x2EA
-#define EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B 0x2BA
-#define EEPROM_HOURS_COUNTER_SPOOLER 0x2C0
-#define EEPROM_LAST_RECORDED_Z_VALUE 0x08
-#define EEPROM_SAVED_Z_STATE 0x2E6
-#define EEPROM_SERIAL_NUMBER 0x2EF
-#define EEPROM_SPOOL_RECORD_ID 0x24
-#define EEPROM_X_AXIS_STEPS_PER_MM 0x2D6
-#define EEPROM_X_MOTOR_CURRENT 0x2B2
-#define EEPROM_Y_AXIS_STEPS_PER_MM 0x2DA
-#define EEPROM_Y_MOTOR_CURRENT 0x2B4
-#define EEPROM_Z_AXIS_STEPS_PER_MM 0x2DE
-#define EEPROM_Z_CALIBRATION_BLO 0x46
-#define EEPROM_Z_CALIBRATION_BRO 0x4A
-#define EEPROM_Z_CALIBRATION_FLO 0x52
-#define EEPROM_Z_CALIBRATION_FRO 0x4E
-#define EEPROM_Z_CALIBRATION_ZO 0x56
-#define EEPROM_Z_MOTOR_CURRENT 0x2B6
+#define EEPROM_FIRMWARE_VERSION_OFFSET 0x00
+#define EEPROM_FIRMWARE_VERSION_LENGTH 4
+#define EEPROM_FIRMWARE_CRC_OFFSET 0x04
+#define EEPROM_FIRMWARE_CRC_LENGTH 4
+#define EEPROM_LAST_RECORDED_Z_VALUE_OFFSET 0x08
+#define EEPROM_LAST_RECORDED_Z_VALUE_LENGTH 4
+#define EEPROM_BACKLASH_X_OFFSET 0x0C
+#define EEPROM_BACKLASH_X_LENGTH 4
+#define EEPROM_BACKLASH_Y_OFFSET 0x10
+#define EEPROM_BACKLASH_Y_LENGTH 4
+#define EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET 0x14
+#define EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH 4
+#define EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET 0x18
+#define EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH 4
+#define EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET 0x1C
+#define EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH 4
+#define EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET 0x20
+#define EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH 4
+#define EEPROM_FILAMENT_COLOR_OFFSET 0x24
+#define EEPROM_FILAMENT_COLOR_LENGTH 4
+#define EEPROM_FILAMENT_TYPE_AND_LOCATION_OFFSET 0x28
+#define EEPROM_FILAMENT_TYPE_AND_LOCATION_LENGTH 1
+#define EEPROM_FILAMENT_TEMPERATURE_OFFSET 0x29
+#define EEPROM_FILAMENT_TEMPERATURE_LENGTH 1
+#define EEPROM_FILAMENT_AMOUNT_OFFSET 0x2A
+#define EEPROM_FILAMENT_AMOUNT_LENGTH 4
+#define EEPROM_BACKLASH_EXPANSION_X_PLUS_OFFSET 0x2E
+#define EEPROM_BACKLASH_EXPANSION_X_PLUS_LENGTH 4
+#define EEPROM_BACKLASH_EXPANSION_Y_L_PLUS_OFFSET 0x32
+#define EEPROM_BACKLASH_EXPANSION_Y_L_PLUS_LENGTH 4
+#define EEPROM_BACKLASH_EXPANSION_Y_R_PLUS_OFFSET 0x36
+#define EEPROM_BACKLASH_EXPANSION_Y_R_PLUS_LENGTH 4
+#define EEPROM_BACKLASH_EXPANSION_Y_R_MINUS_OFFSET 0x3A
+#define EEPROM_BACKLASH_EXPANSION_Y_R_MINUS_LENGTH 4
+#define EEPROM_BACKLASH_EXPANSION_Z_OFFSET 0x3E
+#define EEPROM_BACKLASH_EXPANSION_Z_LENGTH 4
+#define EEPROM_BACKLASH_EXPANSION_E_OFFSET 0x42
+#define EEPROM_BACKLASH_EXPANSION_E_LENGTH 4
+#define EEPROM_BED_OFFSET_BACK_LEFT_OFFSET 0x46
+#define EEPROM_BED_OFFSET_BACK_LEFT_LENGTH 4
+#define EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET 0x4A
+#define EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH 4
+#define EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET 0x4E
+#define EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH 4
+#define EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET 0x52
+#define EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH 4
+#define EEPROM_BED_HEIGHT_OFFSET_OFFSET 0x56
+#define EEPROM_BED_HEIGHT_OFFSET_LENGTH 4
+#define EEPROM_RESERVED_OFFSET 0x5A
+#define EEPROM_RESERVED_LENGTH 4
+#define EEPROM_BACKLASH_SPEED_OFFSET 0x5E
+#define EEPROM_BACKLASH_SPEED_LENGTH 4
+#define EEPROM_BED_ORIENTATION_VERSION_OFFSET 0x62
+#define EEPROM_BED_ORIENTATION_VERSION_LENGTH 1
+#define EEPROM_SPEED_LIMIT_X_OFFSET 0x66
+#define EEPROM_SPEED_LIMIT_X_LENGTH 4
+#define EEPROM_SPEED_LIMIT_Y_OFFSET 0x6A
+#define EEPROM_SPEED_LIMIT_Y_LENGTH 4
+#define EEPROM_SPEED_LIMIT_Z_OFFSET 0x6E
+#define EEPROM_SPEED_LIMIT_Z_LENGTH 4
+#define EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET 0x72
+#define EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH 4
+#define EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET 0x76
+#define EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH 4
+#define EEPROM_BED_ORIENTATION_FIRST_SAMPLE_OFFSET 0x106
+#define EEPROM_BED_ORIENTATION_FIRST_SAMPLE_LENGTH 4
+#define EEPROM_FAN_TYPE_OFFSET 0x2AB
+#define EEPROM_FAN_TYPE_LENGTH 1
+#define EEPROM_FAN_OFFSET_OFFSET 0x2AC
+#define EEPROM_FAN_OFFSET_LENGTH 1
+#define EEPROM_FAN_SCALE_OFFSET 0x2AD
+#define EEPROM_FAN_SCALE_LENGTH 4
+#define EEPROM_HEATER_CALIBRATION_MODE_OFFSET 0x2B1
+#define EEPROM_HEATER_CALIBRATION_MODE_LENGTH 1
+#define EEPROM_X_MOTOR_CURRENT_OFFSET 0x2B2
+#define EEPROM_X_MOTOR_CURRENT_LENGTH 2
+#define EEPROM_Y_MOTOR_CURRENT_OFFSET 0x2B4
+#define EEPROM_Y_MOTOR_CURRENT_LENGTH 2
+#define EEPROM_Z_MOTOR_CURRENT_OFFSET 0x2B6
+#define EEPROM_Z_MOTOR_CURRENT_LENGTH 2
+#define EEPROM_HARDWARE_STATUS_OFFSET 0x2B8
+#define EEPROM_HARDWARE_STATUS_LENGTH 2
+#define EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_OFFSET 0x2BA
+#define EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_LENGTH 4
+#define EEPROM_HOURS_COUNTER_OFFSET 0x2C0
+#define EEPROM_HOURS_COUNTER_LENGTH 4
+#define EEPROM_X_AXIS_STEPS_PER_MM_OFFSET 0x2D6
+#define EEPROM_X_AXIS_STEPS_PER_MM_LENGTH 4
+#define EEPROM_Y_AXIS_STEPS_PER_MM_OFFSET 0x2DA
+#define EEPROM_Y_AXIS_STEPS_PER_MM_LENGTH 4
+#define EEPROM_Z_AXIS_STEPS_PER_MM_OFFSET 0x2DE
+#define EEPROM_Z_AXIS_STEPS_PER_MM_LENGTH 4
+#define EEPROM_E_AXIS_STEPS_PER_MM_OFFSET 0x2E2
+#define EEPROM_E_AXIS_STEPS_PER_MM_LENGTH 4
+#define EEPROM_SAVED_Z_STATE_OFFSET 0x2E6
+#define EEPROM_SAVED_Z_STATE_LENGTH 2
+#define EEPROM_EXTRUDER_CURRENT_OFFSET 0x2E8
+#define EEPROM_EXTRUDER_CURRENT_LENGTH 2
+#define EEPROM_HEATER_RESISTANCE_M_OFFSET 0x2EA
+#define EEPROM_HEATER_RESISTANCE_M_LENGTH 4
+#define EEPROM_SERIAL_NUMBER_OFFSET 0x2EF
+#define EEPROM_SERIAL_NUMBER_LENGTH 16
 
 
 // Global variables
 uint8_t serialNumber[USB_DEVICE_GET_SERIAL_NAME_LENGTH];
-uint8_t bufferSize = 0;
-uint8_t buffer[255];
-
+uint8_t requestBufferSize = 0;
+uint8_t requestBuffer[255];
 char responseBuffer[255];
 
 
@@ -74,21 +136,21 @@ char responseBuffer[255];
 
 /*
 Name: Set serial number
-Purpose: Sets serial number used by the USB descriptor to the value in EEPROM
+Purpose: Sets serial number used by the USB descriptor to the value in the EEPROM
 */
-void setSerialNumber(void);
+void setSerialNumber();
 
 /*
 Name: CDC enable callback
 Purpose: Callback for when USB is connected
 */
-bool cdcEnableCallback(void);
+bool cdcEnableCallback();
 
 /*
 Name: CDC disable callback
 Purpose: Callback for when USB is disconnected
 */
-void cdcDisableCallback(void);
+void cdcDisableCallback();
 
 /*
 Name: CDC RX notify callback
@@ -98,7 +160,7 @@ void cdcRxNotifyCallback(uint8_t port);
 
 
 // Main function
-int main(void) {
+int main() {
 
 	// Initialize system
 	sysclk_init();
@@ -136,56 +198,59 @@ int main(void) {
 	// Main loop
 	while(1) {
 	
-		// Delay to allow enough time for buffer size to change
+		// Delay to allow enough time for a response to be received
 		_delay_us(1);
 		
-		// Check if data has been received
-		if(bufferSize) {
+		// Check if a request has been received
+		if(requestBufferSize) {
 		
 			// Parse command
-			gcode.parseCommand(reinterpret_cast<char*>(buffer));
+			gcode.parseCommand(reinterpret_cast<char*>(requestBuffer));
+		
+			// Clear request buffer size
+			requestBufferSize = 0;
+		
+			// Check if command contains valid G-code
+			if(!gcode.isEmpty()) {
 			
-			// Check if command is to reset
-			if(gcode.getParameterM() == 115 && gcode.getParameterS() == 628) {
-			
-				// Trigger software reset
-				CPU_CCP = CCP_IOREG_gc;
-				RST.CTRL = RST_SWRST_bm;
+				// Check if command is to reset
+				if(gcode.getParameterM() == 115 && gcode.getParameterS() == 628) {
+		
+					// Trigger software reset
+					CPU_CCP = CCP_IOREG_gc;
+					RST.CTRL = RST_SWRST_bm;
+				}
+		
+				// Otherwise check if command is requesting device details
+				else if(gcode.getParameterM() == 115) {
+		
+					// Put device details into response
+					strcpy(responseBuffer, "ok REPRAP_PROTOCOL:1 FIRMWARE_NAME:iMe FIRMWARE_VERSION:" VERSION " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
+					strncat(responseBuffer, reinterpret_cast<char*>(serialNumber), EEPROM_SERIAL_NUMBER_LENGTH);
+					strcat(responseBuffer, "\n");
+				}
+		
+				// Otherwise check if command is requesting temperature
+				else if(gcode.getParameterM() == 105)
+		
+					// Put temperature into response
+					strcpy(responseBuffer, "ok T:0\n");
+		
+				// Otherwise
+				else
+		
+					// Put confirmation into response
+					strcpy(responseBuffer, "ok\n");
 			}
-			
-			// Otherwise check if command is requesting device details
-			else if(gcode.getParameterM() == 115) {
-			
-				// Put device details into response
-				strcpy(responseBuffer, "ok REPRAP_PROTOCOL:1 FIRMWARE_NAME:iMe FIRMWARE_VERSION:" VERSION " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
-				strncat(responseBuffer, reinterpret_cast<char*>(serialNumber), 16);
-				strcat(responseBuffer, "\n");
-			}
-			
-			// Otherwise check if command is requesting temperature
-			else if(gcode.getParameterM() == 105)
-			
-				// Put temperature into response
-				strcpy(responseBuffer, "ok T:0\n");
 			
 			// Otherwise
 			else
 			
-				// Put confirmation into response
-				strcpy(responseBuffer, "ok\n");
+				// Put error into response
+				strcpy(responseBuffer, "ok Error: Invalid command\n");
 			
-			// Clear buffer size
-			bufferSize = 0;
-		
-			// Go through response
-			for(uint8_t i = 0; i < strlen(responseBuffer); i++) {
-			
-				// Wait until USB transmitter is ready
-				while(!udi_cdc_is_tx_ready());
-				
-				// Send data to USB
-				udi_cdc_putc(responseBuffer[i]);
-			}
+			// Send response
+			udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
 		}
 	}
 	
@@ -195,31 +260,30 @@ int main(void) {
 
 
 // Supporting function implementation
-void setSerialNumber(void) {
+void setSerialNumber() {
 
 	// Read serial from EEPROM
-	eeprom_read_block((void *)&serialNumber, (const void *)EEPROM_SERIAL_NUMBER, 16);
+	eeprom_read_block(&serialNumber, reinterpret_cast<void *>(EEPROM_SERIAL_NUMBER_OFFSET), EEPROM_SERIAL_NUMBER_LENGTH);
 }
 
-bool cdcEnableCallback(void) {
+bool cdcEnableCallback() {
 
 	// Return true
 	return true;
 }
 
-void cdcDisableCallback(void) {
+void cdcDisableCallback() {
 
 }
 
 void cdcRxNotifyCallback(uint8_t port) {
 
-	// Check if all commands have been processed
-	if(!bufferSize) {
-
-		// Get received data
-		for(bufferSize = 0; udi_cdc_is_rx_ready(); bufferSize++)
-			buffer[bufferSize] = udi_cdc_getc();
-		
-		buffer[bufferSize] = 0;
+	// Check if last request as been processed
+	if(!requestBufferSize) {
+	
+		// Get request
+		requestBufferSize = udi_cdc_get_nb_received_data();
+		udi_cdc_read_buf(requestBuffer, requestBufferSize);
+		requestBuffer[requestBufferSize] = 0;
 	}
 }
