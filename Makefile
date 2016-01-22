@@ -20,7 +20,9 @@ CSRCS = src/ASF/common/boards/user_board/init.c \
 	src/ASF/common/services/usb/class/cdc/device/udi_cdc_desc.c \
 	src/ASF/common/services/usb/udc/udc.c \
 	src/ASF/xmega/drivers/nvm/nvm.c \
-	src/ASF/xmega/drivers/usb/usb_device.c
+	src/ASF/xmega/drivers/usb/usb_device.c \
+	src/ASF/xmega/drivers/tc/tc.c \
+	src/ASF/xmega/drivers/twi/twim.c
 
 # C++ source files
 CPPSRCS = main.cpp \
@@ -46,6 +48,9 @@ INCPATH = . \
 	src/ASF/xmega/drivers/nvm \
 	src/ASF/xmega/drivers/sleep \
 	src/ASF/xmega/drivers/usb \
+	src/ASF/xmega/drivers/tc \
+	src/ASF/xmega/drivers/twi \
+	src/ASF/xmega/drivers/pmic \
 	src/ASF/xmega/utils \
 	src/ASF/xmega/utils/assembler \
 	src/ASF/xmega/utils/bit_handling \

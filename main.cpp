@@ -181,10 +181,18 @@ Purpose: Callback for when USB receives data
 void cdcRxNotifyCallback(uint8_t port);
 
 
+/*
+Name: Send wait
+Purpose: Sends wait to USB host
+*/
+void sendWait();
+
+
 // Main function
 int main() {
 
 	// Initialize system
+	pmic_init();
 	sysclk_init();
 	board_init();
 	
@@ -206,6 +214,13 @@ int main() {
 	
 	//PORTE.OUTCLR = PIN3_bm;
 	
+	// Configure send wait interrupt
+	tc_enable(&TCC0);
+	tc_set_overflow_interrupt_callback(&TCC0, sendWait);
+	tc_set_wgm(&TCC0, TC_WG_NORMAL);
+	tc_write_period(&TCC0, F_CPU / 1024);
+	tc_set_overflow_interrupt_level(&TCC0, TC_INT_LVL_LO);
+	
 	// Set serial number
 	setSerialNumber();
 	
@@ -215,6 +230,9 @@ int main() {
 	
 	// Initialize USB
 	udc_start();
+	
+	// Enable send wait interrupt
+	tc_write_clock_source(&TCC0, TC_CLKSEL_DIV1024_gc);
 	
 	// Initialize variables
 	Gcode gcode;
@@ -227,6 +245,10 @@ int main() {
 		
 		// Check if a current processing request is ready
 		if(requests[currentProcessingRequest].size) {
+		
+			// Disable send wait interrupt
+			tc_write_clock_source(&TCC0, TC_CLKSEL_OFF_gc);
+			tc_restart(&TCC0);
 		
 			// Parse command
 			gcode.parseCommand(reinterpret_cast<char*>(requests[currentProcessingRequest].buffer));
@@ -352,6 +374,9 @@ int main() {
 			
 			// Send response
 			udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+			
+			// Enable send wait interrupt
+			tc_write_clock_source(&TCC0, TC_CLKSEL_DIV1024_gc);
 		}
 	}
 	
@@ -393,4 +418,10 @@ void cdcRxNotifyCallback(uint8_t port) {
 		else
 			currentReceivingRequest++;
 	}
+}
+
+void sendWait() {
+
+	// Send wait
+	udi_cdc_write_buf("wait\n", strlen("wait\n"));
 }

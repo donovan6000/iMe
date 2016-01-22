@@ -68,6 +68,9 @@
 // From module: NVM - Non Volatile Memory
 #include <nvm.h>
 
+// From module: PMIC - Programmable Multi-level Interrupt Controller
+#include <pmic.h>
+
 // From module: Part identification macros
 #include <parts.h>
 
@@ -80,6 +83,12 @@
 
 // From module: System Clock Control - XMEGA A1U/A3U/A3BU/A4U/B/C implementation
 #include <sysclk.h>
+
+// From module: TC - Timer Counter
+#include <tc.h>
+
+// From module: TWI - Two-wire Master Interface
+#include <twim.h>
 
 // From module: USB CDC Protocol
 #include <usb_protocol_cdc.h>
