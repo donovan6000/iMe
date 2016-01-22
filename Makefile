@@ -22,11 +22,13 @@ CSRCS = src/ASF/common/boards/user_board/init.c \
 	src/ASF/xmega/drivers/nvm/nvm.c \
 	src/ASF/xmega/drivers/usb/usb_device.c \
 	src/ASF/xmega/drivers/tc/tc.c \
-	src/ASF/xmega/drivers/twi/twim.c
+	src/ASF/xmega/drivers/twi/twim.c \
+	src/ASF/xmega/drivers/twi/twis.c
 
 # C++ source files
 CPPSRCS = main.cpp \
-	gcode.cpp
+	gcode.cpp \
+	accelerometer.cpp
 
 # Include paths
 INCPATH = . \
@@ -38,6 +40,7 @@ INCPATH = . \
 	src/ASF/common/services/delay \
 	src/ASF/common/services/ioport \
 	src/ASF/common/services/sleepmgr \
+	src/ASF/common/services/twi \
 	src/ASF/common/services/usb \
 	src/ASF/common/services/usb/class/cdc \
 	src/ASF/common/services/usb/class/cdc/device \

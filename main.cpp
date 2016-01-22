@@ -7,6 +7,7 @@ extern "C" {
 }
 #include <string.h>
 #include "gcode.h"
+#include "accelerometer.h"
 
 
 // Definitions
@@ -176,12 +177,6 @@ void sendWait();
 // Main function
 int main() {
 
-	// Initialize variables
-	uint8_t currentProcessingRequest = 0;
-	char responseBuffer[255];
-	uint32_t currentLineNumber = 0;
-	char numberBuffer[sizeof("4294967295")];
-
 	// Initialize interrupt controller
 	pmic_init();
 	
@@ -199,6 +194,14 @@ int main() {
 	
 	// Enable peripheral clock for event system
 	sysclk_enable_module(SYSCLK_PORT_GEN, SYSCLK_EVSYS);
+	
+	// Initialize variables
+	uint8_t currentProcessingRequest = 0;
+	char responseBuffer[255];
+	uint32_t currentLineNumber = 0;
+	char numberBuffer[sizeof("4294967295")];
+	Accelerometer accelerometer(0x00, 0x1D, 50000);
+	Gcode gcode;
 	
 	// Set ports to values used by official firmware
 	PORTA.DIR = 0x06;
@@ -226,14 +229,14 @@ int main() {
 	EVSYS.CH0MUX = EVSYS_CHMUX_TCC0_OVF_gc;
 	tc_enable(&TCC1);
 	tc_set_wgm(&TCC1, TC_WG_NORMAL);
-	tc_write_period(&TCC1, F_CPU / tc_read_period(&TCC0));
+	tc_write_period(&TCC1, sysclk_get_cpu_hz() / tc_read_period(&TCC0));
 	tc_set_overflow_interrupt_level(&TCC1, TC_INT_LVL_LO);
 	tc_write_clock_source(&TCC1, TC_CLKSEL_EVCH0_gc);
 	
 	// Configure send wait interrupt timer
 	tc_enable(&TCC2);
 	tc_set_wgm(&TCC2, TC_WG_NORMAL);
-	tc_write_period(&TCC2, F_CPU / 1024);
+	tc_write_period(&TCC2, sysclk_get_cpu_hz() / 1024);
 	tc_set_overflow_interrupt_level(&TCC2, TC_INT_LVL_LO);
 	tc_set_overflow_interrupt_callback(&TCC2, sendWait);
 	
@@ -249,9 +252,6 @@ int main() {
 	// Enable send wait interrupt
 	tc_write_clock_source(&TCC2, TC_CLKSEL_DIV1024_gc);
 	
-	// Initialize variables
-	Gcode gcode;
-	
 	// Main loop
 	while(1) {
 	
@@ -263,10 +263,9 @@ int main() {
 		
 			// Disable send wait interrupt
 			tc_write_clock_source(&TCC2, TC_CLKSEL_OFF_gc);
-			tc_restart(&TCC2);
 		
 			// Parse command
-			gcode.parseCommand(reinterpret_cast<char*>(requests[currentProcessingRequest].buffer));
+			gcode.parseCommand(reinterpret_cast<char *>(requests[currentProcessingRequest].buffer));
 		
 			// Clear request buffer size
 			requests[currentProcessingRequest].size = 0;
@@ -279,202 +278,227 @@ int main() {
 			
 			// Clear response buffer
 			*responseBuffer = 0;
+			
+			// Check if accelerometer is working
+			if(accelerometer.isWorking) {
 		
-			// Check if command contains valid G-code
-			if(!gcode.isEmpty()) {
+				// Check if command contains valid G-code
+				if(!gcode.isEmpty()) {
 			
-				// Check if command has host command
-				if(gcode.hasHostCommand()) {
+					// Check if command has host command
+					if(gcode.hasHostCommand()) {
 				
-					// Check if host command is to toggle LED
-					if(!strcmp(gcode.getHostCommand(), "Toggle LED")) {
+						// Check if host command is to toggle LED
+						if(!strcmp(gcode.getHostCommand(), "Toggle LED")) {
 					
-						// Toggle LED
-						ioport_toggle_pin_level(LED);
+							// Toggle LED
+							ioport_toggle_pin_level(LED);
 					
-						// Set response to confirmation
-						strcpy(responseBuffer, "ok");
-					}
+							// Set response to confirmation
+							strcpy(responseBuffer, "ok");
+						}
 					
-					// Otherwise
-					else
+						// Otherwise check if host command is to get accelerometer's values
+						if(!strcmp(gcode.getHostCommand(), "Accelerometer values")) {
 					
-						// Set response to error
-						strcpy(responseBuffer, "ok Error: Unknown host command");
-				}
-				
-				// Otherwise
-				else {
-			
-					// Check if command has an N parameter
-					if(gcode.hasParameterN()) {
-				
-						// Check if command is a starting line number
-						if(gcode.getParameterN() == 0 && gcode.getParameterM() == 110)
-					
-							// Reset current line number
-							currentLineNumber = 0;
-					
-						// Check if line number is correct
-						if(gcode.getParameterN() == currentLineNumber)
-					
-							// Increment current line number
-							currentLineNumber++;
-						
-						// Otherwise check if command has already been processed
-						else if(gcode.getParameterN() < currentLineNumber)
-						
-							// Set response to skip
-							strcpy(responseBuffer, "skip");
+							// Set response to value
+							strcpy(responseBuffer, "ok X:");
+							ultoa(accelerometer.getX(), numberBuffer, 10);
+							strcat(responseBuffer, numberBuffer);
+							strcat(responseBuffer, " Y:");
+							ultoa(accelerometer.getY(), numberBuffer, 10);
+							strcat(responseBuffer, numberBuffer);
+							strcat(responseBuffer, " Z:");
+							ultoa(accelerometer.getZ(), numberBuffer, 10);
+							strcat(responseBuffer, numberBuffer);
+						}
 					
 						// Otherwise
 						else
 					
-							// Set response to resend
-							strcpy(responseBuffer, "rs");
+							// Set response to error
+							strcpy(responseBuffer, "ok Error: Unknown host command");
 					}
 				
-					// Check if response wasn't set
-					if(!*responseBuffer) {
+					// Otherwise
+					else {
 			
-						// Check if command has an M parameter
-						if(gcode.hasParameterM()) {
+						// Check if command has an N parameter
+						if(gcode.hasParameterN()) {
 				
-							switch(gcode.getParameterM()) {
+							// Check if command is a starting line number
+							if(gcode.getParameterN() == 0 && gcode.getParameterM() == 110)
 					
-								// M105
-								case 105 :
+								// Reset current line number
+								currentLineNumber = 0;
+					
+							// Check if line number is correct
+							if(gcode.getParameterN() == currentLineNumber)
+					
+								// Increment current line number
+								currentLineNumber++;
 						
-									// Put temperature into response
-									strcpy(responseBuffer, "ok\nT:0");
-								break;
+							// Otherwise check if command has already been processed
+							else if(gcode.getParameterN() < currentLineNumber)
+						
+								// Set response to skip
+								strcpy(responseBuffer, "skip");
+					
+							// Otherwise
+							else
+					
+								// Set response to resend
+								strcpy(responseBuffer, "rs");
+						}
+				
+						// Check if response wasn't set
+						if(!*responseBuffer) {
+			
+							// Check if command has an M parameter
+							if(gcode.hasParameterM()) {
+				
+								switch(gcode.getParameterM()) {
+					
+									// M105
+									case 105 :
+						
+										// Put temperature into response
+										strcpy(responseBuffer, "ok\nT:0");
+									break;
 							
-								// M110
-								case 110 :
+									// M110
+									case 110 :
 							
-									// Set response to confirmation
-									strcpy(responseBuffer, "ok");
-								break;
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+									break;
 							
-								// M115
-								case 115 :
+									// M115
+									case 115 :
 							
-									// Check if command is to reset
-									if(gcode.getParameterS() == 628)
+										// Check if command is to reset
+										if(gcode.getParameterS() == 628)
 							
-										// Perform software reset
-										reset_do_soft_reset();
+											// Perform software reset
+											reset_do_soft_reset();
 							
-									// Otherwise
-									else {
+										// Otherwise
+										else {
 							
-										// Put device details into response
-										strcpy(responseBuffer, "ok REPRAP_PROTOCOL:1 FIRMWARE_NAME:" FIRMWARE_NAME " FIRMWARE_VERSION:" FIRMWARE_VERSION " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
-										strncat(responseBuffer, reinterpret_cast<char*>(serialNumber), EEPROM_SERIAL_NUMBER_LENGTH);
-									}
-								break;
-								
-								// M618
-								case 618 :
-								
-									// Check if EEPROM offset, length, and value are provided
-									if(gcode.hasParameterS() && gcode.hasParameterT() && gcode.hasParameterP()) {
-									
-										// Check if offset and length are valid
-										int32_t offset = gcode.getParameterS();
-										int8_t length = gcode.getParameterT();
-										
-										if(offset >= 0 && length > 0 && length <= 4 && offset + length < EEPROM_SIZE) {
-										
-											// Get value
-											int32_t value = gcode.getParameterP();
-										
-											// Write value to EEPROM
-											nvm_eeprom_erase_and_write_buffer(offset, &value, length);
-											
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok PT:");
-											ultoa(offset, numberBuffer, 10);
-											strcat(responseBuffer, numberBuffer);
+											// Put device details into response
+											strcpy(responseBuffer, "ok REPRAP_PROTOCOL:1 FIRMWARE_NAME:" FIRMWARE_NAME " FIRMWARE_VERSION:" FIRMWARE_VERSION " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
+											strncat(responseBuffer, reinterpret_cast<char *>(serialNumber), EEPROM_SERIAL_NUMBER_LENGTH);
 										}
-									}
-								break;
+									break;
 								
-								// M619
-								case 619 :
+									// M618
+									case 618 :
 								
-									// Check if EEPROM offset and length are provided
-									if(gcode.hasParameterS() && gcode.hasParameterT()) {
+										// Check if EEPROM offset, length, and value are provided
+										if(gcode.hasParameterS() && gcode.hasParameterT() && gcode.hasParameterP()) {
 									
-										// Check if offset and length are valid
-										int32_t offset = gcode.getParameterS();
-										int8_t length = gcode.getParameterT();
+											// Check if offset and length are valid
+											int32_t offset = gcode.getParameterS();
+											int8_t length = gcode.getParameterT();
 										
-										if(offset >= 0 && length > 0 && length <= 4 && offset + length < EEPROM_SIZE) {
+											if(offset >= 0 && length > 0 && length <= 4 && offset + length < EEPROM_SIZE) {
 										
-											// Get value from EEPROM
-											uint32_t value = 0;
-											nvm_eeprom_read_buffer(offset, &value, length);
+												// Get value
+												int32_t value = gcode.getParameterP();
+										
+												// Write value to EEPROM
+												nvm_eeprom_erase_and_write_buffer(offset, &value, length);
 											
-											// Set response to value
-											strcpy(responseBuffer, "ok PT:");
-											ultoa(offset, numberBuffer, 10);
-											strcat(responseBuffer, numberBuffer);
-											strcat(responseBuffer, " DT:");
-											ultoa(value, numberBuffer, 10);
-											strcat(responseBuffer, numberBuffer);
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok PT:");
+												ultoa(offset, numberBuffer, 10);
+												strcat(responseBuffer, numberBuffer);
+											}
 										}
-									}
-								break;
+									break;
+								
+									// M619
+									case 619 :
+								
+										// Check if EEPROM offset and length are provided
+										if(gcode.hasParameterS() && gcode.hasParameterT()) {
+									
+											// Check if offset and length are valid
+											int32_t offset = gcode.getParameterS();
+											int8_t length = gcode.getParameterT();
+										
+											if(offset >= 0 && length > 0 && length <= 4 && offset + length < EEPROM_SIZE) {
+										
+												// Get value from EEPROM
+												uint32_t value = 0;
+												nvm_eeprom_read_buffer(offset, &value, length);
+											
+												// Set response to value
+												strcpy(responseBuffer, "ok PT:");
+												ultoa(offset, numberBuffer, 10);
+												strcat(responseBuffer, numberBuffer);
+												strcat(responseBuffer, " DT:");
+												ultoa(value, numberBuffer, 10);
+												strcat(responseBuffer, numberBuffer);
+											}
+										}
+									break;
+								}
+							}
+						
+							// Otherwise check if command has a G parameter
+							else if(gcode.hasParameterG()) {
+				
+								switch(gcode.getParameterG()) {
+					
+									// G0 or G1
+									case 0 :
+									case 1 :
+							
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+									break;
+							
+									// G4
+									case 4 :
+							
+										// Delay specified time
+										uint32_t delayTime = gcode.getParameterP() + gcode.getParameterS() * 1000;
+								
+										if(delayTime)
+											delay_ms(delayTime);
+								
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+									break;
+								}
 							}
 						}
-						
-						// Otherwise check if command has a G parameter
-						else if(gcode.hasParameterG()) {
-				
-							switch(gcode.getParameterG()) {
 					
-								// G0 or G1
-								case 0 :
-								case 1 :
-							
-									// Set response to confirmation
-									strcpy(responseBuffer, "ok");
-								break;
-							
-								// G4
-								case 4 :
-							
-									// Delay specified time
-									uint32_t delayTime = gcode.getParameterP() + gcode.getParameterS() * 1000;
-								
-									if(delayTime)
-										delay_ms(delayTime);
-								
-									// Set response to confirmation
-									strcpy(responseBuffer, "ok");
-								break;
-							}
-						}
-					}
-					
-					// Check if command has an N parameter and it was processed
-					if(gcode.hasParameterN() && (!strncmp(responseBuffer, "ok", 2) || !strncmp(responseBuffer, "rs", 2) || !strncmp(responseBuffer, "skip", 4))) {
+						// Check if command has an N parameter and it was processed
+						if(gcode.hasParameterN() && (!strncmp(responseBuffer, "ok", 2) || !strncmp(responseBuffer, "rs", 2) || !strncmp(responseBuffer, "skip", 4))) {
 			
-						// Append line number to response
-						uint8_t endOfResponse = responseBuffer[0] == 's' ? 4 : 2;
-						uint32_t value = gcode.getParameterN();
+							// Append line number to response
+							uint8_t endOfResponse = responseBuffer[0] == 's' ? 4 : 2;
+							uint32_t value = gcode.getParameterN();
 						
-						if(responseBuffer[0] == 'r')
-							value--;
+							if(responseBuffer[0] == 'r')
+								value--;
 						
-						ultoa(value, numberBuffer, 10);
-						memmove(&responseBuffer[endOfResponse + 1 + strlen(numberBuffer)], &responseBuffer[endOfResponse], strlen(responseBuffer) - 1);
-						responseBuffer[endOfResponse] = ' ';
-						memcpy(&responseBuffer[endOfResponse + 1], numberBuffer, strlen(numberBuffer));
+							ultoa(value, numberBuffer, 10);
+							memmove(&responseBuffer[endOfResponse + 1 + strlen(numberBuffer)], &responseBuffer[endOfResponse], strlen(responseBuffer) - 1);
+							responseBuffer[endOfResponse] = ' ';
+							memcpy(&responseBuffer[endOfResponse + 1], numberBuffer, strlen(numberBuffer));
+						}
 					}
 				}
 			}
+			
+			// Otherwise
+			else
+			
+				// Set response to error
+				strcpy(responseBuffer, "ok Error: accelerometer isn't working");
 			
 			// Check if response wasn't set
 			if(!*responseBuffer)
@@ -492,6 +516,7 @@ int main() {
 			udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
 			
 			// Enable send wait interrupt
+			tc_restart(&TCC2);
 			tc_write_clock_source(&TCC2, TC_CLKSEL_DIV1024_gc);
 		}
 	}

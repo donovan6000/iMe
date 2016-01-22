@@ -32,12 +32,14 @@
   <options>
     <option id="common.boards" value="Add" config="" content-id="Atmel.ASF" />
     <option id="common.services.delay" value="Add" config="" content-id="Atmel.ASF" />
+    <option id="common.services.ioport" value="Add" config="" content-id="Atmel.ASF" />
     <option id="common.services.usb.class.device" value="Add" config="cdc" content-id="Atmel.ASF" />
     <option id="xmega.drivers.tc" value="Add" config="" content-id="Atmel.ASF" />
-    <option id="common.services.ioport" value="Add" config="" content-id="Atmel.ASF" />
+    <option id="common.services.basic.twi" value="Add" config="" content-id="Atmel.ASF" />
   </options>
   <configurations>
     <configuration key="config.xmega.drivers.usb.device.sleepmgr" value="with_sleepmgr" default="with_sleepmgr" content-id="Atmel.ASF" />
+    <configuration key="config.xmega.drivers.twi.mode" value="both" default="both" content-id="Atmel.ASF" />
   </configurations>
   <files>
     <file path="src/ASF/common/utils/make/Makefile.avr.in" framework="" version="3.27.3" source="common\utils\make\Makefile.avr.in" changed="False" content-id="Atmel.ASF" />
@@ -105,6 +107,16 @@
     <file path="src/ASF/common/services/ioport/xmega/ioport_compat.h" framework="" version="3.27.3" source="common\services\ioport\xmega\ioport_compat.h" changed="False" content-id="Atmel.ASF" />
     <file path="src/ASF/common/services/ioport/xmega/ioport.h" framework="" version="3.27.3" source="common\services\ioport\xmega\ioport.h" changed="False" content-id="Atmel.ASF" />
     <file path="src/ASF/common/services/ioport/ioport.h" framework="" version="3.27.3" source="common\services\ioport\ioport.h" changed="False" content-id="Atmel.ASF" />
+    <file path="src/ASF/common/services/twi/twi_slave.h" framework="" version="3.27.3" source="common\services\twi\twi_slave.h" changed="False" content-id="Atmel.ASF" />
+    <file path="src/ASF/common/services/twi/xmega_twi/twi_master.h" framework="" version="3.27.3" source="common\services\twi\xmega_twi\twi_master.h" changed="False" content-id="Atmel.ASF" />
+    <file path="src/ASF/common/services/twi/xmega_twi/twi_slave.h" framework="" version="3.27.3" source="common\services\twi\xmega_twi\twi_slave.h" changed="False" content-id="Atmel.ASF" />
+    <file path="src/ASF/common/services/twi/twi_master.h" framework="" version="3.27.3" source="common\services\twi\twi_master.h" changed="False" content-id="Atmel.ASF" />
+    <file path="src/ASF/xmega/drivers/twi/twim.c" framework="" version="3.27.3" source="xmega\drivers\twi\twim.c" changed="False" content-id="Atmel.ASF" />
+    <file path="src/ASF/xmega/drivers/twi/twis.c" framework="" version="3.27.3" source="xmega\drivers\twi\twis.c" changed="False" content-id="Atmel.ASF" />
+    <file path="src/ASF/xmega/drivers/twi/twim.h" framework="" version="3.27.3" source="xmega\drivers\twi\twim.h" changed="False" content-id="Atmel.ASF" />
+    <file path="src/ASF/xmega/drivers/twi/twis.h" framework="" version="3.27.3" source="xmega\drivers\twi\twis.h" changed="False" content-id="Atmel.ASF" />
+    <file path="src/ASF/xmega/drivers/twi/twi_common.h" framework="" version="3.27.3" source="xmega\drivers\twi\twi_common.h" changed="False" content-id="Atmel.ASF" />
+    <file path="src/Config/conf_twim.h" framework="" version="3.27.3" source="xmega\drivers\twi\module_config\conf_twim.h" changed="False" content-id="Atmel.ASF" />
   </files>
   <documentation help="http://asf.atmel.com/docs/3.27.3/common.applications.user_application.user_board.xmegac/html/index.html" />
   <offline-documentation help="" />
@@ -156,6 +168,8 @@
       <Value>../src/ASF/xmega/drivers/tc</Value>
       <Value>../src/ASF/common/services/delay</Value>
       <Value>../src/ASF/common/services/ioport</Value>
+      <Value>../src/ASF/common/services/twi</Value>
+      <Value>../src/ASF/xmega/drivers/twi</Value>
     </ListValues>
   </avrgcc.compiler.directories.IncludePaths>
   <avrgcc.compiler.optimization.level>Optimize for size (-Os)</avrgcc.compiler.optimization.level>
@@ -199,6 +213,8 @@
       <Value>../src/ASF/common/services/delay</Value>
       <Value>../src/ASF/common/services/ioport</Value>
       <Value>../src/ASF/common/services/gpio</Value>
+      <Value>../src/ASF/common/services/twi</Value>
+      <Value>../src/ASF/xmega/drivers/twi</Value>
     </ListValues>
   </avrgcccpp.compiler.directories.IncludePaths>
   <avrgcccpp.compiler.optimization.level>Optimize for size (-Os)</avrgcccpp.compiler.optimization.level>
@@ -234,6 +250,8 @@
       <Value>../src/ASF/xmega/drivers/tc</Value>
       <Value>../src/ASF/common/services/delay</Value>
       <Value>../src/ASF/common/services/ioport</Value>
+      <Value>../src/ASF/common/services/twi</Value>
+      <Value>../src/ASF/xmega/drivers/twi</Value>
     </ListValues>
   </avrgcccpp.assembler.general.IncludePaths>
 </AvrGccCpp>
@@ -279,6 +297,8 @@
       <Value>../src/ASF/xmega/drivers/tc</Value>
       <Value>../src/ASF/common/services/delay</Value>
       <Value>../src/ASF/common/services/ioport</Value>
+      <Value>../src/ASF/common/services/twi</Value>
+      <Value>../src/ASF/xmega/drivers/twi</Value>
     </ListValues>
   </avrgcc.compiler.directories.IncludePaths>
   <avrgcc.compiler.optimization.level>Optimize (-O1)</avrgcc.compiler.optimization.level>
@@ -323,6 +343,8 @@
       <Value>../src/ASF/common/services/delay</Value>
       <Value>../src/ASF/common/services/ioport</Value>
       <Value>../src/ASF/common/services/gpio</Value>
+      <Value>../src/ASF/common/services/twi</Value>
+      <Value>../src/ASF/xmega/drivers/twi</Value>
     </ListValues>
   </avrgcccpp.compiler.directories.IncludePaths>
   <avrgcccpp.compiler.optimization.level>Optimize (-O1)</avrgcccpp.compiler.optimization.level>
@@ -359,6 +381,8 @@
       <Value>../src/ASF/xmega/drivers/tc</Value>
       <Value>../src/ASF/common/services/delay</Value>
       <Value>../src/ASF/common/services/ioport</Value>
+      <Value>../src/ASF/common/services/twi</Value>
+      <Value>../src/ASF/xmega/drivers/twi</Value>
     </ListValues>
   </avrgcccpp.assembler.general.IncludePaths>
   <avrgcccpp.assembler.debugging.DebugLevel>Default (-Wa,-g)</avrgcccpp.assembler.debugging.DebugLevel>
@@ -366,6 +390,12 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="accelerometer.cpp">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="accelerometer.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="gcode.cpp">
       <SubType>compile</SubType>
     </Compile>
@@ -375,6 +405,9 @@
     <Compile Include="main.cpp">
       <SubType>compile</SubType>
     </Compile>
+    <None Include="src\Config\conf_twim.h">
+      <SubType>compile</SubType>
+    </None>
     <None Include="src\ASF\common\boards\board.h">
       <SubType>compile</SubType>
     </None>
@@ -405,10 +438,37 @@
     <None Include="src\ASF\common\services\ioport\xmega\ioport_compat.h">
       <SubType>compile</SubType>
     </None>
+    <None Include="src\ASF\common\services\twi\twi_slave.h">
+      <SubType>compile</SubType>
+    </None>
+    <None Include="src\ASF\common\services\twi\xmega_twi\twi_master.h">
+      <SubType>compile</SubType>
+    </None>
+    <None Include="src\ASF\common\services\twi\xmega_twi\twi_slave.h">
+      <SubType>compile</SubType>
+    </None>
+    <None Include="src\ASF\common\services\twi\twi_master.h">
+      <SubType>compile</SubType>
+    </None>
     <Compile Include="src\ASF\xmega\drivers\tc\tc.c">
       <SubType>compile</SubType>
     </Compile>
     <None Include="src\ASF\xmega\drivers\tc\tc.h">
+      <SubType>compile</SubType>
+    </None>
+    <Compile Include="src\ASF\xmega\drivers\twi\twim.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <None Include="src\ASF\xmega\drivers\twi\twim.h">
+      <SubType>compile</SubType>
+    </None>
+    <Compile Include="src\ASF\xmega\drivers\twi\twis.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <None Include="src\ASF\xmega\drivers\twi\twis.h">
+      <SubType>compile</SubType>
+    </None>
+    <None Include="src\ASF\xmega\drivers\twi\twi_common.h">
       <SubType>compile</SubType>
     </None>
     <Compile Include="src\Config\conf_board.h">
@@ -579,6 +639,8 @@
     <Folder Include="src\ASF\common\services\ioport\xmega\" />
     <Folder Include="src\ASF\common\services\sleepmgr\" />
     <Folder Include="src\ASF\common\services\sleepmgr\xmega\" />
+    <Folder Include="src\ASF\common\services\twi\" />
+    <Folder Include="src\ASF\common\services\twi\xmega_twi\" />
     <Folder Include="src\ASF\common\services\usb\" />
     <Folder Include="src\ASF\common\services\usb\class\" />
     <Folder Include="src\ASF\common\services\usb\class\cdc\" />
@@ -594,6 +656,7 @@
     <Folder Include="src\ASF\xmega\drivers\pmic\" />
     <Folder Include="src\ASF\xmega\drivers\sleep\" />
     <Folder Include="src\ASF\xmega\drivers\tc\" />
+    <Folder Include="src\ASF\xmega\drivers\twi\" />
     <Folder Include="src\ASF\xmega\drivers\usb\" />
     <Folder Include="src\ASF\xmega\utils\" />
     <Folder Include="src\ASF\xmega\utils\assembler\" />

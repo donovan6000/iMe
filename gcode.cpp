@@ -126,47 +126,47 @@ bool Gcode::parseCommand(const char *command) {
 				switch(parameterOffset) {
 				
 					case PARAMETER_G_OFFSET :
-						valueG = strtoul(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
+						valueG = strtoul(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
 					break;
 					
 					case PARAMETER_M_OFFSET :
-						valueM = strtoul(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
+						valueM = strtoul(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
 					break;
 					
 					case PARAMETER_T_OFFSET :
-						valueT = strtol(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
+						valueT = strtol(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
 					break;
 					
 					case PARAMETER_S_OFFSET :
-						valueS = strtol(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
+						valueS = strtol(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
 					break;
 					
 					case PARAMETER_P_OFFSET :
-						valueP = strtol(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
+						valueP = strtol(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
 					break;
 					
 					case PARAMETER_X_OFFSET :
-						valueX = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
+						valueX = strtod(&command[i], reinterpret_cast<char **>(&lastParameterCharacter));
 					break;
 					
 					case PARAMETER_Y_OFFSET :
-						valueY = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
+						valueY = strtod(&command[i], reinterpret_cast<char **>(&lastParameterCharacter));
 					break;
 					
 					case PARAMETER_Z_OFFSET :
-						valueZ = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
+						valueZ = strtod(&command[i], reinterpret_cast<char **>(&lastParameterCharacter));
 					break;
 					
 					case PARAMETER_F_OFFSET :
-						valueF = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
+						valueF = strtod(&command[i], reinterpret_cast<char **>(&lastParameterCharacter));
 					break;
 					
 					case PARAMETER_E_OFFSET :
-						valueE = strtod(&command[i], reinterpret_cast<char**>(&lastParameterCharacter));
+						valueE = strtod(&command[i], reinterpret_cast<char **>(&lastParameterCharacter));
 					break;
 					
 					case PARAMETER_N_OFFSET :
-						valueN = strtoul(&command[i], reinterpret_cast<char**>(&lastParameterCharacter), 10); 
+						valueN = strtoul(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
 					break;
 				}
 				
