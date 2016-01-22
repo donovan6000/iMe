@@ -1,10 +1,13 @@
 # iMe
 Custom firmware for the Micro 3D printer
-<br>
+
 © 2015-2016 Exploit Kings. All rights reserved.
-<br>
-<br>
-This is not a fully functional firmware yet. This firmware currently only sets up the printer so that it responds to the commands M115, M105, and M115 S628.
-<br>
-<br>
-It can be compiled with <a href="http://www.atmel.com/tools/ATMELAVRTOOLCHAINFORLINUX.aspx">Atmel's AVR 8-bit toolchain</a>, and it can be installed with <a href="https://github.com/donovan6000/M3D-Linux">M3D Linux</a>. So after setting the appropriate locations for 'avr-gcc', 'avr-objcopy', 'avr-size', and 'm3d-linux' in the Makefile you can run 'Make' to compile the firmware and 'Make run' to install and run it. Alternatively you can use <a href="https://github.com/donovan6000/M3D-Fio">M3D Fio</a> to install and run the compiled firmware.
+
+This is not a fully functional firmware yet since it doesn't have any control over the motors or heater. It does provide pretty much everything else though.
+
+It can be compiled with Atmel's AVR 8-bit toolchain for [Windows](http://www.atmel.com/tools/ATMELAVRTOOLCHAINFORWINDOWS.aspx) or [Linux](http://www.atmel.com/tools/atmelavrtoolchainforlinux.aspx), and it can be installed from Linux with [M3D Linux](https://github.com/donovan6000/M3D-Linux). To simplify the devloping process, just set the appropriate locations for `avr-gcc`, `avr-objcopy`, `avr-size`, and `m3d-linux` in the Makefile which will allow using the commands `Make` to compile the firmware and `Make run` to install and run it.
+
+Also, it can be compiled using [Atmel Studio](http://www.atmel.com/tools/ATMELSTUDIO.aspx) by opening and building the project file `iMe.atsln`. However the resulting ELF will need to be stripped before it can be flashed into the printer, which you can do by running the following command. Currently the only way to flash the firmware from Windows is with [M3D Fio](https://github.com/donovan6000/M3D-Fio").
+```shell
+	avr-objcopy -O binary iMe.elf "iMe 1900000001.hex"
+```
