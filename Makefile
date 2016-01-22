@@ -1,6 +1,6 @@
 # Firmware name and version
-PROG = iMe
-VERSION = 1900000001
+FIRMWARE_NAME = iMe
+FIRMWARE_VERSION = 1900000001
 
 # Tool locations
 CC = /opt/avr-toolchain/bin/avr-gcc
@@ -35,9 +35,9 @@ INCPATH = . \
 	src/ASF/common/boards \
 	src/ASF/common/boards/user_board \
 	src/ASF/common/services/clock \
-	src/ASF/common/services/clock/xmega \
+	src/ASF/common/services/delay \
+	src/ASF/common/services/ioport \
 	src/ASF/common/services/sleepmgr \
-	src/ASF/common/services/sleepmgr/xmega \
 	src/ASF/common/services/usb \
 	src/ASF/common/services/usb/class/cdc \
 	src/ASF/common/services/usb/class/cdc/device \
@@ -57,7 +57,7 @@ INCPATH = . \
 	src/ASF/xmega/utils/preprocessor
 
 # Compiler flags
-FLAGS = -D BOARD=USER_BOARD -D VERSION="\"$(VERSION)\"" -Os -mmcu=atxmega32c4 -Wall
+FLAGS = -D BOARD=USER_BOARD -D FIRMWARE_NAME="\"$(FIRMWARE_NAME)\"" -D FIRMWARE_VERSION="\"$(FIRMWARE_VERSION)\"" -Os -mmcu=atxmega32c4 -Wall
 ASFLAGS = -std=c++14 -x assembler-with-cpp
 CFLAGS = -std=gnu99 -x c -fdata-sections -ffunction-sections -fpack-struct -fshort-enums -fno-strict-aliasing -Wstrict-prototypes -Wmissing-prototypes -Werror-implicit-function-declaration -Wpointer-arith -mrelax
 CPPFLAGS = -std=c++14 -x c++ -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums
@@ -68,16 +68,16 @@ all:
 	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(ASFLAGS) -c $(ASSRCS)
 	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CFLAGS) -c $(CSRCS)
 	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CPPFLAGS) -c $(CPPSRCS)
-	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(LFLAGS) *.o -o $(PROG).elf
-	@$(COPY) -O binary $(PROG).elf "$(PROG) $(VERSION).hex"
-	@$(SIZE) --mcu=atxmega32c4 -C $(PROG).elf
-	@rm -f *.o $(PROG).elf
-	@echo $(PROG) $(VERSION).hex is ready
+	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(LFLAGS) *.o -o $(FIRMWARE_NAME).elf
+	@$(COPY) -O binary $(FIRMWARE_NAME).elf "$(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex"
+	@$(SIZE) --mcu=atxmega32c4 -C $(FIRMWARE_NAME).elf
+	@rm -f *.o $(FIRMWARE_NAME).elf
+	@echo $(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex is ready
 
 # Make clean
 clean:
-	rm -f $(PROG).elf "$(PROG) $(VERSION).hex" *.o
+	rm -f $(FIRMWARE_NAME).elf "$(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex" *.o
 
 # Make run
 run:
-	@$(M3DLINUX) -a -x -r "$(PROG) $(VERSION).hex"
+	@$(M3DLINUX) -a -x -r "$(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex"

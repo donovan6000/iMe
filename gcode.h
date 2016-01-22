@@ -35,7 +35,7 @@ class Gcode {
 		bool hasParameterM();
 		
 		// Get parameter M
-		uint8_t getParameterM();
+		uint16_t getParameterM();
 		
 		// Has parameter T
 		bool hasParameterT();
@@ -90,16 +90,22 @@ class Gcode {
 		
 		// Get parameter N
 		uint32_t getParameterN();
+		
+		// Has host command
+		bool hasHostCommand();
+		
+		// Get host command
+		char *getHostCommand();
 	
 	// Private
 	private :
 	
 		// Command parameters
 		uint16_t commandParameters;
-	
+		
 		// Values
 		uint8_t valueG;
-		uint8_t valueM;
+		uint16_t valueM;
 		int8_t valueT;
 		int32_t valueS;
 		int32_t valueP;
@@ -109,6 +115,9 @@ class Gcode {
 		float valueF;
 		float valueE;
 		uint32_t valueN;
+		
+		// Host command
+		char hostCommand[64];
 };
 
 

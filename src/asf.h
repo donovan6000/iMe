@@ -59,8 +59,14 @@
 // From module: Common build items for user board support templates
 #include <user_board.h>
 
+// From module: Delay routines
+#include <delay.h>
+
 // From module: Generic board support
 #include <board.h>
+
+// From module: IOPORT - General purpose I/O service
+#include <ioport.h>
 
 // From module: Interrupt management - XMEGA implementation
 #include <interrupt.h>
@@ -86,9 +92,6 @@
 
 // From module: TC - Timer Counter
 #include <tc.h>
-
-// From module: TWI - Two-wire Master Interface
-#include <twim.h>
 
 // From module: USB CDC Protocol
 #include <usb_protocol_cdc.h>

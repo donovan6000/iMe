@@ -21,7 +21,7 @@
 #define USB_DEVICE_PRODUCT_NAME "The Micro"
 #define USB_DEVICE_SERIAL_NAME
 #define USB_DEVICE_GET_SERIAL_NAME_POINTER serialNumber
-#define USB_DEVICE_GET_SERIAL_NAME_LENGTH  16
+#define USB_DEVICE_GET_SERIAL_NAME_LENGTH 16
 extern uint8_t serialNumber[];
 
 
@@ -44,11 +44,9 @@ extern uint8_t serialNumber[];
 
 
 // CDC callbacks
-#define  UDI_CDC_ENABLE_EXT(port) cdcEnableCallback()
-extern bool cdcEnableCallback(void);
-#define  UDI_CDC_DISABLE_EXT(port) cdcDisableCallback()
-extern void cdcDisableCallback(void);
-#define  UDI_CDC_RX_NOTIFY(port) cdcRxNotifyCallback(port)
+#define UDI_CDC_ENABLE_EXT(port) true
+#define UDI_CDC_DISABLE_EXT(port)
+#define UDI_CDC_RX_NOTIFY(port) cdcRxNotifyCallback(port)
 extern void cdcRxNotifyCallback(uint8_t port);
 #define UDI_CDC_TX_EMPTY_NOTIFY(port)
 #define UDI_CDC_SET_CODING_EXT(port, cfg)

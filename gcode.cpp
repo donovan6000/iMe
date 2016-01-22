@@ -18,6 +18,7 @@
 #define PARAMETER_F_OFFSET 0x100
 #define PARAMETER_E_OFFSET 0x200
 #define PARAMETER_N_OFFSET 0x400
+#define PARAMETER_HOST_COMMAND_OFFSET 0x800
 
 
 // Supporting function implementation
@@ -48,11 +49,14 @@ bool Gcode::parseCommand(const char *command) {
 	// Clear command
 	clearCommand();
 	
-	// Check if command contains a comment or newline character
-	lastValidCharacter = strchr(const_cast<char *>(command), '*');
+	// Check if command contains a newline, comment, or checksum
+	lastValidCharacter = strchr(const_cast<char *>(command), '\n');
 	
 	if(lastValidCharacter == NULL)
-		lastValidCharacter = strchr(const_cast<char *>(command), '\n');
+		lastValidCharacter = strchr(const_cast<char *>(command), ';');
+	
+	if(lastValidCharacter == NULL)
+		lastValidCharacter = strchr(const_cast<char *>(command), '*');
 	
 	if(lastValidCharacter != NULL)
 	
@@ -68,8 +72,26 @@ bool Gcode::parseCommand(const char *command) {
 	// Go through each character in the command
 	for(uint8_t i = 0; i < stopParsingOffset; i++) {
 	
+		// Check if at the start of a host command
+		if(command[i] == '@') {
+		
+			// Save host command
+			stopParsingOffset -= ++i;
+			strncpy(hostCommand, &command[i], stopParsingOffset);
+			hostCommand[stopParsingOffset] = 0;
+			
+			// Check if host command exists
+			if(*hostCommand)
+			
+				// Set command parameters
+				commandParameters |= PARAMETER_HOST_COMMAND_OFFSET;
+		
+			// Break
+			break;
+		}
+	
 		// Check if character is a valid parameter
-		if(isalpha(command[i]) && (parameterIndex = strchr(PARAMETER_ORDER, command[i])) != NULL) {
+		if(isalpha(command[i]) && (parameterIndex = strchr(PARAMETER_ORDER, toupper(command[i]))) != NULL) {
 		
 			// Get parameter's offset
 			parameterOffset = 1 << (parameterIndex - PARAMETER_ORDER);
@@ -185,6 +207,7 @@ void Gcode::clearCommand() {
 	valueF = 0;
 	valueE = 0;
 	valueN = 0;
+	*hostCommand = 0;
 }
 
 bool Gcode::isEmpty() {
@@ -211,7 +234,7 @@ bool Gcode::hasParameterM() {
 	return commandParameters & PARAMETER_M_OFFSET;
 }
 
-uint8_t Gcode::getParameterM() {
+uint16_t Gcode::getParameterM() {
 
 	// Return parameter's value
 	return valueM;
@@ -323,4 +346,16 @@ uint32_t Gcode::getParameterN() {
 
 	// Return parameter's value
 	return valueN;
+}
+
+bool Gcode::hasHostCommand() {
+
+	// Return is host command is set
+	return *hostCommand;
+}
+
+char *Gcode::getHostCommand() {
+
+	// Return host command
+	return hostCommand;
 }
