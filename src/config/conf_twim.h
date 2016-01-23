@@ -1,6 +1,6 @@
 // Header gaurd
-#ifndef _CONF_TWIM_H_
-#define _CONF_TWIM_H_
+#ifndef CONF_TWIM_H_
+#define CONF_TWIM_H_
 
 
 // Configure TWI

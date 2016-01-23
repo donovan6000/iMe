@@ -6,6 +6,7 @@ extern "C" {
 	#include <asf.h>
 }
 #include <string.h>
+#include <limits.h>
 #include "gcode.h"
 #include "accelerometer.h"
 
@@ -23,6 +24,9 @@ extern "C" {
 
 // Pins
 #define LED IOPORT_CREATE_PIN(PORTE, 3)
+
+// Configuration details
+#define REQUEST_BUFFER_SIZE 10
 
 // EEPROM offsets
 #define EEPROM_FIRMWARE_VERSION_OFFSET 0x00
@@ -150,7 +154,7 @@ class Request {
 
 // Global variables
 uint8_t serialNumber[EEPROM_SERIAL_NUMBER_LENGTH];
-Request requests[10];
+Request requests[REQUEST_BUFFER_SIZE];
 
 
 // Function prototypes
@@ -200,7 +204,7 @@ int main() {
 	char responseBuffer[255];
 	uint32_t currentLineNumber = 0;
 	char numberBuffer[sizeof("4294967295")];
-	Accelerometer accelerometer(0x00, 0x1D, 50000);
+	Accelerometer accelerometer;
 	Gcode gcode;
 	
 	// Set ports to values used by official firmware
@@ -225,7 +229,7 @@ int main() {
 	// Configure general purpose timer
 	tc_enable(&TCC0);
 	tc_set_wgm(&TCC0, TC_WG_NORMAL);
-	tc_write_period(&TCC0, 0xFFFF);
+	tc_write_period(&TCC0, USHRT_MAX);
 	EVSYS.CH0MUX = EVSYS_CHMUX_TCC0_OVF_gc;
 	tc_enable(&TCC1);
 	tc_set_wgm(&TCC1, TC_WG_NORMAL);
@@ -271,7 +275,7 @@ int main() {
 			requests[currentProcessingRequest].size = 0;
 			
 			// Increment current processing request
-			if(currentProcessingRequest == 9)
+			if(currentProcessingRequest == REQUEST_BUFFER_SIZE - 1)
 				currentProcessingRequest = 0;
 			else
 				currentProcessingRequest++;
@@ -297,20 +301,32 @@ int main() {
 							// Set response to confirmation
 							strcpy(responseBuffer, "ok");
 						}
-					
+						
+						// Otherwise check if host command is to calibrate the accelerometer
+						else if(!strcmp(gcode.getHostCommand(), "Calibrate accelerometer")) {
+						
+							// Calibrate accelerometer
+							accelerometer.calibrate();
+							
+							// Set response to confirmation
+							strcpy(responseBuffer, "ok");
+						}
+						
 						// Otherwise check if host command is to get accelerometer's values
-						if(!strcmp(gcode.getHostCommand(), "Accelerometer values")) {
+						else if(!strcmp(gcode.getHostCommand(), "Accelerometer values")) {
 					
 							// Set response to value
+							accelerometer.readAccelerationValues();
 							strcpy(responseBuffer, "ok X:");
-							ultoa(accelerometer.getX(), numberBuffer, 10);
+							ltoa(accelerometer.xAcceleration, numberBuffer, 10);
 							strcat(responseBuffer, numberBuffer);
-							strcat(responseBuffer, " Y:");
-							ultoa(accelerometer.getY(), numberBuffer, 10);
+							strcat(responseBuffer, "mg Y:");
+							ltoa(accelerometer.yAcceleration, numberBuffer, 10);
 							strcat(responseBuffer, numberBuffer);
-							strcat(responseBuffer, " Z:");
-							ultoa(accelerometer.getZ(), numberBuffer, 10);
+							strcat(responseBuffer, "mg Z:");
+							ltoa(accelerometer.zAcceleration, numberBuffer, 10);
 							strcat(responseBuffer, numberBuffer);
+							strcat(responseBuffer, "mg");
 						}
 					
 						// Otherwise
@@ -547,7 +563,7 @@ void cdcRxNotifyCallback(uint8_t port) {
 		requests[currentReceivingRequest].buffer[requests[currentReceivingRequest].size] = 0;
 		
 		// Increment current receiving request
-		if(currentReceivingRequest == 9)
+		if(currentReceivingRequest == REQUEST_BUFFER_SIZE - 1)
 			currentReceivingRequest = 0;
 		else
 			currentReceivingRequest++;
