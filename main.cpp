@@ -1,6 +1,3 @@
-// PORTE1 is Fan, active high
-// PORTE3 is LED, active high
-
 // Header files
 extern "C" {
 	#include <asf.h>
@@ -9,6 +6,8 @@ extern "C" {
 #include <limits.h>
 #include "gcode.h"
 #include "accelerometer.h"
+#include "motors.h"
+#include "eeprom.h"
 
 
 // Definitions
@@ -22,117 +21,18 @@ extern "C" {
 	#define FIRMWARE_VERSION "1900000001"
 #endif
 
-// Pins
-#define LED IOPORT_CREATE_PIN(PORTE, 3)
+// Fan pin
+#define FAN_ENABLE IOPORT_CREATE_PIN(PORTE, 1)
+#define FAN_PWM_TIMER PWM_TCE0
+#define FAN_PWM_CHANNEL PWM_CH_B
+
+// LED Pin
+#define LED_ENABLE IOPORT_CREATE_PIN(PORTE, 3)
 #define LED_PWM_TIMER PWM_TCE0
 #define LED_PWM_CHANNEL PWM_CH_D 
 
 // Configuration details
 #define REQUEST_BUFFER_SIZE 10
-
-// EEPROM offsets
-#define EEPROM_FIRMWARE_VERSION_OFFSET 0x00
-#define EEPROM_FIRMWARE_VERSION_LENGTH 4
-#define EEPROM_FIRMWARE_CRC_OFFSET 0x04
-#define EEPROM_FIRMWARE_CRC_LENGTH 4
-#define EEPROM_LAST_RECORDED_Z_VALUE_OFFSET 0x08
-#define EEPROM_LAST_RECORDED_Z_VALUE_LENGTH 4
-#define EEPROM_BACKLASH_X_OFFSET 0x0C
-#define EEPROM_BACKLASH_X_LENGTH 4
-#define EEPROM_BACKLASH_Y_OFFSET 0x10
-#define EEPROM_BACKLASH_Y_LENGTH 4
-#define EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET 0x14
-#define EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH 4
-#define EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET 0x18
-#define EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH 4
-#define EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET 0x1C
-#define EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH 4
-#define EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET 0x20
-#define EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH 4
-#define EEPROM_FILAMENT_COLOR_OFFSET 0x24
-#define EEPROM_FILAMENT_COLOR_LENGTH 4
-#define EEPROM_FILAMENT_TYPE_AND_LOCATION_OFFSET 0x28
-#define EEPROM_FILAMENT_TYPE_AND_LOCATION_LENGTH 1
-#define EEPROM_FILAMENT_TEMPERATURE_OFFSET 0x29
-#define EEPROM_FILAMENT_TEMPERATURE_LENGTH 1
-#define EEPROM_FILAMENT_AMOUNT_OFFSET 0x2A
-#define EEPROM_FILAMENT_AMOUNT_LENGTH 4
-#define EEPROM_BACKLASH_EXPANSION_X_PLUS_OFFSET 0x2E
-#define EEPROM_BACKLASH_EXPANSION_X_PLUS_LENGTH 4
-#define EEPROM_BACKLASH_EXPANSION_Y_L_PLUS_OFFSET 0x32
-#define EEPROM_BACKLASH_EXPANSION_Y_L_PLUS_LENGTH 4
-#define EEPROM_BACKLASH_EXPANSION_Y_R_PLUS_OFFSET 0x36
-#define EEPROM_BACKLASH_EXPANSION_Y_R_PLUS_LENGTH 4
-#define EEPROM_BACKLASH_EXPANSION_Y_R_MINUS_OFFSET 0x3A
-#define EEPROM_BACKLASH_EXPANSION_Y_R_MINUS_LENGTH 4
-#define EEPROM_BACKLASH_EXPANSION_Z_OFFSET 0x3E
-#define EEPROM_BACKLASH_EXPANSION_Z_LENGTH 4
-#define EEPROM_BACKLASH_EXPANSION_E_OFFSET 0x42
-#define EEPROM_BACKLASH_EXPANSION_E_LENGTH 4
-#define EEPROM_BED_OFFSET_BACK_LEFT_OFFSET 0x46
-#define EEPROM_BED_OFFSET_BACK_LEFT_LENGTH 4
-#define EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET 0x4A
-#define EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH 4
-#define EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET 0x4E
-#define EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH 4
-#define EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET 0x52
-#define EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH 4
-#define EEPROM_BED_HEIGHT_OFFSET_OFFSET 0x56
-#define EEPROM_BED_HEIGHT_OFFSET_LENGTH 4
-#define EEPROM_RESERVED_OFFSET 0x5A
-#define EEPROM_RESERVED_LENGTH 4
-#define EEPROM_BACKLASH_SPEED_OFFSET 0x5E
-#define EEPROM_BACKLASH_SPEED_LENGTH 4
-#define EEPROM_BED_ORIENTATION_VERSION_OFFSET 0x62
-#define EEPROM_BED_ORIENTATION_VERSION_LENGTH 1
-#define EEPROM_SPEED_LIMIT_X_OFFSET 0x66
-#define EEPROM_SPEED_LIMIT_X_LENGTH 4
-#define EEPROM_SPEED_LIMIT_Y_OFFSET 0x6A
-#define EEPROM_SPEED_LIMIT_Y_LENGTH 4
-#define EEPROM_SPEED_LIMIT_Z_OFFSET 0x6E
-#define EEPROM_SPEED_LIMIT_Z_LENGTH 4
-#define EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET 0x72
-#define EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH 4
-#define EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET 0x76
-#define EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH 4
-#define EEPROM_BED_ORIENTATION_FIRST_SAMPLE_OFFSET 0x106
-#define EEPROM_BED_ORIENTATION_FIRST_SAMPLE_LENGTH 4
-#define EEPROM_FAN_TYPE_OFFSET 0x2AB
-#define EEPROM_FAN_TYPE_LENGTH 1
-#define EEPROM_FAN_OFFSET_OFFSET 0x2AC
-#define EEPROM_FAN_OFFSET_LENGTH 1
-#define EEPROM_FAN_SCALE_OFFSET 0x2AD
-#define EEPROM_FAN_SCALE_LENGTH 4
-#define EEPROM_HEATER_CALIBRATION_MODE_OFFSET 0x2B1
-#define EEPROM_HEATER_CALIBRATION_MODE_LENGTH 1
-#define EEPROM_X_MOTOR_CURRENT_OFFSET 0x2B2
-#define EEPROM_X_MOTOR_CURRENT_LENGTH 2
-#define EEPROM_Y_MOTOR_CURRENT_OFFSET 0x2B4
-#define EEPROM_Y_MOTOR_CURRENT_LENGTH 2
-#define EEPROM_Z_MOTOR_CURRENT_OFFSET 0x2B6
-#define EEPROM_Z_MOTOR_CURRENT_LENGTH 2
-#define EEPROM_HARDWARE_STATUS_OFFSET 0x2B8
-#define EEPROM_HARDWARE_STATUS_LENGTH 2
-#define EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_OFFSET 0x2BA
-#define EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_LENGTH 4
-#define EEPROM_HOURS_COUNTER_OFFSET 0x2C0
-#define EEPROM_HOURS_COUNTER_LENGTH 4
-#define EEPROM_X_AXIS_STEPS_PER_MM_OFFSET 0x2D6
-#define EEPROM_X_AXIS_STEPS_PER_MM_LENGTH 4
-#define EEPROM_Y_AXIS_STEPS_PER_MM_OFFSET 0x2DA
-#define EEPROM_Y_AXIS_STEPS_PER_MM_LENGTH 4
-#define EEPROM_Z_AXIS_STEPS_PER_MM_OFFSET 0x2DE
-#define EEPROM_Z_AXIS_STEPS_PER_MM_LENGTH 4
-#define EEPROM_E_AXIS_STEPS_PER_MM_OFFSET 0x2E2
-#define EEPROM_E_AXIS_STEPS_PER_MM_LENGTH 4
-#define EEPROM_SAVED_Z_STATE_OFFSET 0x2E6
-#define EEPROM_SAVED_Z_STATE_LENGTH 2
-#define EEPROM_EXTRUDER_CURRENT_OFFSET 0x2E8
-#define EEPROM_EXTRUDER_CURRENT_LENGTH 2
-#define EEPROM_HEATER_RESISTANCE_M_OFFSET 0x2EA
-#define EEPROM_HEATER_RESISTANCE_M_LENGTH 4
-#define EEPROM_SERIAL_NUMBER_OFFSET 0x2EF
-#define EEPROM_SERIAL_NUMBER_LENGTH USB_DEVICE_GET_SERIAL_NAME_LENGTH
 
 
 // Request class
@@ -155,7 +55,7 @@ class Request {
 
 
 // Global variables
-uint8_t serialNumber[EEPROM_SERIAL_NUMBER_LENGTH];
+uint8_t serialNumber[USB_DEVICE_GET_SERIAL_NAME_LENGTH];
 Request requests[REQUEST_BUFFER_SIZE];
 
 
@@ -201,14 +101,6 @@ int main() {
 	// Enable peripheral clock for event system
 	sysclk_enable_module(SYSCLK_PORT_GEN, SYSCLK_EVSYS);
 	
-	// Initialize variables
-	uint8_t currentProcessingRequest = 0;
-	char responseBuffer[255];
-	uint32_t currentLineNumber = 0;
-	char numberBuffer[sizeof("4294967295")];
-	Accelerometer accelerometer;
-	Gcode gcode;
-	
 	// Set ports to values used by official firmware
 	PORTA.DIR = 0x06;
 	PORTA.PIN6CTRL = 0x18;
@@ -225,14 +117,30 @@ int main() {
 	PORTE.DIR = 0x0E;
 	PORTE.PIN0CTRL = 0x18;
 	
-	// Configure LED
-	ioport_set_pin_dir(LED, IOPORT_DIR_OUTPUT);	
+	// Initialize variables
+	uint8_t currentProcessingRequest = 0;
+	char responseBuffer[255];
+	uint32_t currentLineNumber = 0;
+	char numberBuffer[sizeof("4294967295")];
+	Accelerometer accelerometer;
+	Motors motors;
+	Gcode gcode;
+	uint32_t delayTime;
+	
+	// Configure fan enable
+	ioport_set_pin_dir(FAN_ENABLE, IOPORT_DIR_OUTPUT);
+	pwm_config fanPwm;
+	pwm_init(&fanPwm, FAN_PWM_TIMER, FAN_PWM_CHANNEL, 500);
+	pwm_start(&fanPwm, 0);
+	
+	// Configure LED enable
+	ioport_set_pin_dir(LED_ENABLE, IOPORT_DIR_OUTPUT);
 	pwm_config ledPwm;
 	pwm_init(&ledPwm, LED_PWM_TIMER, LED_PWM_CHANNEL, 500);
 	pwm_start(&ledPwm, 100);
 	
 	// Configure general purpose timer
-	tc_enable(&TCC0);
+	/*tc_enable(&TCC0);
 	tc_set_wgm(&TCC0, TC_WG_NORMAL);
 	tc_write_period(&TCC0, USHRT_MAX);
 	EVSYS.CH0MUX = EVSYS_CHMUX_TCC0_OVF_gc;
@@ -240,7 +148,7 @@ int main() {
 	tc_set_wgm(&TCC1, TC_WG_NORMAL);
 	tc_write_period(&TCC1, sysclk_get_cpu_hz() / tc_read_period(&TCC0));
 	tc_set_overflow_interrupt_level(&TCC1, TC_INT_LVL_LO);
-	tc_write_clock_source(&TCC1, TC_CLKSEL_EVCH0_gc);
+	tc_write_clock_source(&TCC1, TC_CLKSEL_EVCH0_gc);*/
 	
 	// Configure send wait interrupt timer
 	tc_enable(&TCC2);
@@ -257,13 +165,9 @@ int main() {
 	
 	// Initialize USB
 	udc_start();
-	M420 T40
+	
 	// Enable send wait interrupt
 	tc_write_clock_source(&TCC2, TC_CLKSEL_DIV1024_gc);
-	
-	int32_t totalX = 0;
-	int32_t totalY = 0;
-	int32_t totalZ = 0;
 	
 	// Main loop
 	while(1) {
@@ -373,23 +277,62 @@ int main() {
 							if(gcode.hasParameterM()) {
 				
 								switch(gcode.getParameterM()) {
-					
+								
+									// M17
+									case 17:
+									
+										// Turn on motors
+										motors.turnOn();
+										
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+									break;
+								
+									// M18
+									case 18:
+									
+										// Turn off motors
+										motors.turnOff();
+										
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+									break;
+									
 									// M105
-									case 105 :
+									case 105:
 						
 										// Put temperature into response
 										strcpy(responseBuffer, "ok\nT:0");
 									break;
-							
-									// M110
-									case 110 :
-							
-										// Set response to confirmation
-										strcpy(responseBuffer, "ok");
+									
+									// M106
+									case 106:
+									
+										// Check if duty cycle is provided
+										if(gcode.hasParameterS()) {
+										
+											// Check if duty cycle is valid
+											int32_t dutyCycle = gcode.getParameterS();
+											if(dutyCycle >= 0 && dutyCycle <= 255) {
+									
+												// Set fans's duty cycle
+												pwm_set_duty_cycle_percent(&fanPwm, dutyCycle * 100 / 255);
+											
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
+											}
+										}
+									break;
+									
+									// M107
+									case 107:
+									
+										// Turn off fan
+										pwm_set_duty_cycle_percent(&fanPwm, 0);
 									break;
 							
 									// M115
-									case 115 :
+									case 115:
 							
 										// Check if command is to reset
 										if(gcode.getParameterS() == 628)
@@ -407,7 +350,7 @@ int main() {
 									break;
 									
 									// M420
-									case 420 :
+									case 420:
 									
 										// Check if duty cycle is provided
 										if(gcode.hasParameterT()) {
@@ -421,16 +364,16 @@ int main() {
 									break;
 								
 									// M618
-									case 618 :
+									case 618:
 								
 										// Check if EEPROM offset, length, and value are provided
 										if(gcode.hasParameterS() && gcode.hasParameterT() && gcode.hasParameterP()) {
 									
 											// Check if offset and length are valid
 											int32_t offset = gcode.getParameterS();
-											int8_t length = gcode.getParameterT();
+											uint8_t length = gcode.getParameterT();
 										
-											if(offset >= 0 && length > 0 && length <= 4 && offset + length < EEPROM_SIZE) {
+											if(offset >= 0 && length && length <= 4 && offset + length < EEPROM_SIZE) {
 										
 												// Get value
 												int32_t value = gcode.getParameterP();
@@ -447,16 +390,16 @@ int main() {
 									break;
 								
 									// M619
-									case 619 :
+									case 619:
 								
 										// Check if EEPROM offset and length are provided
 										if(gcode.hasParameterS() && gcode.hasParameterT()) {
 									
 											// Check if offset and length are valid
 											int32_t offset = gcode.getParameterS();
-											int8_t length = gcode.getParameterT();
+											uint8_t length = gcode.getParameterT();
 										
-											if(offset >= 0 && length > 0 && length <= 4 && offset + length < EEPROM_SIZE) {
+											if(offset >= 0 && length && length <= 4 && offset + length < EEPROM_SIZE) {
 										
 												// Get value from EEPROM
 												uint32_t value = 0;
@@ -472,6 +415,15 @@ int main() {
 											}
 										}
 									break;
+									
+									// M21 or M110
+									case 21:
+									case 110:
+							
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+
+									break;
 								}
 							}
 						
@@ -481,22 +433,49 @@ int main() {
 								switch(gcode.getParameterG()) {
 					
 									// G0 or G1
-									case 0 :
-									case 1 :
+									case 0:
+									case 1:
+									
+										// Check if command contaisn a valid parameter
+										if(gcode.hasParameterX() || gcode.hasParameterY() || gcode.hasParameterZ() || gcode.hasParameterE() || gcode.hasParameterF()) {
+										
+											// Move
+											motors.move(gcode);
 							
-										// Set response to confirmation
-										strcpy(responseBuffer, "ok");
+											// Set response to confirmation
+											strcpy(responseBuffer, "ok");
+										}
 									break;
 							
 									// G4
-									case 4 :
+									case 4:
 							
 										// Delay specified time
-										uint32_t delayTime = gcode.getParameterP() + gcode.getParameterS() * 1000;
-								
+										delayTime = gcode.getParameterP() + gcode.getParameterS() * 1000;
+										
 										if(delayTime)
 											delay_ms(delayTime);
 								
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+									break;
+									
+									// G90
+									case 90:
+									
+										// Set mode to absolute
+										motors.setMode(ABSOLUTE);
+										
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+									break;
+									
+									// G91
+									case 91:
+									
+										// Set mode to relative
+										motors.setMode(RELATIVE);
+										
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
 									break;

@@ -23,79 +23,79 @@ class Gcode {
 		void clearCommand();
 		
 		// Is empty
-		bool isEmpty();
+		bool isEmpty() const;
 		
 		// Has parameter G
-		bool hasParameterG();
+		bool hasParameterG() const;
 		
 		// Get parameter G
-		uint8_t getParameterG();
+		uint8_t getParameterG() const;
 		
 		// Has parameter M
-		bool hasParameterM();
+		bool hasParameterM() const;
 		
 		// Get parameter M
-		uint16_t getParameterM();
+		uint16_t getParameterM() const;
 		
 		// Has parameter T
-		bool hasParameterT();
+		bool hasParameterT() const;
 		
 		// Get parameter T
-		uint8_t getParameterT();
+		uint8_t getParameterT() const;
 		
 		// Has parameter S
-		bool hasParameterS();
+		bool hasParameterS() const;
 		
 		// Get parameter S
-		int32_t getParameterS();
+		int32_t getParameterS() const;
 		
 		// Has parameter P
-		bool hasParameterP();
+		bool hasParameterP() const;
 		
 		// Get parameter P
-		int32_t getParameterP();
+		int32_t getParameterP() const;
 		
 		// Has parameter X
-		bool hasParameterX();
+		bool hasParameterX() const;
 		
 		// Get parameter X
-		float getParameterX();
+		float getParameterX() const;
 		
 		// Has parameter Y
-		bool hasParameterY();
+		bool hasParameterY() const;
 		
 		// Get parameter Y
-		float getParameterY();
+		float getParameterY() const;
 		
 		// Has parameter Z
-		bool hasParameterZ();
+		bool hasParameterZ() const;
 		
 		// Get parameter Z
-		float getParameterZ();
+		float getParameterZ() const;
 		
 		// Has parameter F
-		bool hasParameterF();
+		bool hasParameterF() const;
 		
 		// Get parameter F
-		float getParameterF();
+		float getParameterF() const;
 		
 		// Has parameter E
-		bool hasParameterE();
+		bool hasParameterE() const;
 		
 		// Get parameter E
-		float getParameterE();
+		float getParameterE() const;
 		
 		// Has parameter N
-		bool hasParameterN();
+		bool hasParameterN() const;
 		
 		// Get parameter N
-		uint32_t getParameterN();
+		uint32_t getParameterN() const;
 		
 		// Has host command
-		bool hasHostCommand();
+		bool hasHostCommand() const;
 		
 		// Get host command
-		char *getHostCommand();
+		const char *getHostCommand() const;
 	
 	// Private
 	private :

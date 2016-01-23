@@ -29,7 +29,8 @@ CSRCS = src/ASF/common/boards/user_board/init.c \
 # C++ source files
 CPPSRCS = main.cpp \
 	gcode.cpp \
-	accelerometer.cpp
+	accelerometer.cpp \
+	motors.cpp
 
 # Include paths
 INCPATH = . \

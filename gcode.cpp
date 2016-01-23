@@ -125,47 +125,47 @@ bool Gcode::parseCommand(const char *command) {
 				// Save parameter's value
 				switch(parameterOffset) {
 				
-					case PARAMETER_G_OFFSET :
+					case PARAMETER_G_OFFSET:
 						valueG = strtoul(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
 					break;
 					
-					case PARAMETER_M_OFFSET :
+					case PARAMETER_M_OFFSET:
 						valueM = strtoul(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
 					break;
 					
-					case PARAMETER_T_OFFSET :
+					case PARAMETER_T_OFFSET:
 						valueT = strtoul(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
 					break;
 					
-					case PARAMETER_S_OFFSET :
+					case PARAMETER_S_OFFSET:
 						valueS = strtol(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
 					break;
 					
-					case PARAMETER_P_OFFSET :
+					case PARAMETER_P_OFFSET:
 						valueP = strtol(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
 					break;
 					
-					case PARAMETER_X_OFFSET :
+					case PARAMETER_X_OFFSET:
 						valueX = strtod(&command[i], reinterpret_cast<char **>(&lastParameterCharacter));
 					break;
 					
-					case PARAMETER_Y_OFFSET :
+					case PARAMETER_Y_OFFSET:
 						valueY = strtod(&command[i], reinterpret_cast<char **>(&lastParameterCharacter));
 					break;
 					
-					case PARAMETER_Z_OFFSET :
+					case PARAMETER_Z_OFFSET:
 						valueZ = strtod(&command[i], reinterpret_cast<char **>(&lastParameterCharacter));
 					break;
 					
-					case PARAMETER_F_OFFSET :
+					case PARAMETER_F_OFFSET:
 						valueF = strtod(&command[i], reinterpret_cast<char **>(&lastParameterCharacter));
 					break;
 					
-					case PARAMETER_E_OFFSET :
+					case PARAMETER_E_OFFSET:
 						valueE = strtod(&command[i], reinterpret_cast<char **>(&lastParameterCharacter));
 					break;
 					
-					case PARAMETER_N_OFFSET :
+					case PARAMETER_N_OFFSET:
 						valueN = strtoul(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
 					break;
 				}
@@ -210,151 +210,151 @@ void Gcode::clearCommand() {
 	*hostCommand = 0;
 }
 
-bool Gcode::isEmpty() {
+bool Gcode::isEmpty() const {
 
 	// Return if command contains no parameters
 	return !commandParameters;
 }
 
-bool Gcode::hasParameterG() {
+bool Gcode::hasParameterG() const {
 
 	// Return is parameter is set
 	return commandParameters & PARAMETER_G_OFFSET;
 }
 
-uint8_t Gcode::getParameterG() {
+uint8_t Gcode::getParameterG() const {
 
 	// Return parameter's value
 	return valueG;
 }
 
-bool Gcode::hasParameterM() {
+bool Gcode::hasParameterM() const {
 
 	// Return is parameter is set
 	return commandParameters & PARAMETER_M_OFFSET;
 }
 
-uint16_t Gcode::getParameterM() {
+uint16_t Gcode::getParameterM() const {
 
 	// Return parameter's value
 	return valueM;
 }
 
-bool Gcode::hasParameterT() {
+bool Gcode::hasParameterT() const {
 
 	// Return is parameter is set
 	return commandParameters & PARAMETER_T_OFFSET;
 }
 
-uint8_t Gcode::getParameterT() {
+uint8_t Gcode::getParameterT() const {
 
 	// Return parameter's value
 	return valueT;
 }
 
-bool Gcode::hasParameterS() {
+bool Gcode::hasParameterS() const {
 
 	// Return is parameter is set
 	return commandParameters & PARAMETER_S_OFFSET;
 }
 
-int32_t Gcode::getParameterS() {
+int32_t Gcode::getParameterS() const {
 
 	// Return parameter's value
 	return valueS;
 }
 
-bool Gcode::hasParameterP() {
+bool Gcode::hasParameterP() const {
 
 	// Return is parameter is set
 	return commandParameters & PARAMETER_P_OFFSET;
 }
 
-int32_t Gcode::getParameterP() {
+int32_t Gcode::getParameterP() const {
 
 	// Return parameter's value
 	return valueP;
 }
 
-bool Gcode::hasParameterX() {
+bool Gcode::hasParameterX() const {
 
 	// Return is parameter is set
 	return commandParameters & PARAMETER_X_OFFSET;
 }
 
-float Gcode::getParameterX() {
+float Gcode::getParameterX() const {
 
 	// Return parameter's value
 	return valueX;
 }
 
-bool Gcode::hasParameterY() {
+bool Gcode::hasParameterY() const {
 
 	// Return is parameter is set
 	return commandParameters & PARAMETER_Y_OFFSET;
 }
 
-float Gcode::getParameterY() {
+float Gcode::getParameterY() const {
 
 	// Return parameter's value
 	return valueY;
 }
 
-bool Gcode::hasParameterZ() {
+bool Gcode::hasParameterZ() const {
 
 	// Return is parameter is set
 	return commandParameters & PARAMETER_Z_OFFSET;
 }
 
-float Gcode::getParameterZ() {
+float Gcode::getParameterZ() const {
 
 	// Return parameter's value
 	return valueZ;
 }
 
-bool Gcode::hasParameterF() {
+bool Gcode::hasParameterF() const {
 
 	// Return is parameter is set
 	return commandParameters & PARAMETER_F_OFFSET;
 }
 
-float Gcode::getParameterF() {
+float Gcode::getParameterF() const {
 
 	// Return parameter's value
 	return valueF;
 }
 
-bool Gcode::hasParameterE() {
+bool Gcode::hasParameterE() const {
 
 	// Return is parameter is set
 	return commandParameters & PARAMETER_E_OFFSET;
 }
 
-float Gcode::getParameterE() {
+float Gcode::getParameterE() const {
 
 	// Return parameter's value
 	return valueE;
 }
 
-bool Gcode::hasParameterN() {
+bool Gcode::hasParameterN() const {
 
 	// Return is parameter is set
 	return commandParameters & PARAMETER_N_OFFSET;
 }
 
-uint32_t Gcode::getParameterN() {
+uint32_t Gcode::getParameterN() const {
 
 	// Return parameter's value
 	return valueN;
 }
 
-bool Gcode::hasHostCommand() {
+bool Gcode::hasHostCommand() const {
 
 	// Return is host command is set
 	return *hostCommand;
 }
 
-char *Gcode::getHostCommand() {
+const char *Gcode::getHostCommand() const {
 
 	// Return host command
 	return hostCommand;

@@ -13,7 +13,7 @@ class Accelerometer {
 	// Public
 	public :
 	
-		// Parameterized constructor
+		// Constructor
 		Accelerometer();
 		
 		// Calibrate
