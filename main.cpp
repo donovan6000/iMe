@@ -24,6 +24,8 @@ extern "C" {
 
 // Pins
 #define LED IOPORT_CREATE_PIN(PORTE, 3)
+#define LED_PWM_TIMER PWM_TCE0
+#define LED_PWM_CHANNEL PWM_CH_D 
 
 // Configuration details
 #define REQUEST_BUFFER_SIZE 10
@@ -223,8 +225,11 @@ int main() {
 	PORTE.DIR = 0x0E;
 	PORTE.PIN0CTRL = 0x18;
 	
-	ioport_set_pin_dir(LED, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(LED, IOPORT_PIN_LEVEL_HIGH);
+	// Configure LED
+	ioport_set_pin_dir(LED, IOPORT_DIR_OUTPUT);	
+	pwm_config ledPwm;
+	pwm_init(&ledPwm, LED_PWM_TIMER, LED_PWM_CHANNEL, 500);
+	pwm_start(&ledPwm, 100);
 	
 	// Configure general purpose timer
 	tc_enable(&TCC0);
@@ -252,9 +257,13 @@ int main() {
 	
 	// Initialize USB
 	udc_start();
-	
+	M420 T40
 	// Enable send wait interrupt
 	tc_write_clock_source(&TCC2, TC_CLKSEL_DIV1024_gc);
+	
+	int32_t totalX = 0;
+	int32_t totalY = 0;
+	int32_t totalZ = 0;
 	
 	// Main loop
 	while(1) {
@@ -292,18 +301,8 @@ int main() {
 					// Check if command has host command
 					if(gcode.hasHostCommand()) {
 				
-						// Check if host command is to toggle LED
-						if(!strcmp(gcode.getHostCommand(), "Toggle LED")) {
-					
-							// Toggle LED
-							ioport_toggle_pin_level(LED);
-					
-							// Set response to confirmation
-							strcpy(responseBuffer, "ok");
-						}
-						
-						// Otherwise check if host command is to calibrate the accelerometer
-						else if(!strcmp(gcode.getHostCommand(), "Calibrate accelerometer")) {
+						// Check if host command is to calibrate the accelerometer
+						if(!strcmp(gcode.getHostCommand(), "Calibrate accelerometer")) {
 						
 							// Calibrate accelerometer
 							accelerometer.calibrate();
@@ -404,6 +403,20 @@ int main() {
 											// Put device details into response
 											strcpy(responseBuffer, "ok REPRAP_PROTOCOL:1 FIRMWARE_NAME:" FIRMWARE_NAME " FIRMWARE_VERSION:" FIRMWARE_VERSION " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
 											strncat(responseBuffer, reinterpret_cast<char *>(serialNumber), EEPROM_SERIAL_NUMBER_LENGTH);
+										}
+									break;
+									
+									// M420
+									case 420 :
+									
+										// Check if duty cycle is provided
+										if(gcode.hasParameterT()) {
+									
+											// Set LED's duty cycle
+											pwm_set_duty_cycle_percent(&ledPwm, gcode.getParameterT() * 100 / 255);
+											
+											// Set response to confirmation
+											strcpy(responseBuffer, "ok");
 										}
 									break;
 								

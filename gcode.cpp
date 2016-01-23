@@ -134,7 +134,7 @@ bool Gcode::parseCommand(const char *command) {
 					break;
 					
 					case PARAMETER_T_OFFSET :
-						valueT = strtol(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
+						valueT = strtoul(&command[i], reinterpret_cast<char **>(&lastParameterCharacter), 10); 
 					break;
 					
 					case PARAMETER_S_OFFSET :
@@ -246,7 +246,7 @@ bool Gcode::hasParameterT() {
 	return commandParameters & PARAMETER_T_OFFSET;
 }
 
-int8_t Gcode::getParameterT() {
+uint8_t Gcode::getParameterT() {
 
 	// Return parameter's value
 	return valueT;

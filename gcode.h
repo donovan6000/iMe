@@ -41,7 +41,7 @@ class Gcode {
 		bool hasParameterT();
 		
 		// Get parameter T
-		int8_t getParameterT();
+		uint8_t getParameterT();
 		
 		// Has parameter S
 		bool hasParameterS();
@@ -106,7 +106,7 @@ class Gcode {
 		// Values
 		uint8_t valueG;
 		uint16_t valueM;
-		int8_t valueT;
+		uint8_t valueT;
 		int32_t valueS;
 		int32_t valueP;
 		float valueX;

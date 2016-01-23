@@ -77,6 +77,9 @@
 // From module: PMIC - Programmable Multi-level Interrupt Controller
 #include <pmic.h>
 
+// From module: PWM service using timer/counter
+#include <pwm.h>
+
 // From module: Part identification macros
 #include <parts.h>
 
