@@ -436,7 +436,7 @@ int main() {
 									case 0:
 									case 1:
 									
-										// Check if command contaisn a valid parameter
+										// Check if command contains a valid parameter
 										if(gcode.hasParameterX() || gcode.hasParameterY() || gcode.hasParameterZ() || gcode.hasParameterE() || gcode.hasParameterF()) {
 										
 											// Move
