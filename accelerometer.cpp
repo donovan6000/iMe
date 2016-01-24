@@ -9,14 +9,14 @@ extern "C" {
 
 // Pins
 #define TWI_MASTER TWIC
-#define ACCELEROMETER_VDDIO IOPORT_CREATE_PIN(PORTB, 1)
-#define ACCELEROMETER_SDA IOPORT_CREATE_PIN(PORTC, 0)
-#define ACCELEROMETER_SCL IOPORT_CREATE_PIN(PORTC, 1)
+#define ACCELEROMETER_VDDIO_PIN IOPORT_CREATE_PIN(PORTB, 1)
+#define ACCELEROMETER_SDA_PIN IOPORT_CREATE_PIN(PORTC, 0)
+#define ACCELEROMETER_SCL_PIN IOPORT_CREATE_PIN(PORTC, 1)
 
 // Bus details
 #define MASTER_ADDRESS 0x00
 #define ACCELEROMETER_ADDRESS 0x1D
-#define ACCELEROMETER_SPEED 400000
+#define BUS_SPEED 400000
 #define DEVICE_ID 0x4A
 #define SENSITIVITY_2G (2048 / 2)
 #define SENSITIVITY_4G (2048 / 4)
@@ -59,16 +59,16 @@ Accelerometer::Accelerometer() {
 	uint8_t value;
 	
 	// Configure VDDIO, SDA and SCL pins
-	ioport_set_pin_dir(ACCELEROMETER_VDDIO, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(ACCELEROMETER_VDDIO, IOPORT_PIN_LEVEL_HIGH);
-	ioport_set_pin_mode(ACCELEROMETER_SDA, IOPORT_MODE_WIREDANDPULL);
-	ioport_set_pin_mode(ACCELEROMETER_SCL, IOPORT_MODE_WIREDANDPULL);
+	ioport_set_pin_dir(ACCELEROMETER_VDDIO_PIN, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_level(ACCELEROMETER_VDDIO_PIN, IOPORT_PIN_LEVEL_HIGH);
+	ioport_set_pin_mode(ACCELEROMETER_SDA_PIN, IOPORT_MODE_WIREDANDPULL);
+	ioport_set_pin_mode(ACCELEROMETER_SCL_PIN, IOPORT_MODE_WIREDANDPULL);
 	
 	// Configure interface
 	twi_options_t options;
-	options.speed = ACCELEROMETER_SPEED;
+	options.speed = BUS_SPEED;
 	options.chip = MASTER_ADDRESS;
-	options.speed_reg = TWI_BAUD(sysclk_get_cpu_hz(), ACCELEROMETER_SPEED);
+	options.speed_reg = TWI_BAUD(sysclk_get_cpu_hz(), BUS_SPEED);
 	
 	// Initialize interface
 	sysclk_enable_peripheral_clock(&TWI_MASTER);

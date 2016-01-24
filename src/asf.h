@@ -52,6 +52,9 @@
  * running the ASF driver selector tool. Any changes will be discarded.
  */
 
+// From module: ADC - XMEGA B/C/D Implementation
+#include <adc.h>
+
 // From module: CPU specific features
 #include <ccp.h>
 #include <xmega_reset_cause.h>

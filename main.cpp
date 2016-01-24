@@ -8,6 +8,7 @@ extern "C" {
 #include "accelerometer.h"
 #include "motors.h"
 #include "eeprom.h"
+#include "heater.h"
 
 
 // Definitions
@@ -22,14 +23,18 @@ extern "C" {
 #endif
 
 // Fan pin
-#define FAN_ENABLE IOPORT_CREATE_PIN(PORTE, 1)
+#define FAN_ENABLE_PIN IOPORT_CREATE_PIN(PORTE, 1)
 #define FAN_PWM_TIMER PWM_TCE0
 #define FAN_PWM_CHANNEL PWM_CH_B
 
-// LED Pin
-#define LED_ENABLE IOPORT_CREATE_PIN(PORTE, 3)
+// LED pin
+#define LED_ENABLE_PIN IOPORT_CREATE_PIN(PORTE, 3)
 #define LED_PWM_TIMER PWM_TCE0
-#define LED_PWM_CHANNEL PWM_CH_D 
+#define LED_PWM_CHANNEL PWM_CH_D
+
+// Unknown pins
+#define UNKNOWN_PIN_1 IOPORT_CREATE_PIN(PORTA, 1)
+#define UNKNOWN_PIN_2 IOPORT_CREATE_PIN(PORTA, 5)
 
 // Configuration details
 #define REQUEST_BUFFER_SIZE 10
@@ -98,25 +103,6 @@ int main() {
 	// Initialize I/O ports
 	ioport_init();
 	
-	// Enable peripheral clock for event system
-	sysclk_enable_module(SYSCLK_PORT_GEN, SYSCLK_EVSYS);
-	
-	// Set ports to values used by official firmware
-	PORTA.DIR = 0x06;
-	PORTA.PIN6CTRL = 0x18;
-
-	PORTB.DIR = 0x0C;
-	PORTB.OUT = 0x08;
-	PORTB.PIN1CTRL = 0x18;
-
-	PORTC.DIR = 0xFE;
-
-	PORTD.DIR = 0x3F;
-	PORTD.OUT = 0x30;
-
-	PORTE.DIR = 0x0E;
-	PORTE.PIN0CTRL = 0x18;
-	
 	// Initialize variables
 	uint8_t currentProcessingRequest = 0;
 	char responseBuffer[255];
@@ -124,31 +110,26 @@ int main() {
 	char numberBuffer[sizeof("4294967295")];
 	Accelerometer accelerometer;
 	Motors motors;
+	Heater heater;
 	Gcode gcode;
 	uint32_t delayTime;
 	
 	// Configure fan enable
-	ioport_set_pin_dir(FAN_ENABLE, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_dir(FAN_ENABLE_PIN, IOPORT_DIR_OUTPUT);
 	pwm_config fanPwm;
 	pwm_init(&fanPwm, FAN_PWM_TIMER, FAN_PWM_CHANNEL, 500);
 	pwm_start(&fanPwm, 0);
 	
 	// Configure LED enable
-	ioport_set_pin_dir(LED_ENABLE, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_dir(LED_ENABLE_PIN, IOPORT_DIR_OUTPUT);
 	pwm_config ledPwm;
 	pwm_init(&ledPwm, LED_PWM_TIMER, LED_PWM_CHANNEL, 500);
 	pwm_start(&ledPwm, 100);
 	
-	// Configure general purpose timer
-	/*tc_enable(&TCC0);
-	tc_set_wgm(&TCC0, TC_WG_NORMAL);
-	tc_write_period(&TCC0, USHRT_MAX);
-	EVSYS.CH0MUX = EVSYS_CHMUX_TCC0_OVF_gc;
-	tc_enable(&TCC1);
-	tc_set_wgm(&TCC1, TC_WG_NORMAL);
-	tc_write_period(&TCC1, sysclk_get_cpu_hz() / tc_read_period(&TCC0));
-	tc_set_overflow_interrupt_level(&TCC1, TC_INT_LVL_LO);
-	tc_write_clock_source(&TCC1, TC_CLKSEL_EVCH0_gc);*/
+	// Configure unknown pins to how the official firmware does
+	ioport_set_pin_dir(UNKNOWN_PIN_1, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_level(UNKNOWN_PIN_1, IOPORT_PIN_LEVEL_LOW);
+	ioport_set_pin_dir(UNKNOWN_PIN_2, IOPORT_DIR_INPUT);
 	
 	// Configure send wait interrupt timer
 	tc_enable(&TCC2);
@@ -167,6 +148,7 @@ int main() {
 	udc_start();
 	
 	// Enable send wait interrupt
+	tc_restart(&TCC2);
 	tc_write_clock_source(&TCC2, TC_CLKSEL_DIV1024_gc);
 	
 	// Main loop
