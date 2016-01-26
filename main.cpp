@@ -4,11 +4,13 @@ extern "C" {
 }
 #include <string.h>
 #include <limits.h>
-#include "gcode.h"
 #include "accelerometer.h"
-#include "motors.h"
 #include "eeprom.h"
+#include "fan.h"
+#include "gcode.h"
 #include "heater.h"
+#include "led.h"
+#include "motors.h"
 
 
 // Definitions
@@ -22,19 +24,9 @@ extern "C" {
 	#define FIRMWARE_VERSION "1900000001"
 #endif
 
-// Fan pin
-#define FAN_ENABLE_PIN IOPORT_CREATE_PIN(PORTE, 1)
-#define FAN_PWM_TIMER PWM_TCE0
-#define FAN_PWM_CHANNEL PWM_CH_B
-
-// LED pin
-#define LED_ENABLE_PIN IOPORT_CREATE_PIN(PORTE, 3)
-#define LED_PWM_TIMER PWM_TCE0
-#define LED_PWM_CHANNEL PWM_CH_D
-
 // Unknown pins
-#define UNKNOWN_PIN_1 IOPORT_CREATE_PIN(PORTA, 1)
-#define UNKNOWN_PIN_2 IOPORT_CREATE_PIN(PORTA, 5)
+#define UNKNOWN_PIN_1 IOPORT_CREATE_PIN(PORTA, 1) // Connected to transistors above the microcontroller
+#define UNKNOWN_PIN_2 IOPORT_CREATE_PIN(PORTA, 5) // Connected to a resistor and capacitor in parallel to ground
 
 // Configuration details
 #define REQUEST_BUFFER_SIZE 10
@@ -111,20 +103,11 @@ int main() {
 	Accelerometer accelerometer;
 	Motors motors;
 	Heater heater;
+	Led led;
+	Fan fan;
 	Gcode gcode;
 	uint32_t delayTime;
-	
-	// Configure fan enable
-	ioport_set_pin_dir(FAN_ENABLE_PIN, IOPORT_DIR_OUTPUT);
-	pwm_config fanPwm;
-	pwm_init(&fanPwm, FAN_PWM_TIMER, FAN_PWM_CHANNEL, 500);
-	pwm_start(&fanPwm, 0);
-	
-	// Configure LED enable
-	ioport_set_pin_dir(LED_ENABLE_PIN, IOPORT_DIR_OUTPUT);
-	pwm_config ledPwm;
-	pwm_init(&ledPwm, LED_PWM_TIMER, LED_PWM_CHANNEL, 500);
-	pwm_start(&ledPwm, 100);
+	char *startOfTemperature;
 	
 	// Configure unknown pins to how the official firmware does
 	ioport_set_pin_dir(UNKNOWN_PIN_1, IOPORT_DIR_OUTPUT);
@@ -260,6 +243,11 @@ int main() {
 				
 								switch(gcode.getParameterM()) {
 								
+									// M0
+									case 0 :
+									
+									break;
+								
 									// M17
 									case 17:
 									
@@ -280,11 +268,25 @@ int main() {
 										strcpy(responseBuffer, "ok");
 									break;
 									
+									// M104
+									case 104 :
+									
+									break;
+									
 									// M105
 									case 105:
 						
-										// Put temperature into response
-										strcpy(responseBuffer, "ok\nT:0");
+										// Set response to temperature
+										strcpy(responseBuffer, "ok\nT:");
+										
+										dtostrf(static_cast<float>(heater.getTemperature()) * 2.60 / 2047, 9, 4, numberBuffer);
+										startOfTemperature = numberBuffer;
+										
+										while(*startOfTemperature++ == ' ');
+										if(*startOfTemperature == '.')
+											*(--startOfTemperature) = '0';
+										
+										strcat(responseBuffer, startOfTemperature);
 									break;
 									
 									// M106
@@ -293,12 +295,12 @@ int main() {
 										// Check if duty cycle is provided
 										if(gcode.hasParameterS()) {
 										
-											// Check if duty cycle is valid
-											int32_t dutyCycle = gcode.getParameterS();
-											if(dutyCycle >= 0 && dutyCycle <= 255) {
+											// Check if speed is valid
+											int32_t speed = gcode.getParameterS();
+											if(speed >= 0 && speed <= 255) {
 									
-												// Set fans's duty cycle
-												pwm_set_duty_cycle_percent(&fanPwm, dutyCycle * 100 / 255);
+												// Set fan's speed
+												fan.setSpeed(speed);
 											
 												// Set response to confirmation
 												strcpy(responseBuffer, "ok");
@@ -310,7 +312,17 @@ int main() {
 									case 107:
 									
 										// Turn off fan
-										pwm_set_duty_cycle_percent(&fanPwm, 0);
+										fan.turnOff();
+									break;
+									
+									// M109
+									case 109:
+									
+									break;
+									
+									// M114
+									case 114:
+									
 									break;
 							
 									// M115
@@ -331,17 +343,28 @@ int main() {
 										}
 									break;
 									
+									// M117
+									case 117:
+									
+									break;
+									
 									// M420
 									case 420:
 									
 										// Check if duty cycle is provided
 										if(gcode.hasParameterT()) {
-									
-											// Set LED's duty cycle
-											pwm_set_duty_cycle_percent(&ledPwm, gcode.getParameterT() * 100 / 255);
+										
+											// Check if brightness is valid
+											uint8_t brightness = gcode.getParameterT();
 											
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
+											if(brightness <= 100) {
+											
+												// Set LED's brightness
+												led.setBrightness(brightness);
+												
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
+											}
 										}
 									break;
 								
@@ -398,8 +421,9 @@ int main() {
 										}
 									break;
 									
-									// M21 or M110
+									// M21, M84, or M110
 									case 21:
+									case 84:
 									case 110:
 							
 										// Set response to confirmation
@@ -442,6 +466,26 @@ int main() {
 										strcpy(responseBuffer, "ok");
 									break;
 									
+									// G28
+									case 28:
+									
+									break;
+									
+									// G30
+									case 30:
+									
+									break;
+									
+									// G32
+									case 32:
+									
+									break;
+									
+									// G33
+									case 33:
+									
+									break;
+									
 									// G90
 									case 90:
 									
@@ -460,6 +504,11 @@ int main() {
 										
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
+									break;
+									
+									// G92
+									case 92:
+									
 									break;
 								}
 							}

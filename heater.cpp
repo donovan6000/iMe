@@ -21,9 +21,7 @@ extern "C" {
 #define HEATER_READ_POSITIVE_INPUT ADCCH_POS_PIN3
 #define HEATER_READ_NEGATIVE_INPUT ADCCH_NEG_PIN4
 
-// Heater modes
-#define HEATER_HEAT_MODE IOPORT_PIN_LEVEL_HIGH
-#define HEATER_READ_MODE IOPORT_PIN_LEVEL_LOW
+#define VREF_VOLTAGE 2.60
 
 
 // Global variables
@@ -44,13 +42,13 @@ Heater::Heater() {
 
 	// Configure heater select, enable, and read
 	ioport_set_pin_dir(HEATER_MODE_SELECT_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_HEAT_MODE);
+	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, IOPORT_PIN_LEVEL_LOW);
 	
 	ioport_set_pin_dir(HEATER_ENABLE_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(HEATER_ENABLE_PIN, IOPORT_PIN_LEVEL_LOW);
+	ioport_set_pin_level(HEATER_ENABLE_PIN, IOPORT_PIN_LEVEL_HIGH);
 	
-	ioport_set_pin_dir(HEATER_READ_NEGATIVE_PIN, IOPORT_DIR_INPUT);
 	ioport_set_pin_dir(HEATER_READ_POSITIVE_PIN, IOPORT_DIR_INPUT);
+	ioport_set_pin_dir(HEATER_READ_NEGATIVE_PIN, IOPORT_DIR_INPUT);
 	ioport_set_pin_dir(HEATER_READ_VREF_PIN, IOPORT_DIR_INPUT);
 	
 	adc_config heaterReadAdc;
@@ -81,10 +79,7 @@ Heater::Heater() {
 void Heater::setTemperature(uint16_t value) {
 
 	// Set mode to heat
-	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_HEAT_MODE);
-
-	// Turn on heater
-	ioport_set_pin_level(HEATER_ENABLE_PIN, IOPORT_PIN_LEVEL_HIGH);
+	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, IOPORT_PIN_LEVEL_HIGH);
 	
 	// Set temperature
 	temperature = value;
@@ -96,12 +91,19 @@ void Heater::setTemperature(uint16_t value) {
 
 int16_t Heater::getTemperature() {
 
-	// Set mode to read
-	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_READ_MODE);
-
+	// Turn on heater
+	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, IOPORT_PIN_LEVEL_HIGH);
+	
+	// Get value
 	adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 	adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-	return adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+	int16_t value = adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+	
+	// Turn off heater
+	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, IOPORT_PIN_LEVEL_LOW);
+	
+	// Return value
+	return value;
 }
 
 void Heater::turnOff() {
@@ -113,7 +115,7 @@ void Heater::turnOff() {
 	temperature = 0;
 
 	// Turn off heater
-	ioport_set_pin_level(HEATER_ENABLE_PIN, IOPORT_PIN_LEVEL_LOW);
+	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, IOPORT_PIN_LEVEL_LOW);
 }
 
 void checkTemperature() {
