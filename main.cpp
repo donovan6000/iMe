@@ -196,7 +196,72 @@ int main() {
 							strcat(responseBuffer, numberBuffer);
 							strcat(responseBuffer, "mg");
 						}
-					
+						
+						// Otherwise check if host command is to get lock bits
+						else if(!strcmp(gcode.getHostCommand(), "Lock bits")) {
+						
+							// Send lock bits
+							strcpy(responseBuffer, "ok 0x");
+							ltoa(NVM_LOCKBITS, numberBuffer, 16);
+							strcat(responseBuffer, numberBuffer);
+						}
+						
+						// Otherwise check if host command is to get fuse bytes
+						else if(!strcmp(gcode.getHostCommand(), "Fuse bytes")) {
+						
+							// Send fuse bytes
+							strcpy(responseBuffer, "ok 0:0x");
+							ltoa(nvm_fuses_read(FUSEBYTE0), numberBuffer, 16);
+							strcat(responseBuffer, numberBuffer);
+							strcat(responseBuffer," 1:0x");
+							ltoa(nvm_fuses_read(FUSEBYTE1), numberBuffer, 16);
+							strcat(responseBuffer, numberBuffer);
+							strcat(responseBuffer," 2:0x");
+							ltoa(nvm_fuses_read(FUSEBYTE2), numberBuffer, 16);
+							strcat(responseBuffer, numberBuffer);
+							strcat(responseBuffer," 3:0x");
+							ltoa(nvm_fuses_read(FUSEBYTE3), numberBuffer, 16);
+							strcat(responseBuffer, numberBuffer);
+							strcat(responseBuffer," 4:0x");
+							ltoa(nvm_fuses_read(FUSEBYTE4), numberBuffer, 16);
+							strcat(responseBuffer, numberBuffer);
+							strcat(responseBuffer," 5:0x");
+							ltoa(nvm_fuses_read(FUSEBYTE5), numberBuffer, 16);
+							strcat(responseBuffer, numberBuffer);
+						}
+						
+						// Otherwise check if host command is to get bootloader
+						else if(!strcmp(gcode.getHostCommand(), "Bootloader")) {
+						
+							strcpy(responseBuffer, "ok");
+							udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+						
+							// Send bootloader
+							for(uint16_t i = BOOT_SECTION_START; i <= BOOT_SECTION_END; i++) {
+								strcpy(responseBuffer, i == BOOT_SECTION_START ? "0x" : " 0x");
+								ltoa(pgm_read_byte(i), numberBuffer, 16);
+								strcat(responseBuffer, numberBuffer);
+								if(i != BOOT_SECTION_END)
+									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+							}
+						}
+						
+						// Otherwise check if host command is to get EEPROM
+						else if(!strcmp(gcode.getHostCommand(), "EEPROM")) {
+						
+							strcpy(responseBuffer, "ok");
+							udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+						
+							// Send EEPROM
+							for(uint16_t i = 0; i < EEPROM_SIZE; i++) {
+								strcpy(responseBuffer, !i ? "0x" : " 0x");
+								ltoa(nvm_eeprom_read_byte(i), numberBuffer, 16);
+								strcat(responseBuffer, numberBuffer);
+								if(1 != EEPROM_SIZE - 1)
+									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+							}
+						}
+						
 						// Otherwise
 						else
 					
