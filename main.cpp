@@ -230,6 +230,22 @@ int main() {
 							strcat(responseBuffer, numberBuffer);
 						}
 						
+						// Otherwise check if host command is to get application
+						else if(!strcmp(gcode.getHostCommand(), "Application")) {
+						
+							strcpy(responseBuffer, "ok");
+							udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+						
+							// Send application
+							for(uint16_t i = APP_SECTION_START; i <= APP_SECTION_END; i++) {
+								strcpy(responseBuffer, i == APP_SECTION_START ? "0x" : " 0x");
+								ltoa(pgm_read_byte(i), numberBuffer, 16);
+								strcat(responseBuffer, numberBuffer);
+								if(i != APP_SECTION_END)
+									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+							}
+						}
+						
 						// Otherwise check if host command is to get bootloader
 						else if(!strcmp(gcode.getHostCommand(), "Bootloader")) {
 						
@@ -246,6 +262,22 @@ int main() {
 							}
 						}
 						
+						// Otherwise check if host command is to get program
+						else if(!strcmp(gcode.getHostCommand(), "Program")) {
+						
+							strcpy(responseBuffer, "ok");
+							udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+						
+							// Send bootloader
+							for(uint16_t i = PROGMEM_START; i <= PROGMEM_END; i++) {
+								strcpy(responseBuffer, i == PROGMEM_START ? "0x" : " 0x");
+								ltoa(pgm_read_byte(i), numberBuffer, 16);
+								strcat(responseBuffer, numberBuffer);
+								if(i != PROGMEM_END)
+									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+							}
+						}
+						
 						// Otherwise check if host command is to get EEPROM
 						else if(!strcmp(gcode.getHostCommand(), "EEPROM")) {
 						
@@ -253,11 +285,27 @@ int main() {
 							udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
 						
 							// Send EEPROM
-							for(uint16_t i = 0; i < EEPROM_SIZE; i++) {
-								strcpy(responseBuffer, !i ? "0x" : " 0x");
+							for(uint16_t i = EEPROM_START; i <= EEPROM_END; i++) {
+								strcpy(responseBuffer, i == EEPROM_START ? "0x" : " 0x");
 								ltoa(nvm_eeprom_read_byte(i), numberBuffer, 16);
 								strcat(responseBuffer, numberBuffer);
-								if(1 != EEPROM_SIZE - 1)
+								if(i != EEPROM_END)
+									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+							}
+						}
+						
+						// Otherwise check if host command is to get user signature
+						else if(!strcmp(gcode.getHostCommand(), "User signature")) {
+						
+							strcpy(responseBuffer, "ok");
+							udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+						
+							// Send EEPROM
+							for(uint16_t i = USER_SIGNATURES_START; i <= USER_SIGNATURES_END; i++) {
+								strcpy(responseBuffer, i == USER_SIGNATURES_START ? "0x" : " 0x");
+								ltoa(nvm_read_user_signature_row(i), numberBuffer, 16);
+								strcat(responseBuffer, numberBuffer);
+								if(i != USER_SIGNATURES_END)
 									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
 							}
 						}
