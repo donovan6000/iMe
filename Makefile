@@ -6,6 +6,7 @@ FIRMWARE_VERSION = 1900000001
 CC = /opt/avr-toolchain/bin/avr-gcc
 COPY = /opt/avr-toolchain/bin/avr-objcopy
 SIZE = /opt/avr-toolchain/bin/avr-size
+DUMP = /opt/avr-toolchain/bin/avr-objdump
 M3DLINUX = /usr/sbin/m3d-linux
 
 # Assembly source files
@@ -90,7 +91,7 @@ CFLAGS = -std=gnu99 -x c -fdata-sections -ffunction-sections -fpack-struct -fsho
 CPPFLAGS = -std=c++14 -x c++ -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums
 LFLAGS = -Wl,--section-start=.BOOT=0x8000 -Wl,--start-group -Wl,--end-group -Wl,--gc-sections
 
-# Make
+# Make - Compiles firmware
 all:
 	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(ASFLAGS) -c $(ASSRCS)
 	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CFLAGS) -c $(CSRCS)
@@ -101,10 +102,35 @@ all:
 	@rm -f *.o $(FIRMWARE_NAME).elf
 	@echo $(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex is ready
 
-# Make clean
+# Make clean - Removes temporary files and compiled firmware
 clean:
-	rm -f $(FIRMWARE_NAME).elf "$(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex" *.o
+	rm -f $(FIRMWARE_NAME).elf debug.elf "$(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex" *.o
 
-# Make run
+# Make run - Flashes and runs compiled firmware
 run:
 	@$(M3DLINUX) -a -x -r "$(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex"
+
+# Make production debug - Adds debug information to a production elf
+productionDebug:
+
+	@$(COPY) -O binary --only-section=.text production.elf text.bin
+	@$(COPY) -O binary --only-section=.eeprom production.elf eeprom.bin
+	@$(COPY) -O binary --only-section=.signature production.elf signature.bin
+	@$(COPY) -O binary --only-section=.lock production.elf lock.bin
+	@$(COPY) -O binary --only-section=.fuse production.elf fuse.bin
+	@$(COPY) -O binary --only-section=.user_signature production.elf user_signature.bin
+
+	@$(COPY) -B avr:102 --redefine-sym _binary_text_bin_start=main --rename-section .data=.text,contents,alloc,load,readonly,code -I binary -O elf32-avr text.bin text.o
+	@$(COPY) -B avr:102 --rename-section .data=.eeprom,contents,alloc,load,data -I binary -O elf32-avr eeprom.bin eeprom.o
+	@$(COPY) -B avr:102 --rename-section .data=.signature,contents,alloc,load,data -I binary -O elf32-avr signature.bin signature.o
+	@$(COPY) -B avr:102 --rename-section .data=.lock,contents,alloc,load,data -I binary -O elf32-avr lock.bin lock.o
+	@$(COPY) -B avr:102 --rename-section .data=.fuse,contents,alloc,load,data -I binary -O elf32-avr fuse.bin fuse.o
+	@$(COPY) -B avr:102 --rename-section .data=.user_signature,contents,alloc,load,data -I binary -O elf32-avr user_signature.bin user_signature.o
+
+	@touch stub.c
+
+	$(CC) -mmcu=atxmega32c4 -g3 -nostartfiles stub.c text.o eeprom.o signature.o lock.o fuse.o user_signature.o -Wl,--section-start,.text=0x00000000 -Wl,--section-start,.eeprom=0x00810000 -Wl,--section-start,.signature=0x00840000 -Wl,--section-start,.lock=0x00830000 -Wl,--section-start,.fuse=0x00820000 -Wl,--section-start,.user_signatures=0x00850000 -o debug.elf
+	
+	$(DUMP) -h debug.elf
+	@rm -f *.o *.bin stub.c
+	@echo debug.elf is ready
