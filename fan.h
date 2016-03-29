@@ -3,10 +3,6 @@
 #define FAN_H
 
 
-// Header files
-#include <stdint.h>
-
-
 // Fan class
 class Fan {
 

@@ -3,10 +3,6 @@
 #define LED_H
 
 
-// Header files
-#include <stdint.h>
-
-
 // Led class
 class Led {
 

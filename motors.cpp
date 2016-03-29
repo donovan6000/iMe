@@ -1,3 +1,4 @@
+// DRV8834 http://www.ti.com/lit/ds/slvsb19d/slvsb19d.pdf
 // Header files
 extern "C" {
 	#include <asf.h>
@@ -8,6 +9,7 @@ extern "C" {
 
 
 // Definitions
+#define MICROCONTROLLER_VOLTAGE 3.3
 
 // Motors pins
 #define MOTORS_ENABLE_PIN IOPORT_CREATE_PIN(PORTB, 3)
@@ -19,9 +21,6 @@ extern "C" {
 #define MOTOR_X_VREF_PWM_TIMER PWM_TCD0
 #define MOTOR_X_VREF_PWM_CHANNEL PWM_CH_B
 #define MOTOR_X_VREF_VOLTAGE 0.33
-#define MOTOR_X_STEP_PIN IOPORT_CREATE_PIN(PORTC, 5)
-#define MOTOR_X_STEP_PWM_TIMER PWM_TCC1
-#define MOTOR_X_STEP_PWM_CHANNEL PWM_CH_B
 
 // Motor Y pins
 #define MOTOR_Y_DIRECTION_PIN IOPORT_CREATE_PIN(PORTD, 5)
@@ -29,9 +28,6 @@ extern "C" {
 #define MOTOR_Y_VREF_PWM_TIMER PWM_TCD0
 #define MOTOR_Y_VREF_PWM_CHANNEL PWM_CH_D
 #define MOTOR_Y_VREF_VOLTAGE 0.33
-#define MOTOR_Y_STEP_PIN IOPORT_CREATE_PIN(PORTC, 7)
-#define MOTOR_Y_STEP_PWM_TIMER PWM_TCC1
-#define MOTOR_Y_STEP_PWM_CHANNEL PWM_CH_D
 
 // Motor Z pins
 #define MOTOR_Z_DIRECTION_PIN IOPORT_CREATE_PIN(PORTD, 4)
@@ -39,9 +35,6 @@ extern "C" {
 #define MOTOR_Z_VREF_PWM_TIMER PWM_TCD0
 #define MOTOR_Z_VREF_PWM_CHANNEL PWM_CH_C
 #define MOTOR_Z_VREF_VOLTAGE 0.09
-#define MOTOR_Z_STEP_PIN IOPORT_CREATE_PIN(PORTC, 6)
-#define MOTOR_Z_STEP_PWM_TIMER PWM_TCC1
-#define MOTOR_Z_STEP_PWM_CHANNEL PWM_CH_C
 
 // Motor E pins
 #define MOTOR_E_DIRECTION_PIN IOPORT_CREATE_PIN(PORTC, 3)
@@ -49,10 +42,19 @@ extern "C" {
 #define MOTOR_E_VREF_PWM_TIMER PWM_TCD0
 #define MOTOR_E_VREF_PWM_CHANNEL PWM_CH_A
 #define MOTOR_E_VREF_VOLTAGE 0.14
-#define MOTOR_E_STEP_PIN IOPORT_CREATE_PIN(PORTC, 4)
-#define MOTOR_E_STEP_PWM_TIMER PWM_TCC1
-#define MOTOR_E_STEP_PWM_CHANNEL PWM_CH_A
-#define MOTOR_E_AISEN_PIN IOPORT_CREATE_PIN(PORTA, 7)
+#define MOTOR_E_CURRENT_SENSE_PIN IOPORT_CREATE_PIN(PORTA, 7)
+
+// Pin states
+#define MOTORS_ON IOPORT_PIN_LEVEL_LOW
+#define MOTORS_OFF IOPORT_PIN_LEVEL_HIGH
+#define DIRECTION_LEFT IOPORT_PIN_LEVEL_HIGH
+#define DIRECTION_RIGHT IOPORT_PIN_LEVEL_LOW
+#define DIRECTION_BACKWARD IOPORT_PIN_LEVEL_HIGH
+#define DIRECTION_FORWARD IOPORT_PIN_LEVEL_LOW
+#define DIRECTION_UP IOPORT_PIN_LEVEL_HIGH
+#define DIRECTION_DOWN IOPORT_PIN_LEVEL_LOW
+#define DIRECTION_EXTRUDE IOPORT_PIN_LEVEL_LOW
+#define DIRECTION_RETRACT IOPORT_PIN_LEVEL_HIGH
 
 
 // Supporting function implementation
@@ -80,83 +82,99 @@ Motors::Motors() {
 		// Set current Z to not a number
 		currentZ = NAN;
 	
-	// Configure motors
+	// Configure motors enable
 	ioport_set_pin_dir(MOTORS_ENABLE_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(MOTORS_ENABLE_PIN, IOPORT_PIN_LEVEL_HIGH);
 	
-	ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(MOTORS_STEP_CONTROL_PIN, IOPORT_PIN_LEVEL_LOW);
+	// Turn motors off
+	turnOff();
+	
+	// Set micro steps per step
+	setMicroStepsPerStep(STEPS32);
 	
 	// Configure motor X Vref, direction, and step
 	ioport_set_pin_dir(MOTOR_X_VREF_PIN, IOPORT_DIR_OUTPUT);
-	pwm_init(&motorXVrefPwm, MOTOR_X_VREF_PWM_TIMER, MOTOR_X_VREF_PWM_CHANNEL, 5000);
-	pwm_start(&motorXVrefPwm, 0);
+	pwm_config motorXVrefPwm;
+	pwm_init(&motorXVrefPwm, MOTOR_X_VREF_PWM_TIMER, MOTOR_X_VREF_PWM_CHANNEL, 50000);
+	pwm_start(&motorXVrefPwm, MOTOR_X_VREF_VOLTAGE * 100 / MICROCONTROLLER_VOLTAGE);
 	
 	ioport_set_pin_dir(MOTOR_X_DIRECTION_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, IOPORT_PIN_LEVEL_HIGH);
-	
-	ioport_set_pin_dir(MOTOR_X_STEP_PIN, IOPORT_DIR_OUTPUT);
-	pwm_config motorXStepPwm;
-	pwm_init(&motorXStepPwm, MOTOR_X_STEP_PWM_TIMER, MOTOR_X_STEP_PWM_CHANNEL, 5000);
-	pwm_start(&motorXStepPwm, 50);
+	ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
 	
 	// Configure motor Y Vref, direction, and step
 	ioport_set_pin_dir(MOTOR_Y_VREF_PIN, IOPORT_DIR_OUTPUT);
-	pwm_init(&motorYVrefPwm, MOTOR_Y_VREF_PWM_TIMER, MOTOR_Y_VREF_PWM_CHANNEL, 5000);
-	pwm_start(&motorYVrefPwm, 0);
+	pwm_config motorYVrefPwm;
+	pwm_init(&motorYVrefPwm, MOTOR_Y_VREF_PWM_TIMER, MOTOR_Y_VREF_PWM_CHANNEL, 50000);
+	pwm_start(&motorYVrefPwm, MOTOR_Y_VREF_VOLTAGE * 100 / MICROCONTROLLER_VOLTAGE);
 	
 	ioport_set_pin_dir(MOTOR_Y_DIRECTION_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, IOPORT_PIN_LEVEL_LOW);
-	
-	ioport_set_pin_dir(MOTOR_Y_STEP_PIN, IOPORT_DIR_OUTPUT);
-	pwm_config motorYStepPwm;
-	pwm_init(&motorYStepPwm, MOTOR_Y_STEP_PWM_TIMER, MOTOR_Y_STEP_PWM_CHANNEL, 5000);
-	pwm_start(&motorYStepPwm, 50);
+	ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
 	
 	// Configure motor Z VREF, direction, and step
 	ioport_set_pin_dir(MOTOR_Z_VREF_PIN, IOPORT_DIR_OUTPUT);
-	pwm_init(&motorZVrefPwm, MOTOR_Z_VREF_PWM_TIMER, MOTOR_Z_VREF_PWM_CHANNEL, 5000);
-	pwm_start(&motorZVrefPwm, 0);
+	pwm_config motorZVrefPwm;
+	pwm_init(&motorZVrefPwm, MOTOR_Z_VREF_PWM_TIMER, MOTOR_Z_VREF_PWM_CHANNEL, 50000);
+	pwm_start(&motorZVrefPwm, MOTOR_Z_VREF_VOLTAGE * 100 / MICROCONTROLLER_VOLTAGE);
 	
 	ioport_set_pin_dir(MOTOR_Z_DIRECTION_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, IOPORT_PIN_LEVEL_LOW);
+	ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, DIRECTION_UP);
 	
-	ioport_set_pin_dir(MOTOR_Z_STEP_PIN, IOPORT_DIR_OUTPUT);
-	pwm_config motorZStepPwm;
-	pwm_init(&motorZStepPwm, MOTOR_Z_STEP_PWM_TIMER, MOTOR_Z_STEP_PWM_CHANNEL, 5000);
-	pwm_start(&motorZStepPwm, 50);
-	
-	// Configure motor E VREF, direction, step, and AISEN
+	// Configure motor E VREF, direction, step, and current sense
 	ioport_set_pin_dir(MOTOR_E_VREF_PIN, IOPORT_DIR_OUTPUT);
-	pwm_init(&motorEVrefPwm, MOTOR_E_VREF_PWM_TIMER, MOTOR_E_VREF_PWM_CHANNEL, 5000);
-	pwm_start(&motorEVrefPwm, 0);
+	pwm_config motorEVrefPwm;
+	pwm_init(&motorEVrefPwm, MOTOR_E_VREF_PWM_TIMER, MOTOR_E_VREF_PWM_CHANNEL, 50000);
+	pwm_start(&motorEVrefPwm, MOTOR_E_VREF_VOLTAGE * 100 / MICROCONTROLLER_VOLTAGE);
 	
 	ioport_set_pin_dir(MOTOR_E_DIRECTION_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, IOPORT_PIN_LEVEL_LOW);
+	ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, DIRECTION_EXTRUDE);
 	
-	ioport_set_pin_dir(MOTOR_E_STEP_PIN, IOPORT_DIR_OUTPUT);
-	pwm_config motorEStepPwm;
-	pwm_init(&motorEStepPwm, MOTOR_E_STEP_PWM_TIMER, MOTOR_E_STEP_PWM_CHANNEL, 5000);
-	pwm_start(&motorEStepPwm, 50);
+	ioport_set_pin_dir(MOTOR_E_CURRENT_SENSE_PIN, IOPORT_DIR_INPUT);
+	ioport_set_pin_mode(MOTOR_E_CURRENT_SENSE_PIN, IOPORT_MODE_PULLDOWN);
+}
+
+void Motors::setMicroStepsPerStep(STEPS steps) {
+
+	// Check specified micro steps per step
+	switch(steps) {
 	
-	ioport_set_pin_dir(MOTOR_E_AISEN_PIN, IOPORT_DIR_INPUT);
-	ioport_set_pin_mode(MOTOR_E_AISEN_PIN, IOPORT_MODE_PULLDOWN);
+		// 8 micro steps per step
+		case STEPS8:
+		
+			// Configure motor's step control
+			ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_OUTPUT);
+			ioport_set_pin_level(MOTORS_ENABLE_PIN, IOPORT_PIN_LEVEL_LOW);
+		break;
+		
+		// 16 micro steps per step
+		case STEPS16:
+		
+			// Configure motor's step control
+			ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_OUTPUT);
+			ioport_set_pin_level(MOTORS_ENABLE_PIN, IOPORT_PIN_LEVEL_HIGH);
+		break;
+		
+		// 32 micro steps per step
+		case STEPS32:
+		
+			// Configure motor's step control
+			ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_INPUT);
+			ioport_set_pin_mode(MOTORS_STEP_CONTROL_PIN, IOPORT_MODE_TOTEM);
+		break;
+	}
 }
 
 void Motors::turnOn() {
 
 	// Turn on motors
-	ioport_set_pin_level(MOTORS_ENABLE_PIN, IOPORT_PIN_LEVEL_LOW);
+	ioport_set_pin_level(MOTORS_ENABLE_PIN, MOTORS_ON);
 }
 
 void Motors::turnOff() {
 
 	// Turn off motors
-	ioport_set_pin_level(MOTORS_ENABLE_PIN, IOPORT_PIN_LEVEL_HIGH);
-	pwm_set_duty_cycle_percent(&motorXVrefPwm, 0);
-	pwm_set_duty_cycle_percent(&motorYVrefPwm, 0);
-	pwm_set_duty_cycle_percent(&motorZVrefPwm, 0);
-	pwm_set_duty_cycle_percent(&motorEVrefPwm, 0);
+	ioport_set_pin_level(MOTORS_ENABLE_PIN, MOTORS_OFF);
+	pwm_stop(&motorXStepPwm);
+	pwm_stop(&motorYStepPwm);
+	pwm_stop(&motorEStepPwm);
 }
 
 void Motors::setMode(MODES mode) {
@@ -167,7 +185,23 @@ void Motors::setMode(MODES mode) {
 
 void Motors::move(const Gcode &command) {
 
-	// Motor X test
+	/*// Motor X test
+	pwm_stop(&motorXStepPwm);
+	pwm_timer_reset(&motorXStepPwm);
+	pwm_set_frequency(&motorXStepPwm, 1000);
+	pwm_start(&motorXStepPwm, 50);*/
+	
+	pwm_stop(&motorYStepPwm);
+	pwm_timer_reset(&motorYStepPwm);
+	pwm_set_frequency(&motorYStepPwm, 1000);
+	pwm_start(&motorYStepPwm, 50);
+	
+	/*// Motor E test
+	pwm_stop(&motorEStepPwm);
+	pwm_timer_reset(&motorEStepPwm);
+	pwm_set_frequency(&motorEStepPwm, 1000);
+	pwm_start(&motorEStepPwm, 50);*/
+	
+	// Turn on motors
 	turnOn();
-	pwm_set_duty_cycle_percent(&motorXVrefPwm, MOTOR_X_VREF_VOLTAGE * 100 / 3.3);
 }

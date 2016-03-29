@@ -139,274 +139,80 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <ToolchainSettings>
       <AvrGccCpp>
-        <avrgcc.common.Device>-mmcu=atxmega32c4 -B "%24(PackRepoDir)\atmel\XMEGAC_DFP\1.0.27\gcc\dev\atxmega32c4"</avrgcc.common.Device>
-        <avrgcc.common.outputfiles.hex>True</avrgcc.common.outputfiles.hex>
-        <avrgcc.common.outputfiles.lss>True</avrgcc.common.outputfiles.lss>
-        <avrgcc.common.outputfiles.eep>True</avrgcc.common.outputfiles.eep>
-        <avrgcc.common.outputfiles.srec>True</avrgcc.common.outputfiles.srec>
-        <avrgcc.common.outputfiles.usersignatures>False</avrgcc.common.outputfiles.usersignatures>
-        <avrgcc.compiler.symbols.DefSymbols>
-          <ListValues>
-            <Value>NDEBUG</Value>
-            <Value>BOARD=USER_BOARD</Value>
-          </ListValues>
-        </avrgcc.compiler.symbols.DefSymbols>
-        <avrgcc.compiler.directories.IncludePaths>
-          <ListValues>
-            <Value>%24(PackRepoDir)\atmel\XMEGAC_DFP\1.0.27\include</Value>
-            <Value>../src/ASF/xmega/drivers/cpu</Value>
-            <Value>../src/ASF/xmega/drivers/nvm</Value>
-            <Value>../src/ASF/xmega/drivers/sleep</Value>
-            <Value>../src/Config</Value>
-            <Value>../src/ASF/common/services/clock</Value>
-            <Value>../src/ASF/common/services/sleepmgr</Value>
-            <Value>../src/ASF/common/services/usb</Value>
-            <Value>../src/ASF/common/services/usb/class/cdc</Value>
-            <Value>../src/ASF/common/services/usb/class/cdc/device</Value>
-            <Value>../src/ASF/common/services/usb/udc</Value>
-            <Value>../src/ASF/common/utils</Value>
-            <Value>../src/ASF/xmega/drivers/usb</Value>
-            <Value>../src/ASF/xmega/utils/preprocessor</Value>
-            <Value>../src/ASF/xmega/utils</Value>
-            <Value>../common/applications/user_application/user_board/config</Value>
-            <Value>../src/ASF/common/boards</Value>
-            <Value>../src</Value>
-            <Value>../src/ASF/common/boards/user_board</Value>
-            <Value>../src/ASF/xmega/drivers/pmic</Value>
-            <Value>../src/ASF/xmega/drivers/tc</Value>
-            <Value>../src/ASF/common/services/delay</Value>
-            <Value>../src/ASF/common/services/ioport</Value>
-            <Value>../src/ASF/common/services/twi</Value>
-            <Value>../src/ASF/xmega/drivers/twi</Value>
-            <Value>../src/ASF/xmega/services/pwm</Value>
-            <Value>../src/ASF/xmega/drivers/adc</Value>
-          </ListValues>
-        </avrgcc.compiler.directories.IncludePaths>
-        <avrgcc.compiler.optimization.level>Optimize for size (-Os)</avrgcc.compiler.optimization.level>
-        <avrgcc.compiler.optimization.OtherFlags>-fdata-sections</avrgcc.compiler.optimization.OtherFlags>
-        <avrgcc.compiler.optimization.PackStructureMembers>True</avrgcc.compiler.optimization.PackStructureMembers>
-        <avrgcc.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcc.compiler.optimization.AllocateBytesNeededForEnum>
-        <avrgcc.compiler.warnings.AllWarnings>True</avrgcc.compiler.warnings.AllWarnings>
-        <avrgcc.compiler.miscellaneous.OtherFlags>-std=gnu99 -fno-strict-aliasing -Wstrict-prototypes -Wmissing-prototypes -Werror-implicit-function-declaration -Wpointer-arith -mrelax</avrgcc.compiler.miscellaneous.OtherFlags>
-        <avrgcccpp.compiler.general.ChangeDefaultCharTypeUnsigned>True</avrgcccpp.compiler.general.ChangeDefaultCharTypeUnsigned>
-        <avrgcccpp.compiler.general.ChangeDefaultBitFieldUnsigned>True</avrgcccpp.compiler.general.ChangeDefaultBitFieldUnsigned>
-        <avrgcccpp.compiler.symbols.DefSymbols>
-          <ListValues>
-            <Value>NDEBUG</Value>
-            <Value>BOARD=USER_BOARD</Value>
-            <Value>IOPORT_XMEGA_COMPAT</Value>
-          </ListValues>
-        </avrgcccpp.compiler.symbols.DefSymbols>
-        <avrgcccpp.compiler.directories.IncludePaths>
-          <ListValues>
-            <Value>%24(PackRepoDir)\atmel\XMEGAC_DFP\1.0.27\include</Value>
-            <Value>../src/ASF/xmega/drivers/cpu</Value>
-            <Value>../src/ASF/xmega/drivers/nvm</Value>
-            <Value>../src/ASF/xmega/drivers/sleep</Value>
-            <Value>../src/Config</Value>
-            <Value>../src/ASF/common/services/clock</Value>
-            <Value>../src/ASF/common/services/sleepmgr</Value>
-            <Value>../src/ASF/common/services/usb</Value>
-            <Value>../src/ASF/common/services/usb/class/cdc</Value>
-            <Value>../src/ASF/common/services/usb/class/cdc/device</Value>
-            <Value>../src/ASF/common/services/usb/udc</Value>
-            <Value>../src/ASF/common/utils</Value>
-            <Value>../src/ASF/xmega/drivers/usb</Value>
-            <Value>../src/ASF/xmega/utils/preprocessor</Value>
-            <Value>../src/ASF/xmega/utils</Value>
-            <Value>../common/applications/user_application/user_board/config</Value>
-            <Value>../src/ASF/common/boards</Value>
-            <Value>../src</Value>
-            <Value>../src/ASF/common/boards/user_board</Value>
-            <Value>../src/ASF/xmega/drivers/pmic</Value>
-            <Value>../src/ASF/xmega/drivers/tc</Value>
-            <Value>../src/ASF/common/services/delay</Value>
-            <Value>../src/ASF/common/services/ioport</Value>
-            <Value>../src/ASF/common/services/gpio</Value>
-            <Value>../src/ASF/common/services/twi</Value>
-            <Value>../src/ASF/xmega/drivers/twi</Value>
-            <Value>../src/ASF/xmega/services/pwm</Value>
-            <Value>../src/ASF/xmega/drivers/adc</Value>
-          </ListValues>
-        </avrgcccpp.compiler.directories.IncludePaths>
-        <avrgcccpp.compiler.optimization.level>Optimize for size (-Os)</avrgcccpp.compiler.optimization.level>
-        <avrgcccpp.compiler.optimization.PackStructureMembers>True</avrgcccpp.compiler.optimization.PackStructureMembers>
-        <avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>
-        <avrgcccpp.compiler.warnings.AllWarnings>True</avrgcccpp.compiler.warnings.AllWarnings>
-        <avrgcccpp.linker.libraries.Libraries>
-          <ListValues>
-            <Value>libm</Value>
-          </ListValues>
-        </avrgcccpp.linker.libraries.Libraries>
-        <avrgcccpp.assembler.general.IncludePaths>
-          <ListValues>
-            <Value>../src/ASF/xmega/drivers/cpu</Value>
-            <Value>../src/ASF/xmega/drivers/nvm</Value>
-            <Value>../src/ASF/xmega/drivers/sleep</Value>
-            <Value>../src/Config</Value>
-            <Value>../src/ASF/common/services/clock</Value>
-            <Value>../src/ASF/common/services/sleepmgr</Value>
-            <Value>../src/ASF/common/services/usb</Value>
-            <Value>../src/ASF/common/services/usb/class/cdc</Value>
-            <Value>../src/ASF/common/services/usb/class/cdc/device</Value>
-            <Value>../src/ASF/common/services/usb/udc</Value>
-            <Value>../src/ASF/common/utils</Value>
-            <Value>../src/ASF/xmega/drivers/usb</Value>
-            <Value>../src/ASF/xmega/utils/preprocessor</Value>
-            <Value>../src/ASF/xmega/utils</Value>
-            <Value>../common/applications/user_application/user_board/config</Value>
-            <Value>../src/ASF/common/boards</Value>
-            <Value>../src</Value>
-            <Value>../src/ASF/common/boards/user_board</Value>
-            <Value>../src/ASF/xmega/drivers/pmic</Value>
-            <Value>../src/ASF/xmega/drivers/tc</Value>
-            <Value>../src/ASF/common/services/delay</Value>
-            <Value>../src/ASF/common/services/ioport</Value>
-            <Value>../src/ASF/common/services/twi</Value>
-            <Value>../src/ASF/xmega/drivers/twi</Value>
-            <Value>../src/ASF/xmega/services/pwm</Value>
-            <Value>../src/ASF/xmega/drivers/adc</Value>
-          </ListValues>
-        </avrgcccpp.assembler.general.IncludePaths>
-      </AvrGccCpp>
+  <avrgcc.common.Device>-mmcu=atxmega32c4 -B "%24(PackRepoDir)\atmel\XMEGAC_DFP\1.0.27\gcc\dev\atxmega32c4"</avrgcc.common.Device>
+  <avrgcc.common.outputfiles.hex>True</avrgcc.common.outputfiles.hex>
+  <avrgcc.common.outputfiles.lss>True</avrgcc.common.outputfiles.lss>
+  <avrgcc.common.outputfiles.eep>True</avrgcc.common.outputfiles.eep>
+  <avrgcc.common.outputfiles.srec>True</avrgcc.common.outputfiles.srec>
+  <avrgcc.common.outputfiles.usersignatures>False</avrgcc.common.outputfiles.usersignatures>
+  <avrgcc.compiler.symbols.DefSymbols><ListValues>
+  <Value>BOARD=USER_BOARD</Value>
+  <Value>NDEBUG</Value>
+</ListValues></avrgcc.compiler.symbols.DefSymbols>
+  <avrgcc.compiler.directories.IncludePaths><ListValues><Value>%24(PackRepoDir)\atmel\XMEGAC_DFP\1.0.27\include</Value><Value>../src/ASF/xmega/drivers/cpu</Value><Value>../src/ASF/xmega/drivers/nvm</Value><Value>../src/ASF/xmega/drivers/sleep</Value><Value>../src/Config</Value><Value>../src/ASF/common/services/clock</Value><Value>../src/ASF/common/services/sleepmgr</Value><Value>../src/ASF/common/services/usb</Value><Value>../src/ASF/common/services/usb/class/cdc</Value><Value>../src/ASF/common/services/usb/class/cdc/device</Value><Value>../src/ASF/common/services/usb/udc</Value><Value>../src/ASF/common/utils</Value><Value>../src/ASF/xmega/drivers/usb</Value><Value>../src/ASF/xmega/utils/preprocessor</Value><Value>../src/ASF/xmega/utils</Value><Value>../common/applications/user_application/user_board/config</Value><Value>../src/ASF/common/boards</Value><Value>../src</Value><Value>../src/ASF/common/boards/user_board</Value><Value>../src/ASF/xmega/drivers/pmic</Value><Value>../src/ASF/xmega/drivers/tc</Value><Value>../src/ASF/common/services/delay</Value><Value>../src/ASF/common/services/ioport</Value><Value>../src/ASF/common/services/twi</Value><Value>../src/ASF/xmega/drivers/twi</Value><Value>../src/ASF/xmega/services/pwm</Value><Value>../src/ASF/xmega/drivers/adc</Value></ListValues></avrgcc.compiler.directories.IncludePaths>
+  <avrgcc.compiler.optimization.OtherFlags>-fdata-sections</avrgcc.compiler.optimization.OtherFlags>
+  <avrgcc.compiler.optimization.PackStructureMembers>True</avrgcc.compiler.optimization.PackStructureMembers>
+  <avrgcc.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcc.compiler.optimization.AllocateBytesNeededForEnum>
+  <avrgcc.compiler.warnings.AllWarnings>True</avrgcc.compiler.warnings.AllWarnings>
+  <avrgcc.compiler.miscellaneous.OtherFlags>-std=gnu99 -fno-strict-aliasing -Wstrict-prototypes -Wmissing-prototypes -Werror-implicit-function-declaration -Wpointer-arith -mrelax</avrgcc.compiler.miscellaneous.OtherFlags>
+  <avrgcccpp.compiler.general.ChangeDefaultCharTypeUnsigned>True</avrgcccpp.compiler.general.ChangeDefaultCharTypeUnsigned>
+  <avrgcccpp.compiler.general.ChangeDefaultBitFieldUnsigned>True</avrgcccpp.compiler.general.ChangeDefaultBitFieldUnsigned>
+  <avrgcccpp.compiler.symbols.DefSymbols><ListValues>
+  <Value>BOARD=USER_BOARD</Value>
+  <Value>IOPORT_XMEGA_COMPAT</Value>
+  <Value>NDEBUG</Value>
+</ListValues></avrgcccpp.compiler.symbols.DefSymbols>
+  <avrgcccpp.compiler.directories.IncludePaths><ListValues><Value>%24(PackRepoDir)\atmel\XMEGAC_DFP\1.0.27\include</Value><Value>../src/ASF/xmega/drivers/cpu</Value><Value>../src/ASF/xmega/drivers/nvm</Value><Value>../src/ASF/xmega/drivers/sleep</Value><Value>../src/Config</Value><Value>../src/ASF/common/services/clock</Value><Value>../src/ASF/common/services/sleepmgr</Value><Value>../src/ASF/common/services/usb</Value><Value>../src/ASF/common/services/usb/class/cdc</Value><Value>../src/ASF/common/services/usb/class/cdc/device</Value><Value>../src/ASF/common/services/usb/udc</Value><Value>../src/ASF/common/utils</Value><Value>../src/ASF/xmega/drivers/usb</Value><Value>../src/ASF/xmega/utils/preprocessor</Value><Value>../src/ASF/xmega/utils</Value><Value>../common/applications/user_application/user_board/config</Value><Value>../src/ASF/common/boards</Value><Value>../src</Value><Value>../src/ASF/common/boards/user_board</Value><Value>../src/ASF/xmega/drivers/pmic</Value><Value>../src/ASF/xmega/drivers/tc</Value><Value>../src/ASF/common/services/delay</Value><Value>../src/ASF/common/services/ioport</Value><Value>../src/ASF/common/services/gpio</Value><Value>../src/ASF/common/services/twi</Value><Value>../src/ASF/xmega/drivers/twi</Value><Value>../src/ASF/xmega/services/pwm</Value><Value>../src/ASF/xmega/drivers/adc</Value></ListValues></avrgcccpp.compiler.directories.IncludePaths>
+  <avrgcccpp.compiler.optimization.PackStructureMembers>True</avrgcccpp.compiler.optimization.PackStructureMembers>
+  <avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>
+  <avrgcccpp.compiler.warnings.AllWarnings>True</avrgcccpp.compiler.warnings.AllWarnings>
+  <avrgcccpp.compiler.miscellaneous.OtherFlags>-std=c++14</avrgcccpp.compiler.miscellaneous.OtherFlags>
+  <avrgcccpp.linker.libraries.Libraries><ListValues><Value>libm</Value></ListValues></avrgcccpp.linker.libraries.Libraries>
+  <avrgcccpp.assembler.general.IncludePaths><ListValues><Value>../src/ASF/xmega/drivers/cpu</Value><Value>../src/ASF/xmega/drivers/nvm</Value><Value>../src/ASF/xmega/drivers/sleep</Value><Value>../src/Config</Value><Value>../src/ASF/common/services/clock</Value><Value>../src/ASF/common/services/sleepmgr</Value><Value>../src/ASF/common/services/usb</Value><Value>../src/ASF/common/services/usb/class/cdc</Value><Value>../src/ASF/common/services/usb/class/cdc/device</Value><Value>../src/ASF/common/services/usb/udc</Value><Value>../src/ASF/common/utils</Value><Value>../src/ASF/xmega/drivers/usb</Value><Value>../src/ASF/xmega/utils/preprocessor</Value><Value>../src/ASF/xmega/utils</Value><Value>../common/applications/user_application/user_board/config</Value><Value>../src/ASF/common/boards</Value><Value>../src</Value><Value>../src/ASF/common/boards/user_board</Value><Value>../src/ASF/xmega/drivers/pmic</Value><Value>../src/ASF/xmega/drivers/tc</Value><Value>../src/ASF/common/services/delay</Value><Value>../src/ASF/common/services/ioport</Value><Value>../src/ASF/common/services/twi</Value><Value>../src/ASF/xmega/drivers/twi</Value><Value>../src/ASF/xmega/services/pwm</Value><Value>../src/ASF/xmega/drivers/adc</Value></ListValues></avrgcccpp.assembler.general.IncludePaths>
+  <avrgcc.compiler.optimization.level>Optimize for size (-Os)</avrgcc.compiler.optimization.level>
+  <avrgcccpp.compiler.optimization.level>Optimize for size (-Os)</avrgcccpp.compiler.optimization.level>
+</AvrGccCpp>
     </ToolchainSettings>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <ToolchainSettings>
       <AvrGccCpp>
-        <avrgcc.common.Device>-mmcu=atxmega32c4 -B "%24(PackRepoDir)\atmel\XMEGAC_DFP\1.0.27\gcc\dev\atxmega32c4"</avrgcc.common.Device>
-        <avrgcc.common.outputfiles.hex>True</avrgcc.common.outputfiles.hex>
-        <avrgcc.common.outputfiles.lss>True</avrgcc.common.outputfiles.lss>
-        <avrgcc.common.outputfiles.eep>True</avrgcc.common.outputfiles.eep>
-        <avrgcc.common.outputfiles.srec>True</avrgcc.common.outputfiles.srec>
-        <avrgcc.common.outputfiles.usersignatures>False</avrgcc.common.outputfiles.usersignatures>
-        <avrgcc.compiler.symbols.DefSymbols>
-          <ListValues>
-            <Value>DEBUG</Value>
-            <Value>BOARD=USER_BOARD</Value>
-          </ListValues>
-        </avrgcc.compiler.symbols.DefSymbols>
-        <avrgcc.compiler.directories.IncludePaths>
-          <ListValues>
-            <Value>%24(PackRepoDir)\atmel\XMEGAC_DFP\1.0.27\include</Value>
-            <Value>../src/ASF/xmega/drivers/cpu</Value>
-            <Value>../src/ASF/xmega/drivers/nvm</Value>
-            <Value>../src/ASF/xmega/drivers/sleep</Value>
-            <Value>../src/Config</Value>
-            <Value>../src/ASF/common/services/clock</Value>
-            <Value>../src/ASF/common/services/sleepmgr</Value>
-            <Value>../src/ASF/common/services/usb</Value>
-            <Value>../src/ASF/common/services/usb/class/cdc</Value>
-            <Value>../src/ASF/common/services/usb/class/cdc/device</Value>
-            <Value>../src/ASF/common/services/usb/udc</Value>
-            <Value>../src/ASF/common/utils</Value>
-            <Value>../src/ASF/xmega/drivers/usb</Value>
-            <Value>../src/ASF/xmega/utils/preprocessor</Value>
-            <Value>../src/ASF/xmega/utils</Value>
-            <Value>../common/applications/user_application/user_board/config</Value>
-            <Value>../src/ASF/common/boards</Value>
-            <Value>../src</Value>
-            <Value>../src/ASF/common/boards/user_board</Value>
-            <Value>../src/ASF/xmega/drivers/pmic</Value>
-            <Value>../src/ASF/xmega/drivers/tc</Value>
-            <Value>../src/ASF/common/services/delay</Value>
-            <Value>../src/ASF/common/services/ioport</Value>
-            <Value>../src/ASF/common/services/twi</Value>
-            <Value>../src/ASF/xmega/drivers/twi</Value>
-            <Value>../src/ASF/xmega/services/pwm</Value>
-            <Value>../src/ASF/xmega/drivers/adc</Value>
-          </ListValues>
-        </avrgcc.compiler.directories.IncludePaths>
-        <avrgcc.compiler.optimization.level>Optimize (-O1)</avrgcc.compiler.optimization.level>
-        <avrgcc.compiler.optimization.OtherFlags>-fdata-sections</avrgcc.compiler.optimization.OtherFlags>
-        <avrgcc.compiler.optimization.PackStructureMembers>True</avrgcc.compiler.optimization.PackStructureMembers>
-        <avrgcc.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcc.compiler.optimization.AllocateBytesNeededForEnum>
-        <avrgcc.compiler.optimization.DebugLevel>Maximum (-g3)</avrgcc.compiler.optimization.DebugLevel>
-        <avrgcc.compiler.warnings.AllWarnings>True</avrgcc.compiler.warnings.AllWarnings>
-        <avrgcc.compiler.miscellaneous.OtherFlags>-std=gnu99 -fno-strict-aliasing -Wstrict-prototypes -Wmissing-prototypes -Werror-implicit-function-declaration -Wpointer-arith -mrelax</avrgcc.compiler.miscellaneous.OtherFlags>
-        <avrgcccpp.compiler.general.ChangeDefaultCharTypeUnsigned>True</avrgcccpp.compiler.general.ChangeDefaultCharTypeUnsigned>
-        <avrgcccpp.compiler.general.ChangeDefaultBitFieldUnsigned>True</avrgcccpp.compiler.general.ChangeDefaultBitFieldUnsigned>
-        <avrgcccpp.compiler.symbols.DefSymbols>
-          <ListValues>
-            <Value>DEBUG</Value>
-            <Value>BOARD=USER_BOARD</Value>
-            <Value>IOPORT_XMEGA_COMPAT</Value>
-          </ListValues>
-        </avrgcccpp.compiler.symbols.DefSymbols>
-        <avrgcccpp.compiler.directories.IncludePaths>
-          <ListValues>
-            <Value>%24(PackRepoDir)\atmel\XMEGAC_DFP\1.0.27\include</Value>
-            <Value>../src/ASF/xmega/drivers/cpu</Value>
-            <Value>../src/ASF/xmega/drivers/nvm</Value>
-            <Value>../src/ASF/xmega/drivers/sleep</Value>
-            <Value>../src/Config</Value>
-            <Value>../src/ASF/common/services/clock</Value>
-            <Value>../src/ASF/common/services/sleepmgr</Value>
-            <Value>../src/ASF/common/services/usb</Value>
-            <Value>../src/ASF/common/services/usb/class/cdc</Value>
-            <Value>../src/ASF/common/services/usb/class/cdc/device</Value>
-            <Value>../src/ASF/common/services/usb/udc</Value>
-            <Value>../src/ASF/common/utils</Value>
-            <Value>../src/ASF/xmega/drivers/usb</Value>
-            <Value>../src/ASF/xmega/utils/preprocessor</Value>
-            <Value>../src/ASF/xmega/utils</Value>
-            <Value>../common/applications/user_application/user_board/config</Value>
-            <Value>../src/ASF/common/boards</Value>
-            <Value>../src</Value>
-            <Value>../src/ASF/common/boards/user_board</Value>
-            <Value>../src/ASF/xmega/drivers/pmic</Value>
-            <Value>../src/ASF/xmega/drivers/tc</Value>
-            <Value>../src/ASF/common/services/delay</Value>
-            <Value>../src/ASF/common/services/ioport</Value>
-            <Value>../src/ASF/common/services/gpio</Value>
-            <Value>../src/ASF/common/services/twi</Value>
-            <Value>../src/ASF/xmega/drivers/twi</Value>
-            <Value>../src/ASF/xmega/services/pwm</Value>
-            <Value>../src/ASF/xmega/drivers/adc</Value>
-          </ListValues>
-        </avrgcccpp.compiler.directories.IncludePaths>
-        <avrgcccpp.compiler.optimization.level>Optimize (-O1)</avrgcccpp.compiler.optimization.level>
-        <avrgcccpp.compiler.optimization.PackStructureMembers>True</avrgcccpp.compiler.optimization.PackStructureMembers>
-        <avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>
-        <avrgcccpp.compiler.optimization.DebugLevel>Default (-g2)</avrgcccpp.compiler.optimization.DebugLevel>
-        <avrgcccpp.compiler.warnings.AllWarnings>True</avrgcccpp.compiler.warnings.AllWarnings>
-        <avrgcccpp.linker.libraries.Libraries>
-          <ListValues>
-            <Value>libm</Value>
-          </ListValues>
-        </avrgcccpp.linker.libraries.Libraries>
-        <avrgcccpp.assembler.general.IncludePaths>
-          <ListValues>
-            <Value>../src/ASF/xmega/drivers/cpu</Value>
-            <Value>../src/ASF/xmega/drivers/nvm</Value>
-            <Value>../src/ASF/xmega/drivers/sleep</Value>
-            <Value>../src/Config</Value>
-            <Value>../src/ASF/common/services/clock</Value>
-            <Value>../src/ASF/common/services/sleepmgr</Value>
-            <Value>../src/ASF/common/services/usb</Value>
-            <Value>../src/ASF/common/services/usb/class/cdc</Value>
-            <Value>../src/ASF/common/services/usb/class/cdc/device</Value>
-            <Value>../src/ASF/common/services/usb/udc</Value>
-            <Value>../src/ASF/common/utils</Value>
-            <Value>../src/ASF/xmega/drivers/usb</Value>
-            <Value>../src/ASF/xmega/utils/preprocessor</Value>
-            <Value>../src/ASF/xmega/utils</Value>
-            <Value>../common/applications/user_application/user_board/config</Value>
-            <Value>../src/ASF/common/boards</Value>
-            <Value>../src</Value>
-            <Value>../src/ASF/common/boards/user_board</Value>
-            <Value>../src/ASF/xmega/drivers/pmic</Value>
-            <Value>../src/ASF/xmega/drivers/tc</Value>
-            <Value>../src/ASF/common/services/delay</Value>
-            <Value>../src/ASF/common/services/ioport</Value>
-            <Value>../src/ASF/common/services/twi</Value>
-            <Value>../src/ASF/xmega/drivers/twi</Value>
-            <Value>../src/ASF/xmega/services/pwm</Value>
-            <Value>../src/ASF/xmega/drivers/adc</Value>
-          </ListValues>
-        </avrgcccpp.assembler.general.IncludePaths>
-        <avrgcccpp.assembler.debugging.DebugLevel>Default (-Wa,-g)</avrgcccpp.assembler.debugging.DebugLevel>
-      </AvrGccCpp>
+  <avrgcc.common.Device>-mmcu=atxmega32c4 -B "%24(PackRepoDir)\atmel\XMEGAC_DFP\1.0.27\gcc\dev\atxmega32c4"</avrgcc.common.Device>
+  <avrgcc.common.outputfiles.hex>True</avrgcc.common.outputfiles.hex>
+  <avrgcc.common.outputfiles.lss>True</avrgcc.common.outputfiles.lss>
+  <avrgcc.common.outputfiles.eep>True</avrgcc.common.outputfiles.eep>
+  <avrgcc.common.outputfiles.srec>True</avrgcc.common.outputfiles.srec>
+  <avrgcc.common.outputfiles.usersignatures>False</avrgcc.common.outputfiles.usersignatures>
+  <avrgcc.compiler.symbols.DefSymbols><ListValues>
+  <Value>BOARD=USER_BOARD</Value>
+  <Value>DEBUG</Value>
+</ListValues></avrgcc.compiler.symbols.DefSymbols>
+  <avrgcc.compiler.directories.IncludePaths><ListValues><Value>%24(PackRepoDir)\atmel\XMEGAC_DFP\1.0.27\include</Value><Value>../src/ASF/xmega/drivers/cpu</Value><Value>../src/ASF/xmega/drivers/nvm</Value><Value>../src/ASF/xmega/drivers/sleep</Value><Value>../src/Config</Value><Value>../src/ASF/common/services/clock</Value><Value>../src/ASF/common/services/sleepmgr</Value><Value>../src/ASF/common/services/usb</Value><Value>../src/ASF/common/services/usb/class/cdc</Value><Value>../src/ASF/common/services/usb/class/cdc/device</Value><Value>../src/ASF/common/services/usb/udc</Value><Value>../src/ASF/common/utils</Value><Value>../src/ASF/xmega/drivers/usb</Value><Value>../src/ASF/xmega/utils/preprocessor</Value><Value>../src/ASF/xmega/utils</Value><Value>../common/applications/user_application/user_board/config</Value><Value>../src/ASF/common/boards</Value><Value>../src</Value><Value>../src/ASF/common/boards/user_board</Value><Value>../src/ASF/xmega/drivers/pmic</Value><Value>../src/ASF/xmega/drivers/tc</Value><Value>../src/ASF/common/services/delay</Value><Value>../src/ASF/common/services/ioport</Value><Value>../src/ASF/common/services/twi</Value><Value>../src/ASF/xmega/drivers/twi</Value><Value>../src/ASF/xmega/services/pwm</Value><Value>../src/ASF/xmega/drivers/adc</Value></ListValues></avrgcc.compiler.directories.IncludePaths>
+  <avrgcc.compiler.optimization.OtherFlags>-fdata-sections</avrgcc.compiler.optimization.OtherFlags>
+  <avrgcc.compiler.optimization.PackStructureMembers>True</avrgcc.compiler.optimization.PackStructureMembers>
+  <avrgcc.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcc.compiler.optimization.AllocateBytesNeededForEnum>
+  <avrgcc.compiler.warnings.AllWarnings>True</avrgcc.compiler.warnings.AllWarnings>
+  <avrgcc.compiler.miscellaneous.OtherFlags>-std=gnu99 -fno-strict-aliasing -Wstrict-prototypes -Wmissing-prototypes -Werror-implicit-function-declaration -Wpointer-arith -mrelax</avrgcc.compiler.miscellaneous.OtherFlags>
+  <avrgcccpp.compiler.general.ChangeDefaultCharTypeUnsigned>True</avrgcccpp.compiler.general.ChangeDefaultCharTypeUnsigned>
+  <avrgcccpp.compiler.general.ChangeDefaultBitFieldUnsigned>True</avrgcccpp.compiler.general.ChangeDefaultBitFieldUnsigned>
+  <avrgcccpp.compiler.symbols.DefSymbols><ListValues>
+  <Value>BOARD=USER_BOARD</Value>
+  <Value>IOPORT_XMEGA_COMPAT</Value>
+  <Value>DEBUG</Value>
+</ListValues></avrgcccpp.compiler.symbols.DefSymbols>
+  <avrgcccpp.compiler.directories.IncludePaths><ListValues><Value>%24(PackRepoDir)\atmel\XMEGAC_DFP\1.0.27\include</Value><Value>../src/ASF/xmega/drivers/cpu</Value><Value>../src/ASF/xmega/drivers/nvm</Value><Value>../src/ASF/xmega/drivers/sleep</Value><Value>../src/Config</Value><Value>../src/ASF/common/services/clock</Value><Value>../src/ASF/common/services/sleepmgr</Value><Value>../src/ASF/common/services/usb</Value><Value>../src/ASF/common/services/usb/class/cdc</Value><Value>../src/ASF/common/services/usb/class/cdc/device</Value><Value>../src/ASF/common/services/usb/udc</Value><Value>../src/ASF/common/utils</Value><Value>../src/ASF/xmega/drivers/usb</Value><Value>../src/ASF/xmega/utils/preprocessor</Value><Value>../src/ASF/xmega/utils</Value><Value>../common/applications/user_application/user_board/config</Value><Value>../src/ASF/common/boards</Value><Value>../src</Value><Value>../src/ASF/common/boards/user_board</Value><Value>../src/ASF/xmega/drivers/pmic</Value><Value>../src/ASF/xmega/drivers/tc</Value><Value>../src/ASF/common/services/delay</Value><Value>../src/ASF/common/services/ioport</Value><Value>../src/ASF/common/services/gpio</Value><Value>../src/ASF/common/services/twi</Value><Value>../src/ASF/xmega/drivers/twi</Value><Value>../src/ASF/xmega/services/pwm</Value><Value>../src/ASF/xmega/drivers/adc</Value></ListValues></avrgcccpp.compiler.directories.IncludePaths>
+  <avrgcccpp.compiler.optimization.PackStructureMembers>True</avrgcccpp.compiler.optimization.PackStructureMembers>
+  <avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>
+  <avrgcccpp.compiler.warnings.AllWarnings>True</avrgcccpp.compiler.warnings.AllWarnings>
+  <avrgcccpp.compiler.miscellaneous.OtherFlags>-std=c++14</avrgcccpp.compiler.miscellaneous.OtherFlags>
+  <avrgcccpp.linker.libraries.Libraries><ListValues><Value>libm</Value></ListValues></avrgcccpp.linker.libraries.Libraries>
+  <avrgcccpp.assembler.general.IncludePaths><ListValues><Value>../src/ASF/xmega/drivers/cpu</Value><Value>../src/ASF/xmega/drivers/nvm</Value><Value>../src/ASF/xmega/drivers/sleep</Value><Value>../src/Config</Value><Value>../src/ASF/common/services/clock</Value><Value>../src/ASF/common/services/sleepmgr</Value><Value>../src/ASF/common/services/usb</Value><Value>../src/ASF/common/services/usb/class/cdc</Value><Value>../src/ASF/common/services/usb/class/cdc/device</Value><Value>../src/ASF/common/services/usb/udc</Value><Value>../src/ASF/common/utils</Value><Value>../src/ASF/xmega/drivers/usb</Value><Value>../src/ASF/xmega/utils/preprocessor</Value><Value>../src/ASF/xmega/utils</Value><Value>../common/applications/user_application/user_board/config</Value><Value>../src/ASF/common/boards</Value><Value>../src</Value><Value>../src/ASF/common/boards/user_board</Value><Value>../src/ASF/xmega/drivers/pmic</Value><Value>../src/ASF/xmega/drivers/tc</Value><Value>../src/ASF/common/services/delay</Value><Value>../src/ASF/common/services/ioport</Value><Value>../src/ASF/common/services/twi</Value><Value>../src/ASF/xmega/drivers/twi</Value><Value>../src/ASF/xmega/services/pwm</Value><Value>../src/ASF/xmega/drivers/adc</Value></ListValues></avrgcccpp.assembler.general.IncludePaths>
+  <avrgcc.compiler.optimization.level>Optimize (-O1)</avrgcc.compiler.optimization.level>
+  <avrgcc.compiler.optimization.DebugLevel>Maximum (-g3)</avrgcc.compiler.optimization.DebugLevel>
+  <avrgcccpp.compiler.optimization.level>Optimize (-O1)</avrgcccpp.compiler.optimization.level>
+  <avrgcccpp.compiler.optimization.DebugLevel>Default (-g2)</avrgcccpp.compiler.optimization.DebugLevel>
+  <avrgcccpp.assembler.debugging.DebugLevel>Default (-Wa,-g)</avrgcccpp.assembler.debugging.DebugLevel>
+</AvrGccCpp>
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>

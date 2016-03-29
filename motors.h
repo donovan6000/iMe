@@ -4,11 +4,12 @@
 
 
 // Header files
-#include <stdint.h>
 #include "gcode.h"
 
 
+// Definitions
 enum MODES {RELATIVE, ABSOLUTE};
+enum STEPS {STEPS8, STEPS16, STEPS32};
 
 
 // Motors class
@@ -19,6 +20,9 @@ class Motors {
 	
 		// Constructor
 		Motors();
+		
+		// Set micro steps per step
+		void setMicroStepsPerStep(STEPS steps);
 		
 		// Turn on
 		void turnOn();
@@ -46,10 +50,10 @@ class Motors {
 		float currentF;
 		
 		// Motors VREF
-		pwm_config motorXVrefPwm;
-		pwm_config motorYVrefPwm;
-		pwm_config motorZVrefPwm;
-		pwm_config motorEVrefPwm;
+		pwm_config motorXStepPwm;
+		pwm_config motorYStepPwm;
+		pwm_config motorZStepPwm;
+		pwm_config motorEStepPwm;
 };
 
 

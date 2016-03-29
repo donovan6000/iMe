@@ -4,7 +4,9 @@
 
 
 // Header files
-#include <stdint.h>
+extern "C" {
+	#include <asf.h>
+}
 
 
 // Gcode class
@@ -117,7 +119,7 @@ class Gcode {
 		uint32_t valueN;
 		
 		// Host command
-		char hostCommand[64];
+		char hostCommand[UDI_CDC_COMM_EP_SIZE];
 };
 
 

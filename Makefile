@@ -85,10 +85,10 @@ INCPATH = . \
 	src/config
 
 # Compiler flags
-FLAGS = -D BOARD=USER_BOARD -D FIRMWARE_NAME="\"$(FIRMWARE_NAME)\"" -D FIRMWARE_VERSION="\"$(FIRMWARE_VERSION)\"" -Os -mmcu=atxmega32c4 -Wall
-ASFLAGS = -std=c++14 -x assembler-with-cpp
-CFLAGS = -std=gnu99 -x c -fdata-sections -ffunction-sections -fpack-struct -fshort-enums -fno-strict-aliasing -Wstrict-prototypes -Wmissing-prototypes -Werror-implicit-function-declaration -Wpointer-arith -mrelax
-CPPFLAGS = -std=c++14 -x c++ -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums
+FLAGS = -D BOARD=USER_BOARD -D FIRMWARE_NAME="\"$(FIRMWARE_NAME)\"" -D FIRMWARE_VERSION="\"$(FIRMWARE_VERSION)\"" -Os -mmcu=atxmega32c4 -Wall -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -fno-strict-aliasing  -Werror-implicit-function-declaration -Wpointer-arith
+ASFLAGS = -std=c++14 -x assembler-with-cpp -mrelax
+CFLAGS = -std=gnu99 -x c -Wstrict-prototypes -Wmissing-prototypes -mrelax
+CPPFLAGS = -std=c++14 -x c++ -mrelax
 LFLAGS = -Wl,--section-start=.BOOT=0x8000 -Wl,--start-group -Wl,--end-group -Wl,--gc-sections
 
 # Make - Compiles firmware
@@ -110,7 +110,7 @@ clean:
 run:
 	@$(M3DLINUX) -a -x -r "$(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex"
 
-# Make production debug - Adds debug information to a production elf
+# Make production debug - Adds debug information to a production elf named production.elf
 productionDebug:
 
 	@$(COPY) -O binary --only-section=.text production.elf text.bin

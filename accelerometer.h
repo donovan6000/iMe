@@ -3,10 +3,6 @@
 #define ACCELEROMETER_H
 
 
-// Header files
-#include <stdint.h>
-
-
 // Accelerometer class
 class Accelerometer {
 

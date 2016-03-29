@@ -1,7 +1,6 @@
 // Header files
 #include <string.h>
 #include <ctype.h>
-#include <stdlib.h>
 #include "gcode.h"
 
 
@@ -108,16 +107,16 @@ bool Gcode::parseCommand(const char *command) {
 	if(*firstValidCharacter == '@') {
 	
 		// Set command length
-		uint8_t commandLength = stopParsingOffset - startParsingOffset;
+		uint8_t commandLength = stopParsingOffset - startParsingOffset - 1;
 	
 		// Check if host command is empty
-		if(commandLength == 1)
+		if(!commandLength)
 		
 			// Return false
 			return false;
 	
 		// Save host command
-		strncpy(hostCommand, firstValidCharacter, commandLength);
+		strncpy(hostCommand, firstValidCharacter + 1, commandLength);
 		hostCommand[commandLength] = 0;
 		
 		// Set command parameters
@@ -136,86 +135,67 @@ bool Gcode::parseCommand(const char *command) {
 			// Check if character is a valid parameter
 			if(parameterOffset != INVALID) {
 			
-				// Go through parameter's value
-				const char *lastParameterCharacter = &command[++i];
-				for(uint8_t j = i; j < stopParsingOffset; j++)
+				// Get parameter bit
+				uint16_t parameterBit = 1 << parameterOffset;
 			
-					// Check if at end of parameter's value
-					if(isspace(command[j]) || isalpha(command[j])) {
-				
-						// Save offset
-						lastParameterCharacter = &command[j];
-						break;
-					}
-				
-					// Otherwise check if parameter goes to the end of the command
-					else if(j == stopParsingOffset - 1) {
-				
-						// Set offset
-						lastParameterCharacter = NULL;
-						break;
-					}
+				// Save parameter value
+				char *lastParameterCharacter;
+				switch(parameterBit) {
 			
+					case PARAMETER_G_OFFSET:
+						valueG = strtoul(&command[++i], &lastParameterCharacter, 10);
+					break;
+				
+					case PARAMETER_M_OFFSET:
+						valueM = strtoul(&command[++i], &lastParameterCharacter, 10);
+					break;
+				
+					case PARAMETER_T_OFFSET:
+						valueT = strtoul(&command[++i], &lastParameterCharacter, 10);
+					break;
+				
+					case PARAMETER_S_OFFSET:
+						valueS = strtol(&command[++i], &lastParameterCharacter, 10);
+					break;
+				
+					case PARAMETER_P_OFFSET:
+						valueP = strtol(&command[++i], &lastParameterCharacter, 10);
+					break;
+				
+					case PARAMETER_X_OFFSET:
+						valueX = strtod(&command[++i], &lastParameterCharacter);
+					break;
+				
+					case PARAMETER_Y_OFFSET:
+						valueY = strtod(&command[++i], &lastParameterCharacter);
+					break;
+				
+					case PARAMETER_Z_OFFSET:
+						valueZ = strtod(&command[++i], &lastParameterCharacter);
+					break;
+				
+					case PARAMETER_F_OFFSET:
+						valueF = strtod(&command[++i], &lastParameterCharacter);
+					break;
+				
+					case PARAMETER_E_OFFSET:
+						valueE = strtod(&command[++i], &lastParameterCharacter);
+					break;
+				
+					case PARAMETER_N_OFFSET:
+						valueN = strtoul(&command[++i], &lastParameterCharacter, 10);
+				}
+				
 				// Check if parameter exists
 				if(lastParameterCharacter != &command[i]) {
 				
-					// Get parameter's bit
-					uint16_t parameterBit = 1 << parameterOffset;
-			
 					// Set command parameters
 					commandParameters |= parameterBit;
-				
-					// Save parameter's value
-					switch(parameterBit) {
-				
-						case PARAMETER_G_OFFSET:
-							valueG = strtoul(&command[i], const_cast<char **>(&lastParameterCharacter), 10);
-						break;
 					
-						case PARAMETER_M_OFFSET:
-							valueM = strtoul(&command[i], const_cast<char **>(&lastParameterCharacter), 10);
-						break;
-					
-						case PARAMETER_T_OFFSET:
-							valueT = strtoul(&command[i], const_cast<char **>(&lastParameterCharacter), 10);
-						break;
-					
-						case PARAMETER_S_OFFSET:
-							valueS = strtol(&command[i], const_cast<char **>(&lastParameterCharacter), 10);
-						break;
-					
-						case PARAMETER_P_OFFSET:
-							valueP = strtol(&command[i], const_cast<char **>(&lastParameterCharacter), 10);
-						break;
-					
-						case PARAMETER_X_OFFSET:
-							valueX = strtod(&command[i], const_cast<char **>(&lastParameterCharacter));
-						break;
-					
-						case PARAMETER_Y_OFFSET:
-							valueY = strtod(&command[i], const_cast<char **>(&lastParameterCharacter));
-						break;
-					
-						case PARAMETER_Z_OFFSET:
-							valueZ = strtod(&command[i], const_cast<char **>(&lastParameterCharacter));
-						break;
-					
-						case PARAMETER_F_OFFSET:
-							valueF = strtod(&command[i], const_cast<char **>(&lastParameterCharacter));
-						break;
-					
-						case PARAMETER_E_OFFSET:
-							valueE = strtod(&command[i], const_cast<char **>(&lastParameterCharacter));
-						break;
-					
-						case PARAMETER_N_OFFSET:
-							valueN = strtoul(&command[i], const_cast<char **>(&lastParameterCharacter), 10);
-					}
-				
-					// Increment index
-					i += lastParameterCharacter - &command[i];
+					// Set index
+					i = lastParameterCharacter - command;
 				}
-			
+				
 				// Decrement index
 				i--;
 			}

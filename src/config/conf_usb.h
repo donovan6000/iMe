@@ -22,7 +22,7 @@
 #define USB_DEVICE_SERIAL_NAME
 #define USB_DEVICE_GET_SERIAL_NAME_POINTER serialNumber
 #define USB_DEVICE_GET_SERIAL_NAME_LENGTH 16
-extern uint8_t serialNumber[];
+extern char serialNumber[];
 
 
 // High speed support

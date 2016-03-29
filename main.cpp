@@ -1,9 +1,9 @@
+// ATxmega32C4 http://www.atmel.com/Images/Atmel-8493-8-and-32-bit-AVR-XMEGA-Microcontrollers-ATxmega16C4-ATxmega32C4_Datasheet.pdf
 // Header files
 extern "C" {
 	#include <asf.h>
 }
 #include <string.h>
-#include <limits.h>
 #include "accelerometer.h"
 #include "eeprom.h"
 #include "fan.h"
@@ -27,6 +27,10 @@ extern "C" {
 // Unknown pins
 #define UNKNOWN_PIN_1 IOPORT_CREATE_PIN(PORTA, 1) // Connected to transistors above the microcontroller
 #define UNKNOWN_PIN_2 IOPORT_CREATE_PIN(PORTA, 5) // Connected to a resistor and capacitor in parallel to ground
+#define MOTOR_E_STEP_PIN IOPORT_CREATE_PIN(PORTC, 4)
+#define MOTOR_X_STEP_PIN IOPORT_CREATE_PIN(PORTC, 5)
+#define MOTOR_Z_STEP_PIN IOPORT_CREATE_PIN(PORTC, 6)
+#define MOTOR_Y_STEP_PIN IOPORT_CREATE_PIN(PORTC, 7)
 
 // Configuration details
 #define REQUEST_BUFFER_SIZE 10
@@ -47,34 +51,22 @@ class Request {
 	
 	// Size and buffer
 	uint8_t size;
-	uint8_t buffer[UDI_CDC_COMM_EP_SIZE + 1];
+	char buffer[UDI_CDC_COMM_EP_SIZE + 1];
 };
 
 
 // Global variables
-uint8_t serialNumber[USB_DEVICE_GET_SERIAL_NAME_LENGTH];
+char serialNumber[USB_DEVICE_GET_SERIAL_NAME_LENGTH];
 Request requests[REQUEST_BUFFER_SIZE];
 
 
 // Function prototypes
 
 /*
-Name: Set serial number
-Purpose: Sets serial number used by the USB descriptor to the value stored in the EEPROM
-*/
-void setSerialNumber();
-
-/*
 Name: CDC RX notify callback
 Purpose: Callback for when USB receives data
 */
 void cdcRxNotifyCallback(uint8_t port);
-
-/*
-Name: Send wait
-Purpose: Sends wait to USB host
-*/
-void sendWait();
 
 
 // Main function
@@ -115,14 +107,63 @@ int main() {
 	ioport_set_pin_dir(UNKNOWN_PIN_2, IOPORT_DIR_INPUT);
 	
 	// Configure send wait interrupt timer
-	tc_enable(&TCC2);
-	tc_set_wgm(&TCC2, TC_WG_NORMAL);
-	tc_write_period(&TCC2, sysclk_get_cpu_hz() / 1024);
-	tc_set_overflow_interrupt_level(&TCC2, TC_INT_LVL_LO);
-	tc_set_overflow_interrupt_callback(&TCC2, sendWait);
+	tc_enable(&TCC1);
+	tc_set_wgm(&TCC1, TC_WG_NORMAL);
+	tc_write_period(&TCC1, sysclk_get_cpu_hz() / 1024);
+	tc_set_overflow_interrupt_level(&TCC1, TC_INT_LVL_LO);
+	tc_set_overflow_interrupt_callback(&TCC1, []() -> void {
 	
-	// Set serial number
-	setSerialNumber();
+		// Send wait
+		udi_cdc_write_buf("wait\n", strlen("wait\n"));
+	});
+	
+	ioport_set_pin_dir(MOTOR_X_STEP_PIN, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_dir(MOTOR_Y_STEP_PIN, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_dir(MOTOR_Z_STEP_PIN, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_dir(MOTOR_E_STEP_PIN, IOPORT_DIR_OUTPUT);
+	
+	tc_enable(&TCC0);
+	tc_set_wgm(&TCC0, TC_WG_SS);
+	tc_write_cc(&TCC0, TC_CCA, 0);
+	tc_write_cc(&TCC0, TC_CCB, 0);
+	tc_write_cc(&TCC0, TC_CCC, 0);
+	tc_write_cc(&TCC0, TC_CCD, 0);
+	tc_set_overflow_interrupt_callback(&TCC0, []() -> void {
+
+		// Clear motor X, Y, Z, and E step pins
+		ioport_set_pin_level(MOTOR_X_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
+		ioport_set_pin_level(MOTOR_Y_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
+		ioport_set_pin_level(MOTOR_Z_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
+		ioport_set_pin_level(MOTOR_E_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
+	});
+	tc_set_cca_interrupt_callback(&TCC0, []() -> void {
+	
+		// Clear motor X step pin
+		ioport_set_pin_level(MOTOR_X_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
+	});
+	tc_set_ccb_interrupt_callback(&TCC0, []() -> void {
+	
+		// Clear motor Y step pin
+		ioport_set_pin_level(MOTOR_Y_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
+	});
+	tc_set_ccc_interrupt_callback(&TCC0, []() -> void {
+	
+		// Clear motor Z step pin
+		ioport_set_pin_level(MOTOR_Z_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
+	});
+	tc_set_ccd_interrupt_callback(&TCC0, []() -> void {
+	
+		// Clear motor E step pin
+		ioport_set_pin_level(MOTOR_E_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
+	});
+	tc_set_overflow_interrupt_level(&TCC0, TC_INT_LVL_OFF);
+	tc_set_cca_interrupt_level(&TCC0, TC_INT_LVL_OFF);
+	tc_set_ccb_interrupt_level(&TCC0, TC_INT_LVL_OFF);
+	tc_set_ccc_interrupt_level(&TCC0, TC_INT_LVL_OFF);
+	tc_set_ccd_interrupt_level(&TCC0, TC_INT_LVL_OFF);
+	
+	// Read serial from EEPROM
+	nvm_eeprom_read_buffer(EEPROM_SERIAL_NUMBER_OFFSET, serialNumber, EEPROM_SERIAL_NUMBER_LENGTH);
 	
 	// Enable interrupts
 	cpu_irq_enable();
@@ -131,8 +172,12 @@ int main() {
 	udc_start();
 	
 	// Enable send wait interrupt
-	tc_restart(&TCC2);
-	tc_write_clock_source(&TCC2, TC_CLKSEL_DIV1024_gc);
+	tc_restart(&TCC1);
+	tc_write_clock_source(&TCC1, TC_CLKSEL_DIV1024_gc);
+	
+	tc_restart(&TCC0);
+	tc_write_period(&TCC0, 65535);
+	tc_write_clock_source(&TCC0, TC_CLKSEL_DIV1_gc);
 	
 	// Main loop
 	while(1) {
@@ -144,19 +189,16 @@ int main() {
 		if(requests[currentProcessingRequest].size) {
 		
 			// Disable send wait interrupt
-			tc_write_clock_source(&TCC2, TC_CLKSEL_OFF_gc);
+			tc_write_clock_source(&TCC1, TC_CLKSEL_OFF_gc);
 		
 			// Parse command
-			gcode.parseCommand(reinterpret_cast<char *>(requests[currentProcessingRequest].buffer));
+			gcode.parseCommand(requests[currentProcessingRequest].buffer);
 		
 			// Clear request buffer size
 			requests[currentProcessingRequest].size = 0;
 			
 			// Increment current processing request
-			if(currentProcessingRequest == REQUEST_BUFFER_SIZE - 1)
-				currentProcessingRequest = 0;
-			else
-				currentProcessingRequest++;
+			currentProcessingRequest = currentProcessingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentProcessingRequest + 1;
 			
 			// Clear response buffer
 			*responseBuffer = 0;
@@ -451,8 +493,8 @@ int main() {
 										else {
 							
 											// Put device details into response
-											strcpy(responseBuffer, "ok REPRAP_PROTOCOL:1 FIRMWARE_NAME:" FIRMWARE_NAME " FIRMWARE_VERSION:" FIRMWARE_VERSION " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
-											strncat(responseBuffer, reinterpret_cast<char *>(serialNumber), EEPROM_SERIAL_NUMBER_LENGTH);
+											strcpy(responseBuffer, "ok REPRAP_PROTOCOL:0 FIRMWARE_NAME:" FIRMWARE_NAME " FIRMWARE_VERSION:" FIRMWARE_VERSION " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
+											strncat(responseBuffer, serialNumber, EEPROM_SERIAL_NUMBER_LENGTH);
 										}
 									break;
 									
@@ -668,8 +710,8 @@ int main() {
 			udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
 			
 			// Enable send wait interrupt
-			tc_restart(&TCC2);
-			tc_write_clock_source(&TCC2, TC_CLKSEL_DIV1024_gc);
+			tc_restart(&TCC1);
+			tc_write_clock_source(&TCC1, TC_CLKSEL_DIV1024_gc);
 		}
 	}
 	
@@ -679,12 +721,6 @@ int main() {
 
 
 // Supporting function implementation
-void setSerialNumber() {
-
-	// Read serial from EEPROM
-	nvm_eeprom_read_buffer(EEPROM_SERIAL_NUMBER_OFFSET, serialNumber, EEPROM_SERIAL_NUMBER_LENGTH);
-}
-
 void cdcRxNotifyCallback(uint8_t port) {
 
 	// Initialize variables
@@ -699,15 +735,7 @@ void cdcRxNotifyCallback(uint8_t port) {
 		requests[currentReceivingRequest].buffer[requests[currentReceivingRequest].size] = 0;
 		
 		// Increment current receiving request
-		if(currentReceivingRequest == REQUEST_BUFFER_SIZE - 1)
-			currentReceivingRequest = 0;
-		else
-			currentReceivingRequest++;
+		if(requests[currentReceivingRequest].size)
+			currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
 	}
-}
-
-void sendWait() {
-
-	// Send wait
-	udi_cdc_write_buf("wait\n", strlen("wait\n"));
 }

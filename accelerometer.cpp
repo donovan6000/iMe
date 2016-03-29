@@ -1,3 +1,4 @@
+// MMA8652FC http://cache.nxp.com/files/sensors/doc/data_sheet/MMA8652FC.pdf
 // Header files
 extern "C" {
 	#include <asf.h>

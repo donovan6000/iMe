@@ -3,11 +3,6 @@
 #define HEATER_H
 
 
-// Header files
-#include <stdint.h>
-#include "heater.h"
-
-
 // Heater class
 class Heater {
 
