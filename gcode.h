@@ -98,6 +98,9 @@ class Gcode {
 		
 		// Get host command
 		const char *getHostCommand() const;
+		
+		// Has valid checksum
+		bool hasValidChecksum() const;
 	
 	// Private
 	private :
@@ -117,6 +120,9 @@ class Gcode {
 		float valueF;
 		float valueE;
 		uint32_t valueN;
+		
+		// Valid checksum
+		bool validChecksum;
 		
 		// Host command
 		char hostCommand[UDI_CDC_COMM_EP_SIZE];

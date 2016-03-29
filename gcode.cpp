@@ -184,6 +184,28 @@ bool Gcode::parseCommand(const char *command) {
 				
 					case PARAMETER_N_OFFSET:
 						valueN = strtoul(&command[++i], &lastParameterCharacter, 10);
+						
+						// Clear valid checksum
+						validChecksum = false;
+						
+						// Check if command contains a checksum
+						const char *checksumCharacter;
+						if((checksumCharacter = strchr(command, '*'))) {
+						
+							// Check if checksum exists
+							char *lastChecksumCharacter;
+							uint8_t providedChecksum = strtoul(++checksumCharacter, &lastChecksumCharacter, 10);
+							if(lastChecksumCharacter != checksumCharacter) {
+							
+								// Calculate checksum
+								uint8_t calculatedChecksum = 0;
+								for(uint8_t i = 0; command[i] != '*'; i++)
+									calculatedChecksum ^= command[i];
+								
+								// Set valid checksum
+								validChecksum = calculatedChecksum == providedChecksum;
+							}
+						}
 				}
 				
 				// Check if parameter exists
@@ -220,6 +242,7 @@ void Gcode::clearCommand() {
 	valueF = 0;
 	valueE = 0;
 	valueN = 0;
+	validChecksum = true;
 	*hostCommand = 0;
 }
 
@@ -371,4 +394,10 @@ const char *Gcode::getHostCommand() const {
 
 	// Return host command
 	return hostCommand;
+}
+
+bool Gcode::hasValidChecksum() const {
+
+	// Return valid checksum
+	return validChecksum;
 }

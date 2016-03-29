@@ -190,7 +190,7 @@ int main() {
 		
 			// Disable send wait interrupt
 			tc_write_clock_source(&TCC1, TC_CLKSEL_OFF_gc);
-		
+			
 			// Parse command
 			gcode.parseCommand(requests[currentProcessingRequest].buffer);
 		
@@ -364,30 +364,40 @@ int main() {
 			
 						// Check if command has an N parameter
 						if(gcode.hasParameterN()) {
+						
+							// Check if command doesn't have a valid checksum
+							if(!gcode.hasValidChecksum())
 				
-							// Check if command is a starting line number
-							if(gcode.getParameterN() == 0 && gcode.getParameterM() == 110)
-					
-								// Reset current line number
-								currentLineNumber = 0;
-					
-							// Check if line number is correct
-							if(gcode.getParameterN() == currentLineNumber)
-					
-								// Increment current line number
-								currentLineNumber++;
-						
-							// Otherwise check if command has already been processed
-							else if(gcode.getParameterN() < currentLineNumber)
-						
-								// Set response to skip
-								strcpy(responseBuffer, "skip");
-					
-							// Otherwise
-							else
-					
 								// Set response to resend
-								strcpy(responseBuffer, "rs");
+								strcpy(responseBuffer, "Resend");
+							
+							// Otherwise
+							else {
+				
+								// Check if command is a starting line number
+								if(gcode.getParameterN() == 0 && gcode.getParameterM() == 110)
+					
+									// Reset current line number
+									currentLineNumber = 0;
+					
+								// Check if line number is correct
+								if(gcode.getParameterN() == currentLineNumber)
+					
+									// Increment current line number
+									currentLineNumber++;
+						
+								// Otherwise check if command has already been processed
+								else if(gcode.getParameterN() < currentLineNumber)
+						
+									// Set response to skip
+									strcpy(responseBuffer, "skip");
+					
+								// Otherwise
+								else
+					
+									// Set response to resend
+									strcpy(responseBuffer, "Resend");
+							}
 						}
 				
 						// Check if response wasn't set
@@ -473,6 +483,8 @@ int main() {
 									// M109
 									case 109:
 									
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
 									break;
 									
 									// M114
@@ -670,14 +682,14 @@ int main() {
 						}
 					
 						// Check if command has an N parameter and it was processed
-						if(gcode.hasParameterN() && (!strncmp(responseBuffer, "ok", 2) || !strncmp(responseBuffer, "rs", 2) || !strncmp(responseBuffer, "skip", 4))) {
+						if(gcode.hasParameterN() && (!strncmp(responseBuffer, "ok", 2) || !strncmp(responseBuffer, "Resend", 6) || !strncmp(responseBuffer, "skip", 4))) {
 			
 							// Append line number to response
-							uint8_t endOfResponse = responseBuffer[0] == 's' ? 4 : 2;
+							uint8_t endOfResponse = responseBuffer[0] == 's' ? 4 : responseBuffer[0] == 'R' ? 6 : 2;
 							uint32_t value = gcode.getParameterN();
 						
 							if(responseBuffer[0] == 'r')
-								value--;
+								value = currentLineNumber;
 						
 							ultoa(value, numberBuffer, 10);
 							memmove(&responseBuffer[endOfResponse + 1 + strlen(numberBuffer)], &responseBuffer[endOfResponse], strlen(responseBuffer) - 1);
