@@ -686,10 +686,7 @@ int main() {
 			
 							// Append line number to response
 							uint8_t endOfResponse = responseBuffer[0] == 's' ? 4 : responseBuffer[0] == 'R' ? 6 : 2;
-							uint32_t value = gcode.getParameterN();
-						
-							if(responseBuffer[0] == 'r')
-								value = currentLineNumber;
+							uint32_t value = responseBuffer[0] == 'R' ? currentLineNumber : gcode.getParameterN();
 						
 							ultoa(value, numberBuffer, 10);
 							memmove(&responseBuffer[endOfResponse + 1 + strlen(numberBuffer)], &responseBuffer[endOfResponse], strlen(responseBuffer) - 1);
