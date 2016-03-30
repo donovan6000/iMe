@@ -93,11 +93,11 @@ int main() {
 	uint32_t currentLineNumber = 0;
 	char numberBuffer[sizeof("4294967295")];
 	Accelerometer accelerometer;
-	Motors motors;
-	Heater heater;
-	Led led;
 	Fan fan;
 	Gcode gcode;
+	Heater heater;
+	Led led;
+	Motors motors;
 	uint32_t delayTime;
 	char *startOfTemperature;
 	
@@ -117,51 +117,6 @@ int main() {
 		udi_cdc_write_buf("wait\n", strlen("wait\n"));
 	});
 	
-	ioport_set_pin_dir(MOTOR_X_STEP_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_dir(MOTOR_Y_STEP_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_dir(MOTOR_Z_STEP_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_dir(MOTOR_E_STEP_PIN, IOPORT_DIR_OUTPUT);
-	
-	tc_enable(&TCC0);
-	tc_set_wgm(&TCC0, TC_WG_SS);
-	tc_write_cc(&TCC0, TC_CCA, 0);
-	tc_write_cc(&TCC0, TC_CCB, 0);
-	tc_write_cc(&TCC0, TC_CCC, 0);
-	tc_write_cc(&TCC0, TC_CCD, 0);
-	tc_set_overflow_interrupt_callback(&TCC0, []() -> void {
-
-		// Clear motor X, Y, Z, and E step pins
-		ioport_set_pin_level(MOTOR_X_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
-		ioport_set_pin_level(MOTOR_Y_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
-		ioport_set_pin_level(MOTOR_Z_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
-		ioport_set_pin_level(MOTOR_E_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
-	});
-	tc_set_cca_interrupt_callback(&TCC0, []() -> void {
-	
-		// Clear motor X step pin
-		ioport_set_pin_level(MOTOR_X_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
-	});
-	tc_set_ccb_interrupt_callback(&TCC0, []() -> void {
-	
-		// Clear motor Y step pin
-		ioport_set_pin_level(MOTOR_Y_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
-	});
-	tc_set_ccc_interrupt_callback(&TCC0, []() -> void {
-	
-		// Clear motor Z step pin
-		ioport_set_pin_level(MOTOR_Z_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
-	});
-	tc_set_ccd_interrupt_callback(&TCC0, []() -> void {
-	
-		// Clear motor E step pin
-		ioport_set_pin_level(MOTOR_E_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
-	});
-	tc_set_overflow_interrupt_level(&TCC0, TC_INT_LVL_OFF);
-	tc_set_cca_interrupt_level(&TCC0, TC_INT_LVL_OFF);
-	tc_set_ccb_interrupt_level(&TCC0, TC_INT_LVL_OFF);
-	tc_set_ccc_interrupt_level(&TCC0, TC_INT_LVL_OFF);
-	tc_set_ccd_interrupt_level(&TCC0, TC_INT_LVL_OFF);
-	
 	// Read serial from EEPROM
 	nvm_eeprom_read_buffer(EEPROM_SERIAL_NUMBER_OFFSET, serialNumber, EEPROM_SERIAL_NUMBER_LENGTH);
 	
@@ -172,12 +127,7 @@ int main() {
 	udc_start();
 	
 	// Enable send wait interrupt
-	tc_restart(&TCC1);
 	tc_write_clock_source(&TCC1, TC_CLKSEL_DIV1024_gc);
-	
-	tc_restart(&TCC0);
-	tc_write_period(&TCC0, 65535);
-	tc_write_clock_source(&TCC0, TC_CLKSEL_DIV1_gc);
 	
 	// Main loop
 	while(1) {
@@ -365,6 +315,12 @@ int main() {
 						// Check if command has an N parameter
 						if(gcode.hasParameterN()) {
 						
+							// Check if command is a starting line number
+							if(gcode.getParameterN() == 0 && gcode.getParameterM() == 110)
+				
+								// Reset current line number
+								currentLineNumber = 0;
+						
 							// Check if command doesn't have a valid checksum
 							if(!gcode.hasValidChecksum())
 				
@@ -373,12 +329,6 @@ int main() {
 							
 							// Otherwise
 							else {
-				
-								// Check if command is a starting line number
-								if(gcode.getParameterN() == 0 && gcode.getParameterM() == 110)
-					
-									// Reset current line number
-									currentLineNumber = 0;
 					
 								// Check if line number is correct
 								if(gcode.getParameterN() == currentLineNumber)

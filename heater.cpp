@@ -69,11 +69,11 @@ Heater::Heater() {
 	delay_ms(1);
 	
 	// Configure check temperature interrupt timer
-	tc_enable(&TCC0);
+	/*tc_enable(&TCC0);
 	tc_set_wgm(&TCC0, TC_WG_NORMAL);
 	tc_write_period(&TCC0, sysclk_get_cpu_hz() / 1024);
 	tc_set_overflow_interrupt_level(&TCC0, TC_INT_LVL_LO);
-	tc_set_overflow_interrupt_callback(&TCC0, checkTemperature);
+	tc_set_overflow_interrupt_callback(&TCC0, checkTemperature);*/
 }
 
 void Heater::setTemperature(uint16_t value) {
@@ -85,8 +85,8 @@ void Heater::setTemperature(uint16_t value) {
 	temperature = value;
 	
 	// Enable check temperature interrupt
-	tc_restart(&TCC0);
-	tc_write_clock_source(&TCC0, TC_CLKSEL_DIV1024_gc);
+	//tc_restart(&TCC0);
+	//tc_write_clock_source(&TCC0, TC_CLKSEL_DIV1024_gc);
 }
 
 int16_t Heater::getTemperature() {
@@ -109,7 +109,7 @@ int16_t Heater::getTemperature() {
 void Heater::turnOff() {
 
 	// Disable check temperature interrupt
-	tc_write_clock_source(&TCC0, TC_CLKSEL_OFF_gc);
+	//tc_write_clock_source(&TCC0, TC_CLKSEL_OFF_gc);
 	
 	// Clear temperature
 	temperature = 0;

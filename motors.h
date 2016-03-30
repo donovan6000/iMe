@@ -48,12 +48,6 @@ class Motors {
 		float currentZ;
 		float currentE;
 		float currentF;
-		
-		// Motors VREF
-		pwm_config motorXStepPwm;
-		pwm_config motorYStepPwm;
-		pwm_config motorZStepPwm;
-		pwm_config motorEStepPwm;
 };
 
 
