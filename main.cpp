@@ -4,6 +4,7 @@ extern "C" {
 	#include <asf.h>
 }
 #include <string.h>
+#include <math.h>
 #include "accelerometer.h"
 #include "eeprom.h"
 #include "fan.h"
@@ -68,6 +69,12 @@ Purpose: Callback for when USB receives data
 */
 void cdcRxNotifyCallback(uint8_t port);
 
+/*
+Name: floatToString
+Purpose: Converts a float to a string
+*/
+void floatToString(float value, char *buffer);
+
 
 // Main function
 int main() {
@@ -99,7 +106,7 @@ int main() {
 	Led led;
 	Motors motors;
 	uint32_t delayTime;
-	char *startOfTemperature;
+	int32_t speed;
 	
 	// Configure unknown pins to how the official firmware does
 	ioport_set_pin_dir(UNKNOWN_PIN_1, IOPORT_DIR_OUTPUT);
@@ -393,33 +400,22 @@ int main() {
 						
 										// Set response to temperature
 										strcpy(responseBuffer, "ok\nT:");
-										
-										dtostrf(static_cast<float>(heater.getTemperature()) * 2.60 / 2047, 9, 4, numberBuffer);
-										startOfTemperature = numberBuffer;
-										
-										while(*startOfTemperature++ == ' ');
-										if(*startOfTemperature == '.')
-											*(--startOfTemperature) = '0';
-										
-										strcat(responseBuffer, startOfTemperature);
+										floatToString(static_cast<float>(heater.getTemperature()) * 2.60 / 2047, numberBuffer);
+										strcat(responseBuffer, numberBuffer);
 									break;
 									
 									// M106
 									case 106:
 									
-										// Check if duty cycle is provided
-										if(gcode.hasParameterS()) {
+										// Check if speed is valid
+										speed = gcode.hasParameterS() ? gcode.getParameterS() : 0;
+										if(speed >= 0 && speed <= 255) {
+								
+											// Set fan's speed
+											fan.setSpeed(speed);
 										
-											// Check if speed is valid
-											int32_t speed = gcode.getParameterS();
-											if(speed >= 0 && speed <= 255) {
-									
-												// Set fan's speed
-												fan.setSpeed(speed);
-											
-												// Set response to confirmation
-												strcpy(responseBuffer, "ok");
-											}
+											// Set response to confirmation
+											strcpy(responseBuffer, "ok");
 										}
 									break;
 									
@@ -428,18 +424,49 @@ int main() {
 									
 										// Turn off fan
 										fan.turnOff();
+										
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
 									break;
 									
 									// M109
 									case 109:
 									
-										// Set response to confirmation
-										strcpy(responseBuffer, "ok");
 									break;
 									
 									// M114
 									case 114:
 									
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+										
+										// Check if motors current X is valid
+										if(!isnan(motors.currentX)) {
+										
+											// Append motors current X to response
+											strcat(responseBuffer, " X:");
+											floatToString(motors.currentX, numberBuffer);
+											strcat(responseBuffer, numberBuffer);
+										}
+										
+										// Check if motors current Y is valid
+										if(!isnan(motors.currentY)) {
+										
+											// Append motors current Y to response
+											strcat(responseBuffer, " Y:");
+											floatToString(motors.currentY, numberBuffer);
+											strcat(responseBuffer, numberBuffer);
+										}
+										
+										// Append motors current E to response
+										strcat(responseBuffer, " E:");
+										floatToString(motors.currentE, numberBuffer);
+										strcat(responseBuffer, numberBuffer);
+										
+										// Append motors current Z to response
+										strcat(responseBuffer, " Z:");
+										floatToString(motors.currentZ, numberBuffer);
+										strcat(responseBuffer, numberBuffer);
 									break;
 							
 									// M115
@@ -463,6 +490,9 @@ int main() {
 									// M117
 									case 117:
 									
+										// Set response to valid Z
+										strcpy(responseBuffer, "ok ZV:");
+										strcat(responseBuffer, motors.validZ ? "1" : "0");
 									break;
 									
 									// M420
@@ -538,14 +568,12 @@ int main() {
 										}
 									break;
 									
-									// M21, M84, or M110
+									// M21 or M84
 									case 21:
 									case 84:
-									case 110:
 							
-										// Set response to confirmation
+										// Set response to fake confirmation
 										strcpy(responseBuffer, "ok");
-
 									break;
 								}
 							}
@@ -574,9 +602,7 @@ int main() {
 									case 4:
 							
 										// Delay specified time
-										delayTime = gcode.getParameterP() + gcode.getParameterS() * 1000;
-										
-										if(delayTime)
+										if((delayTime = gcode.getParameterP() + gcode.getParameterS() * 1000))
 											delay_ms(delayTime);
 								
 										// Set response to confirmation
@@ -586,6 +612,11 @@ int main() {
 									// G28
 									case 28:
 									
+										// Home motors
+										motors.goHome();
+										
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
 									break;
 									
 									// G30
@@ -626,6 +657,11 @@ int main() {
 									// G92
 									case 92:
 									
+										// Set motors current E
+										motors.currentX = gcode.hasParameterE() ? gcode.getParameterE() : 0;
+							
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
 									break;
 								}
 							}
@@ -697,4 +733,21 @@ void cdcRxNotifyCallback(uint8_t port) {
 		if(requests[currentReceivingRequest].size)
 			currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
 	}
+}
+
+void floatToString(float value, char *buffer) {
+
+	// Convert value to string
+	dtostrf(value, 9, 4, buffer);
+	
+	// Remove leading whitespace
+	char *firstValidCharacter = buffer;
+	while(*firstValidCharacter++ == ' ');
+	
+	// Prepend a zero if string doesn't contain one
+	if(*(--firstValidCharacter) == '.')
+		*(--firstValidCharacter) = '0';
+	
+	// Move string to the start of the buffer
+	memmove(buffer, firstValidCharacter, strlen(firstValidCharacter) + 1);
 }

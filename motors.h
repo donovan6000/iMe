@@ -35,6 +35,19 @@ class Motors {
 		
 		// Move
 		void move(const Gcode &command);
+		
+		// Go home
+		void goHome();
+		
+		// Current values
+		float currentX;
+		float currentY;
+		float currentZ;
+		float currentE;
+		float currentF;
+		
+		// Valid Z
+		bool validZ;
 	
 	// Private
 	private :
@@ -44,13 +57,6 @@ class Motors {
 		
 		// Steps
 		STEPS step;
-		
-		// Current values
-		float currentX;
-		float currentY;
-		float currentZ;
-		float currentE;
-		float currentF;
 };
 
 

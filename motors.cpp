@@ -4,7 +4,6 @@ extern "C" {
 	#include <asf.h>
 }
 #include <math.h>
-#include <string.h>
 #include "motors.h"
 #include "eeprom.h"
 
@@ -102,15 +101,14 @@ Motors::Motors() {
 	// Set current values
 	currentX = NAN;
 	currentY = NAN;
-	currentZ = NAN;
-	currentE = NAN;
+	currentE = 0;
 	currentF = 1000;
 	
-	/*// Check if last Z value was recorded
-	if(nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET))
+	// Set current Z to last recorded Z value
+	nvm_eeprom_read_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentZ, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
 	
-		// Set current Z to last recorded Z value
-		nvm_eeprom_read_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentZ, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);*/
+	// Set if current Z is valid
+	validZ = nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET);
 	
 	// Configure motors enable
 	ioport_set_pin_dir(MOTORS_ENABLE_PIN, IOPORT_DIR_OUTPUT);
@@ -159,7 +157,7 @@ Motors::Motors() {
 	tc_enable(&MOTORS_STEP_TIMER);
 	tc_set_8bits_mode(&MOTORS_STEP_TIMER);
 	tc_set_wgm(&MOTORS_STEP_TIMER, TC_WG_SS);
-	tc_write_period(&MOTORS_STEP_TIMER, sysclk_get_cpu_hz() / 100000);
+	tc_write_period(&MOTORS_STEP_TIMER, sysclk_get_cpu_hz() / 250000);
 	tc_write_cc(&MOTORS_STEP_TIMER, TC_CCA, 0);
 	tc_write_cc(&MOTORS_STEP_TIMER, TC_CCB, 0);
 	tc_write_cc(&MOTORS_STEP_TIMER, TC_CCC, 0);
@@ -360,11 +358,11 @@ void Motors::setMode(MODES mode) {
 void Motors::move(const Gcode &command) {
 
 	// Initialize variables
-	float slowestTime = -INFINITY;
-	float distanceMmX = NAN;
-	float distanceMmY = NAN;
-	float distanceMmZ = NAN;
-	float distanceMmE = NAN;
+	float slowestTime = 0;
+	float distanceMmX = 0;
+	float distanceMmY = 0;
+	float distanceMmZ = 0;
+	float distanceMmE = 0;
 
 	// Check if command has an F parameter
 	if(command.hasParameterF())
@@ -382,29 +380,30 @@ void Motors::move(const Gcode &command) {
 		else
 			newX = command.getParameterX();
 		
-		// Set motor X direction
-		ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, (isnan(currentX) && newX < 0) || (!isnan(currentX) && newX < currentX) ? DIRECTION_LEFT : DIRECTION_RIGHT);
+		// Check if X moves
+		if((distanceMmX = fabs(newX - (!isnan(currentX) ? currentX : 0)))) {
 		
-		// Set distance mm X
-		distanceMmX = fabs(newX - (!isnan(currentX) ? currentX : 0));
+			// Set motor X direction
+			ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, (isnan(currentX) && newX < 0) || (!isnan(currentX) && newX < currentX) ? DIRECTION_LEFT : DIRECTION_RIGHT);
 		
-		// Set motor X feedrate
-		float motorXFeedRate = currentF;
-		if(motorXFeedRate > MOTOR_X_MAX_FEEDRATE)
-			motorXFeedRate = MOTOR_X_MAX_FEEDRATE;
-		else if(motorXFeedRate < MOTOR_X_MIN_FEEDRATE)
-			motorXFeedRate = MOTOR_X_MIN_FEEDRATE;
+			// Set motor X feedrate
+			float motorXFeedRate = currentF;
+			if(motorXFeedRate > MOTOR_X_MAX_FEEDRATE)
+				motorXFeedRate = MOTOR_X_MAX_FEEDRATE;
+			else if(motorXFeedRate < MOTOR_X_MIN_FEEDRATE)
+				motorXFeedRate = MOTOR_X_MIN_FEEDRATE;
 		
-		// Set motor X total time
-		float motorXTotalTime = distanceMmX / motorXFeedRate * 60 * sysclk_get_cpu_hz() / tc_read_period(&MOTORS_STEP_TIMER);
+			// Set motor X total time
+			float motorXTotalTime = distanceMmX / motorXFeedRate * 60 * sysclk_get_cpu_hz() / tc_read_period(&MOTORS_STEP_TIMER);
 		
-		// Set slowest time
-		if(motorXTotalTime > slowestTime)
-			slowestTime = motorXTotalTime;
+			// Set slowest time
+			if(motorXTotalTime > slowestTime)
+				slowestTime = motorXTotalTime;
 		
-		// Set current X
-		if(mode != RELATIVE || !isnan(currentX))
-			currentX = newX;
+			// Set current X
+			if(!isnan(currentX))
+				currentX = newX;
+		}
 	}
 	
 	// Check if command has a Y parameter
@@ -417,29 +416,30 @@ void Motors::move(const Gcode &command) {
 		else
 			newY = command.getParameterY();
 		
-		// Set motor Y direction
-		ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, (isnan(currentY) && newY < 0) || (!isnan(currentY) && newY < currentY) ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
+		// Check if Y moved
+		if((distanceMmY = fabs(newY - (!isnan(currentY) ? currentY : 0)))) {
 		
-		// Set distance mm Y
-		distanceMmY = fabs(newY - (!isnan(currentY) ? currentY : 0));
+			// Set motor Y direction
+			ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, (isnan(currentY) && newY < 0) || (!isnan(currentY) && newY < currentY) ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
 		
-		// Set motor Y feedrate
-		float motorYFeedRate = currentF;
-		if(motorYFeedRate > MOTOR_Y_MAX_FEEDRATE)
-			motorYFeedRate = MOTOR_Y_MAX_FEEDRATE;
-		else if(motorYFeedRate < MOTOR_Y_MIN_FEEDRATE)
-			motorYFeedRate = MOTOR_Y_MIN_FEEDRATE;
+			// Set motor Y feedrate
+			float motorYFeedRate = currentF;
+			if(motorYFeedRate > MOTOR_Y_MAX_FEEDRATE)
+				motorYFeedRate = MOTOR_Y_MAX_FEEDRATE;
+			else if(motorYFeedRate < MOTOR_Y_MIN_FEEDRATE)
+				motorYFeedRate = MOTOR_Y_MIN_FEEDRATE;
 		
-		// Set motor Y total time
-		float motorYTotalTime = distanceMmY / motorYFeedRate * 60 * sysclk_get_cpu_hz() / tc_read_period(&MOTORS_STEP_TIMER);
+			// Set motor Y total time
+			float motorYTotalTime = distanceMmY / motorYFeedRate * 60 * sysclk_get_cpu_hz() / tc_read_period(&MOTORS_STEP_TIMER);
 		
-		// Set slowest time
-		if(motorYTotalTime > slowestTime)
-			slowestTime = motorYTotalTime;
+			// Set slowest time
+			if(motorYTotalTime > slowestTime)
+				slowestTime = motorYTotalTime;
 		
-		// Set current Y
-		if(mode != RELATIVE || !isnan(currentY))
-			currentY = newY;
+			// Set current Y
+			if(!isnan(currentY))
+				currentY = newY;
+		}
 	}
 	
 	// Check if command has a Z parameter
@@ -447,34 +447,34 @@ void Motors::move(const Gcode &command) {
 	
 		// Set current Z
 		float newZ;
-		if(mode == RELATIVE && !isnan(currentZ))
+		if(mode == RELATIVE)
 			newZ = currentZ + command.getParameterZ();
 		else
 			newZ = command.getParameterZ();
 		
-		// Set motor Z direction
-		ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, (isnan(currentZ) && newZ < 0) || (!isnan(currentZ) && newZ < currentZ) ? DIRECTION_DOWN : DIRECTION_UP);
+		// Check if Z moves
+		if((distanceMmZ = fabs(newZ - currentZ))) {
 		
-		// Set distance mm Z
-		distanceMmZ = fabs(newZ - (!isnan(currentZ) ? currentZ : 0));
+			// Set motor Z direction
+			ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, newZ < currentZ ? DIRECTION_DOWN : DIRECTION_UP);
 		
-		// Set motor Z feedrate
-		float motorZFeedRate = currentF;
-		if(motorZFeedRate > MOTOR_Z_MAX_FEEDRATE)
-			motorZFeedRate = MOTOR_Z_MAX_FEEDRATE;
-		else if(motorZFeedRate < MOTOR_Z_MIN_FEEDRATE)
-			motorZFeedRate = MOTOR_Z_MIN_FEEDRATE;
+			// Set motor Z feedrate
+			float motorZFeedRate = currentF;
+			if(motorZFeedRate > MOTOR_Z_MAX_FEEDRATE)
+				motorZFeedRate = MOTOR_Z_MAX_FEEDRATE;
+			else if(motorZFeedRate < MOTOR_Z_MIN_FEEDRATE)
+				motorZFeedRate = MOTOR_Z_MIN_FEEDRATE;
 		
-		// Set motor Z total time
-		float motorZTotalTime = distanceMmZ / motorZFeedRate * 60 * sysclk_get_cpu_hz() / tc_read_period(&MOTORS_STEP_TIMER);
+			// Set motor Z total time
+			float motorZTotalTime = distanceMmZ / motorZFeedRate * 60 * sysclk_get_cpu_hz() / tc_read_period(&MOTORS_STEP_TIMER);
 		
-		// Set slowest time
-		if(motorZTotalTime > slowestTime)
-			slowestTime = motorZTotalTime;
+			// Set slowest time
+			if(motorZTotalTime > slowestTime)
+				slowestTime = motorZTotalTime;
 		
-		// Set current Z
-		if(mode != RELATIVE || !isnan(currentZ))
+			// Set current Z
 			currentZ = newZ;
+		}
 	}
 	
 	// Check if command has a E parameter
@@ -482,44 +482,44 @@ void Motors::move(const Gcode &command) {
 	
 		// Set new E
 		float newE;
-		if(mode == RELATIVE && !isnan(currentE))
+		if(mode == RELATIVE)
 			newE = currentE + command.getParameterE();
 		else
 			newE = command.getParameterE();
 		
-		// Set motor E direction
-		ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, (isnan(currentE) && newE < 0) || (!isnan(currentE) && newE < currentE) ? DIRECTION_RETRACT : DIRECTION_EXTRUDE);
+		// Check if E moves
+		if((distanceMmE = fabs(newE - currentE))) {
 		
-		// Set distance mm E
-		distanceMmE = fabs(newE - (!isnan(currentE) ? currentE : 0));
+			// Set motor E direction
+			ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, newE < currentE ? DIRECTION_RETRACT : DIRECTION_EXTRUDE);
 		
-		// Set motor E feedrate
-		float motorEFeedRate = currentF;
-		if(ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) == DIRECTION_RETRACT && motorEFeedRate > MOTOR_E_MAX_FEEDRATE_RETRACTION)
-			motorEFeedRate = MOTOR_E_MAX_FEEDRATE_RETRACTION;
-		else if(ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) == DIRECTION_EXTRUDE && motorEFeedRate > MOTOR_E_MAX_FEEDRATE_EXTRUSION)
-			motorEFeedRate = MOTOR_E_MAX_FEEDRATE_EXTRUSION;
-		else if(motorEFeedRate < MOTOR_E_MIN_FEEDRATE)
-			motorEFeedRate = MOTOR_E_MIN_FEEDRATE;
+			// Set motor E feedrate
+			float motorEFeedRate = currentF;
+			if(ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) == DIRECTION_RETRACT && motorEFeedRate > MOTOR_E_MAX_FEEDRATE_RETRACTION)
+				motorEFeedRate = MOTOR_E_MAX_FEEDRATE_RETRACTION;
+			else if(ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) == DIRECTION_EXTRUDE && motorEFeedRate > MOTOR_E_MAX_FEEDRATE_EXTRUSION)
+				motorEFeedRate = MOTOR_E_MAX_FEEDRATE_EXTRUSION;
+			else if(motorEFeedRate < MOTOR_E_MIN_FEEDRATE)
+				motorEFeedRate = MOTOR_E_MIN_FEEDRATE;
 		
-		// Set motor E total time
-		float motorETotalTime = distanceMmE / motorEFeedRate * 60 * sysclk_get_cpu_hz() / tc_read_period(&MOTORS_STEP_TIMER);
+			// Set motor E total time
+			float motorETotalTime = distanceMmE / motorEFeedRate * 60 * sysclk_get_cpu_hz() / tc_read_period(&MOTORS_STEP_TIMER);
 		
-		// Set slowest time
-		if(motorETotalTime > slowestTime)
-			slowestTime = motorETotalTime;
+			// Set slowest time
+			if(motorETotalTime > slowestTime)
+				slowestTime = motorETotalTime;
 		
-		// Set current E
-		if(mode != RELATIVE || !isnan(currentE))
+			// Set current E
 			currentE = newE;
+		}
 	}
 	
-	// Check if using X motor
-	if(!isnan(distanceMmX)) {
+	// Check if X moves
+	if(distanceMmX) {
 	
 		// Set total X steps
 		float totalXSteps = distanceMmX * MOTOR_X_STEPS_PER_MM * step;
-	
+		
 		// Set motor X number of steps total
 		motorXNumberOfStepsCurrent = 0;
 		motorXNumberOfStepsTotal = round(totalXSteps);
@@ -532,8 +532,8 @@ void Motors::move(const Gcode &command) {
 		tc_set_cca_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 	}
 	
-	// Check if using Y motor
-	if(!isnan(distanceMmY)) {
+	// Check if Y moves
+	if(distanceMmY) {
 	
 		// Set total Y steps
 		float totalYSteps = distanceMmY * MOTOR_Y_STEPS_PER_MM * step;
@@ -550,12 +550,12 @@ void Motors::move(const Gcode &command) {
 		tc_set_ccb_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 	}
 	
-	// Check if using Z motor
-	if(!isnan(distanceMmZ)) {
+	// Check if Z moves
+	if(distanceMmZ) {
 	
 		// Set total Z steps
 		float totalZSteps = distanceMmZ * MOTOR_Z_STEPS_PER_MM * step;
-	
+		
 		// Set motor Z number of steps total
 		motorZNumberOfStepsCurrent = 0;
 		motorZNumberOfStepsTotal = round(totalZSteps);
@@ -571,12 +571,12 @@ void Motors::move(const Gcode &command) {
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, MOTOR_Z_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * tc_read_period(&MOTORS_VREF_TIMER));
 	}
 	
-	// Check if using E motor
-	if(!isnan(distanceMmE)) {
+	// Check if E moves
+	if(distanceMmE) {
 	
 		// Set total E steps
 		float totalESteps = distanceMmE * MOTOR_E_STEPS_PER_MM * step;
-	
+		
 		// Set motor E number of steps total
 		motorENumberOfStepsCurrent = 0;
 		motorENumberOfStepsTotal = round(totalESteps);
@@ -593,7 +593,7 @@ void Motors::move(const Gcode &command) {
 	turnOn();
 	
 	// Start motors step timer
-	tc_write_count(&MOTORS_STEP_TIMER, tc_read_period(&MOTORS_STEP_TIMER));
+	tc_write_count(&MOTORS_STEP_TIMER, tc_read_period(&MOTORS_STEP_TIMER) - 1);
 	tc_set_overflow_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_MED);
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
 	
@@ -603,4 +603,19 @@ void Motors::move(const Gcode &command) {
 	// Stop motors step timer
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
 	tc_set_overflow_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+}
+
+void Motors::goHome() {
+	
+	// Move to corner
+	Gcode gcode(const_cast<char *>("G0 X109 Y108 F4800"));
+	move(gcode);
+	
+	// Move to center
+	gcode.parseCommand(const_cast<char *>("G0 X-54 Y-50 F4800"));
+	move(gcode);
+	
+	// Set current X and Y
+	currentX = 54;
+	currentY = 50;
 }
