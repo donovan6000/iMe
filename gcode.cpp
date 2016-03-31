@@ -58,7 +58,7 @@ const uint8_t orderToOffset[] = {
 
 
 // Supporting function implementation
-Gcode::Gcode(const char *command) {
+Gcode::Gcode(char *command) {
 
 	// Check if a command is specified
 	if(command)
@@ -73,7 +73,7 @@ Gcode::Gcode(const char *command) {
 		clearCommand();
 }
 
-bool Gcode::parseCommand(const char *command) {
+bool Gcode::parseCommand(char *command) {
 
 	// Initialize variables
 	const char *firstValidCharacter = command, *lastValidCharacter;
@@ -140,6 +140,7 @@ bool Gcode::parseCommand(const char *command) {
 			
 				// Save parameter value
 				char *lastParameterCharacter;
+				char *characterEOffset;
 				switch(parameterBit) {
 			
 					case PARAMETER_G_OFFSET:
@@ -163,23 +164,68 @@ bool Gcode::parseCommand(const char *command) {
 					break;
 				
 					case PARAMETER_X_OFFSET:
-						valueX = strtod(&command[++i], &lastParameterCharacter);
+					
+						// Prevent E parameter from being seen as an exponent
+						if((characterEOffset = strpbrk(&command[++i], "Ee")))
+							*characterEOffset = ' ';
+						
+						valueX = strtod(&command[i], &lastParameterCharacter);
+						
+						// Restore E parameter
+						if(characterEOffset)
+							*characterEOffset = 'E';
 					break;
 				
 					case PARAMETER_Y_OFFSET:
-						valueY = strtod(&command[++i], &lastParameterCharacter);
+					
+						// Prevent E parameter from being seen as an exponent
+						if((characterEOffset = strpbrk(&command[++i], "Ee")))
+							*characterEOffset = ' ';
+						
+						valueY = strtod(&command[i], &lastParameterCharacter);
+						
+						// Restore E parameter
+						if(characterEOffset)
+							*characterEOffset = 'E';
 					break;
 				
 					case PARAMETER_Z_OFFSET:
-						valueZ = strtod(&command[++i], &lastParameterCharacter);
+					
+						// Prevent E parameter from being seen as an exponent
+						if((characterEOffset = strpbrk(&command[++i], "Ee")))
+							*characterEOffset = ' ';
+						
+						valueZ = strtod(&command[i], &lastParameterCharacter);
+						
+						// Restore E parameter
+						if(characterEOffset)
+							*characterEOffset = 'E';
 					break;
 				
 					case PARAMETER_F_OFFSET:
-						valueF = strtod(&command[++i], &lastParameterCharacter);
+					
+						// Prevent E parameter from being seen as an exponent
+						if((characterEOffset = strpbrk(&command[++i], "Ee")))
+							*characterEOffset = ' ';
+						
+						valueF = strtod(&command[i], &lastParameterCharacter);
+						
+						// Restore E parameter
+						if(characterEOffset)
+							*characterEOffset = 'E';
 					break;
 				
 					case PARAMETER_E_OFFSET:
-						valueE = strtod(&command[++i], &lastParameterCharacter);
+					
+						// Prevent E parameter from being seen as an exponent
+						if((characterEOffset = strpbrk(&command[++i], "Ee")))
+							*characterEOffset = ' ';
+						
+						valueE = strtod(&command[i], &lastParameterCharacter);
+						
+						// Restore E parameter
+						if(characterEOffset)
+							*characterEOffset = 'E';
 					break;
 				
 					case PARAMETER_N_OFFSET:

@@ -16,10 +16,10 @@ class Gcode {
 	public :
 	
 		// Parameterized constructor
-		Gcode(const char *command = NULL);
+		Gcode(char *command = NULL);
 		
 		// Parse command
-		bool parseCommand(const char *command);
+		bool parseCommand(char *command);
 		
 		// Clear command
 		void clearCommand();

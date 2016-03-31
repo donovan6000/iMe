@@ -9,7 +9,7 @@
 
 // Definitions
 enum MODES {RELATIVE, ABSOLUTE};
-enum STEPS {STEPS8, STEPS16, STEPS32};
+enum STEPS {STEP8 = 8, STEP16 = 16, STEP32 = 32};
 
 
 // Motors class
@@ -22,7 +22,7 @@ class Motors {
 		Motors();
 		
 		// Set micro steps per step
-		void setMicroStepsPerStep(STEPS steps);
+		void setMicroStepsPerStep(STEPS step);
 		
 		// Turn on
 		void turnOn();
@@ -41,6 +41,9 @@ class Motors {
 	
 		// Mode
 		MODES mode;
+		
+		// Steps
+		STEPS step;
 		
 		// Current values
 		float currentX;

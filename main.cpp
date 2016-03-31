@@ -325,7 +325,7 @@ int main() {
 							if(!gcode.hasValidChecksum())
 				
 								// Set response to resend
-								strcpy(responseBuffer, "Resend");
+								strcpy(responseBuffer, "rs");
 							
 							// Otherwise
 							else {
@@ -346,7 +346,7 @@ int main() {
 								else
 					
 									// Set response to resend
-									strcpy(responseBuffer, "Resend");
+									strcpy(responseBuffer, "rs");
 							}
 						}
 				
@@ -632,11 +632,11 @@ int main() {
 						}
 					
 						// Check if command has an N parameter and it was processed
-						if(gcode.hasParameterN() && (!strncmp(responseBuffer, "ok", 2) || !strncmp(responseBuffer, "Resend", 6) || !strncmp(responseBuffer, "skip", 4))) {
+						if(gcode.hasParameterN() && (!strncmp(responseBuffer, "ok", 2) || !strncmp(responseBuffer, "rs", 2) || !strncmp(responseBuffer, "skip", 4))) {
 			
 							// Append line number to response
-							uint8_t endOfResponse = responseBuffer[0] == 's' ? 4 : responseBuffer[0] == 'R' ? 6 : 2;
-							uint32_t value = responseBuffer[0] == 'R' ? currentLineNumber : gcode.getParameterN();
+							uint8_t endOfResponse = responseBuffer[0] == 's' ? 4 : 2;
+							uint32_t value = responseBuffer[0] == 'r' ? currentLineNumber : gcode.getParameterN();
 						
 							ultoa(value, numberBuffer, 10);
 							memmove(&responseBuffer[endOfResponse + 1 + strlen(numberBuffer)], &responseBuffer[endOfResponse], strlen(responseBuffer) - 1);
