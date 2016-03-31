@@ -155,9 +155,8 @@ Motors::Motors() {
 	
 	// Configure motors step timer
 	tc_enable(&MOTORS_STEP_TIMER);
-	tc_set_8bits_mode(&MOTORS_STEP_TIMER);
 	tc_set_wgm(&MOTORS_STEP_TIMER, TC_WG_SS);
-	tc_write_period(&MOTORS_STEP_TIMER, sysclk_get_cpu_hz() / 250000);
+	tc_write_period(&MOTORS_STEP_TIMER, sysclk_get_cpu_hz() / 24000);
 	tc_write_cc(&MOTORS_STEP_TIMER, TC_CCA, 0);
 	tc_write_cc(&MOTORS_STEP_TIMER, TC_CCB, 0);
 	tc_write_cc(&MOTORS_STEP_TIMER, TC_CCC, 0);
@@ -608,6 +607,7 @@ void Motors::move(const Gcode &command) {
 void Motors::goHome() {
 	
 	// Move to corner
+	setMode(RELATIVE);
 	Gcode gcode(const_cast<char *>("G0 X109 Y108 F4800"));
 	move(gcode);
 	

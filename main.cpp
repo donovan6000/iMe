@@ -105,8 +105,6 @@ int main() {
 	Heater heater;
 	Led led;
 	Motors motors;
-	uint32_t delayTime;
-	int32_t speed;
 	
 	// Configure unknown pins to how the official firmware does
 	ioport_set_pin_dir(UNKNOWN_PIN_1, IOPORT_DIR_OUTPUT);
@@ -359,6 +357,10 @@ int main() {
 				
 						// Check if response wasn't set
 						if(!*responseBuffer) {
+						
+							// Initialize variables used by G-code commands
+							uint32_t delayTime;
+							int32_t speed;
 			
 							// Check if command has an M parameter
 							if(gcode.hasParameterM()) {
@@ -393,6 +395,8 @@ int main() {
 									// M104
 									case 104 :
 									
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
 									break;
 									
 									// M105
@@ -432,6 +436,8 @@ int main() {
 									// M109
 									case 109:
 									
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
 									break;
 									
 									// M114
@@ -568,11 +574,12 @@ int main() {
 										}
 									break;
 									
-									// M21 or M84
+									// M21 ,M84, or M110
 									case 21:
 									case 84:
+									case 110:
 							
-										// Set response to fake confirmation
+										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
 									break;
 								}
@@ -665,6 +672,12 @@ int main() {
 									break;
 								}
 							}
+							
+							// Otherwise check if command has parameter T
+							else if(gcode.hasParameterT())
+							
+								// Set response to confirmation
+								strcpy(responseBuffer, "ok");
 						}
 					
 						// Check if command has an N parameter and it was processed
