@@ -28,10 +28,6 @@ extern "C" {
 // Unknown pins
 #define UNKNOWN_PIN_1 IOPORT_CREATE_PIN(PORTA, 1) // Connected to transistors above the microcontroller
 #define UNKNOWN_PIN_2 IOPORT_CREATE_PIN(PORTA, 5) // Connected to a resistor and capacitor in parallel to ground
-#define MOTOR_E_STEP_PIN IOPORT_CREATE_PIN(PORTC, 4)
-#define MOTOR_X_STEP_PIN IOPORT_CREATE_PIN(PORTC, 5)
-#define MOTOR_Z_STEP_PIN IOPORT_CREATE_PIN(PORTC, 6)
-#define MOTOR_Y_STEP_PIN IOPORT_CREATE_PIN(PORTC, 7)
 
 // Configuration details
 #define REQUEST_BUFFER_SIZE 10
@@ -59,6 +55,8 @@ class Request {
 // Global variables
 char serialNumber[USB_DEVICE_GET_SERIAL_NAME_LENGTH];
 Request requests[REQUEST_BUFFER_SIZE];
+uint16_t waitCounter;
+Motors motors;
 
 
 // Function prototypes
@@ -104,22 +102,25 @@ int main() {
 	Gcode gcode;
 	Heater heater;
 	Led led;
-	Motors motors;
+	motors.initialize();
 	
 	// Configure unknown pins to how the official firmware does
 	ioport_set_pin_dir(UNKNOWN_PIN_1, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_level(UNKNOWN_PIN_1, IOPORT_PIN_LEVEL_LOW);
 	ioport_set_pin_dir(UNKNOWN_PIN_2, IOPORT_DIR_INPUT);
 	
-	// Configure send wait interrupt timer
-	tc_enable(&TCC1);
-	tc_set_wgm(&TCC1, TC_WG_NORMAL);
-	tc_write_period(&TCC1, sysclk_get_cpu_hz() / 1024);
-	tc_set_overflow_interrupt_level(&TCC1, TC_INT_LVL_LO);
-	tc_set_overflow_interrupt_callback(&TCC1, []() -> void {
+	// Configure send wait interrupt on motors Vref timer overflow
+	tc_set_overflow_interrupt_callback(&MOTORS_VREF_TIMER, []() -> void {
 	
-		// Send wait
-		udi_cdc_write_buf("wait\n", strlen("wait\n"));
+		// Check if time to send wait
+		if(++waitCounter >= sysclk_get_cpu_hz() / MOTORS_VREF_TIMER_PERIOD) {
+		
+			// Reset wait counter
+			waitCounter = 0;
+			
+			// Send wait
+			udi_cdc_write_buf("wait\n", strlen("wait\n"));
+		}
 	});
 	
 	// Read serial from EEPROM
@@ -132,7 +133,8 @@ int main() {
 	udc_start();
 	
 	// Enable send wait interrupt
-	tc_write_clock_source(&TCC1, TC_CLKSEL_DIV1024_gc);
+	waitCounter = 0;
+	tc_set_overflow_interrupt_level(&MOTORS_VREF_TIMER, TC_INT_LVL_LO);
 	
 	// Main loop
 	while(1) {
@@ -144,7 +146,7 @@ int main() {
 		if(requests[currentProcessingRequest].size) {
 		
 			// Disable send wait interrupt
-			tc_write_clock_source(&TCC1, TC_CLKSEL_OFF_gc);
+			tc_set_overflow_interrupt_level(&MOTORS_VREF_TIMER, TC_INT_LVL_OFF);
 			
 			// Parse command
 			gcode.parseCommand(requests[currentProcessingRequest].buffer);
@@ -367,11 +369,6 @@ int main() {
 				
 								switch(gcode.getParameterM()) {
 								
-									// M0
-									case 0 :
-									
-									break;
-								
 									// M17
 									case 17:
 									
@@ -446,28 +443,24 @@ int main() {
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
 										
-										// Check if motors current X is valid
+										// Check if motors coordinates are valid
 										if(!isnan(motors.currentX)) {
 										
 											// Append motors current X to response
 											strcat(responseBuffer, " X:");
 											floatToString(motors.currentX, numberBuffer);
 											strcat(responseBuffer, numberBuffer);
-										}
-										
-										// Check if motors current Y is valid
-										if(!isnan(motors.currentY)) {
 										
 											// Append motors current Y to response
 											strcat(responseBuffer, " Y:");
 											floatToString(motors.currentY, numberBuffer);
 											strcat(responseBuffer, numberBuffer);
-										}
 										
-										// Append motors current E to response
-										strcat(responseBuffer, " E:");
-										floatToString(motors.currentE, numberBuffer);
-										strcat(responseBuffer, numberBuffer);
+											// Append motors current E to response
+											strcat(responseBuffer, " E:");
+											floatToString(motors.currentE, numberBuffer);
+											strcat(responseBuffer, numberBuffer);
+										}
 										
 										// Append motors current Z to response
 										strcat(responseBuffer, " Z:");
@@ -498,7 +491,7 @@ int main() {
 									
 										// Set response to valid Z
 										strcpy(responseBuffer, "ok ZV:");
-										strcat(responseBuffer, motors.validZ ? "1" : "0");
+										strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET) ? "1" : "0");
 									break;
 									
 									// M420
@@ -574,7 +567,8 @@ int main() {
 										}
 									break;
 									
-									// M21 ,M84, or M110
+									// M0, M21 ,M84, or M110
+									case 0:
 									case 21:
 									case 84:
 									case 110:
@@ -639,13 +633,18 @@ int main() {
 									// G33
 									case 33:
 									
+										// Set Z to zero
+										motors.setZToZero();
+										
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
 									break;
 									
 									// G90
 									case 90:
 									
 										// Set mode to absolute
-										motors.setMode(ABSOLUTE);
+										motors.mode = ABSOLUTE;
 										
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
@@ -655,7 +654,7 @@ int main() {
 									case 91:
 									
 										// Set mode to relative
-										motors.setMode(RELATIVE);
+										motors.mode = RELATIVE;
 										
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
@@ -718,8 +717,8 @@ int main() {
 			udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
 			
 			// Enable send wait interrupt
-			tc_restart(&TCC1);
-			tc_write_clock_source(&TCC1, TC_CLKSEL_DIV1024_gc);
+			waitCounter = 0;
+			tc_set_overflow_interrupt_level(&MOTORS_VREF_TIMER, TC_INT_LVL_LO);
 		}
 	}
 	
@@ -742,9 +741,24 @@ void cdcRxNotifyCallback(uint8_t port) {
 		udi_cdc_multi_read_buf(port, requests[currentReceivingRequest].buffer, requests[currentReceivingRequest].size);
 		requests[currentReceivingRequest].buffer[requests[currentReceivingRequest].size] = 0;
 		
-		// Increment current receiving request
-		if(requests[currentReceivingRequest].size)
+		// Check if request isn't empty
+		if(requests[currentReceivingRequest].size) {
+		
+			// Check if request contains an emergency stop
+			char *emergencyStopOffset = strstr(requests[currentReceivingRequest].buffer, "M0");
+			if(emergencyStopOffset) {
+			
+				// Check if emergency stop isn't after the start of a host command, comment, or checksum
+				char *characterOffset = strpbrk(requests[currentReceivingRequest].buffer, "@*;");
+				if(!characterOffset || emergencyStopOffset < characterOffset)
+			
+					// Stop motors
+					motors.emergencyStop();
+			}
+			
+			// Increment current receiving request
 			currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
+		}
 	}
 }
 

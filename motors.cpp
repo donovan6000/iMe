@@ -11,50 +11,50 @@ extern "C" {
 // Definitions
 #define MICROCONTROLLER_VOLTAGE 3.3
 
-// Motors pins
+// Motors settings
 #define MOTORS_ENABLE_PIN IOPORT_CREATE_PIN(PORTB, 3)
 #define MOTORS_STEP_CONTROL_PIN IOPORT_CREATE_PIN(PORTB, 2)
-#define MOTORS_VREF_TIMER TCD0
 #define MOTORS_STEP_TIMER TCC0
+#define MOTORS_STEP_TIMER_PERIOD 0x400
 
-// Motor X pins
+// Motor X settings
 #define MOTOR_X_DIRECTION_PIN IOPORT_CREATE_PIN(PORTC, 2)
 #define MOTOR_X_VREF_PIN IOPORT_CREATE_PIN(PORTD, 1)
 #define MOTOR_X_STEP_PIN IOPORT_CREATE_PIN(PORTC, 5)
 #define MOTOR_X_VREF_CHANNEL TC_CCB
-#define MOTOR_X_VREF_VOLTAGE 0.33
+#define MOTOR_X_VREF_VOLTAGE 0.34600939
 #define MOTOR_X_STEPS_PER_MM 19.09165
 #define MOTOR_X_MAX_FEEDRATE 4800
 #define MOTOR_X_MIN_FEEDRATE 120
 
-// Motor Y pins
+// Motor Y settings
 #define MOTOR_Y_DIRECTION_PIN IOPORT_CREATE_PIN(PORTD, 5)
 #define MOTOR_Y_VREF_PIN IOPORT_CREATE_PIN(PORTD, 3)
 #define MOTOR_Y_STEP_PIN IOPORT_CREATE_PIN(PORTC, 7)
 #define MOTOR_Y_VREF_CHANNEL TC_CCD
-#define MOTOR_Y_VREF_VOLTAGE 0.33
+#define MOTOR_Y_VREF_VOLTAGE 0.34600939
 #define MOTOR_Y_STEPS_PER_MM 18.2804
 #define MOTOR_Y_MAX_FEEDRATE 4800
 #define MOTOR_Y_MIN_FEEDRATE 120
 
-// Motor Z pins
+// Motor Z settings
 #define MOTOR_Z_DIRECTION_PIN IOPORT_CREATE_PIN(PORTD, 4)
 #define MOTOR_Z_VREF_PIN IOPORT_CREATE_PIN(PORTD, 2)
 #define MOTOR_Z_STEP_PIN IOPORT_CREATE_PIN(PORTC, 6)
 #define MOTOR_Z_VREF_CHANNEL TC_CCC
-#define MOTOR_Z_VREF_VOLTAGE_IDLE 0.09
-#define MOTOR_Z_VREF_VOLTAGE_ACTIVE 0.29
+#define MOTOR_Z_VREF_VOLTAGE_IDLE 0.098122066
+#define MOTOR_Z_VREF_VOLTAGE_ACTIVE 0.299530516
 #define MOTOR_Z_STEPS_PER_MM 647.6494
 #define MOTOR_Z_MAX_FEEDRATE 60
 #define MOTOR_Z_MIN_FEEDRATE 30
 
-// Motor E pins
+// Motor E settings
 #define MOTOR_E_DIRECTION_PIN IOPORT_CREATE_PIN(PORTC, 3)
 #define MOTOR_E_VREF_PIN IOPORT_CREATE_PIN(PORTD, 0)
 #define MOTOR_E_STEP_PIN IOPORT_CREATE_PIN(PORTC, 4)
 #define MOTOR_E_CURRENT_SENSE_PIN IOPORT_CREATE_PIN(PORTA, 7)
 #define MOTOR_E_VREF_CHANNEL TC_CCA
-#define MOTOR_E_VREF_VOLTAGE 0.14
+#define MOTOR_E_VREF_VOLTAGE 0.149765258
 #define MOTOR_E_STEPS_PER_MM 97.75938
 #define MOTOR_E_MAX_FEEDRATE_EXTRUSION 600
 #define MOTOR_E_MAX_FEEDRATE_RETRACTION 720
@@ -72,28 +72,43 @@ extern "C" {
 #define DIRECTION_EXTRUDE IOPORT_PIN_LEVEL_LOW
 #define DIRECTION_RETRACT IOPORT_PIN_LEVEL_HIGH
 
+// Z states
+#define INVALID 0x00
+#define VALID 0x01
+
 
 // Global variables
 uint32_t motorXStepDelay;
 uint32_t motorXStepCounter;
 uint32_t motorXNumberOfStepsCurrent;
 uint32_t motorXNumberOfStepsTotal;
+uint32_t motorXDelaySkips;
+uint32_t motorXDelaySkipsCounter;
+
 uint32_t motorYStepDelay;
 uint32_t motorYStepCounter;
 uint32_t motorYNumberOfStepsCurrent;
 uint32_t motorYNumberOfStepsTotal;
+uint32_t motorYDelaySkips;
+uint32_t motorYDelaySkipsCounter;
+
 uint32_t motorZStepDelay;
 uint32_t motorZStepCounter;
 uint32_t motorZNumberOfStepsCurrent;
 uint32_t motorZNumberOfStepsTotal;
+uint32_t motorZDelaySkips;
+uint32_t motorZDelaySkipsCounter;
+
 uint32_t motorEStepDelay;
 uint32_t motorEStepCounter;
 uint32_t motorENumberOfStepsCurrent;
 uint32_t motorENumberOfStepsTotal;
+uint32_t motorEDelaySkips;
+uint32_t motorEDelaySkipsCounter;
 
 
 // Supporting function implementation
-Motors::Motors() {
+void Motors::initialize() {
 
 	// Set mode
 	mode = ABSOLUTE;
@@ -104,11 +119,15 @@ Motors::Motors() {
 	currentE = 0;
 	currentF = 1000;
 	
-	// Set current Z to last recorded Z value
+	// Set current Z
 	nvm_eeprom_read_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentZ, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
 	
-	// Set if current Z is valid
-	validZ = nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET);
+	// Set speed limits
+	nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_X_OFFSET, &motorXSpeedLimit, EEPROM_SPEED_LIMIT_X_LENGTH);
+	nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Y_OFFSET, &motorYSpeedLimit, EEPROM_SPEED_LIMIT_Y_LENGTH);
+	nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Z_OFFSET, &motorZSpeedLimit, EEPROM_SPEED_LIMIT_Z_LENGTH);
+	nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET, &motorESpeedLimitExtrude, EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH);
+	nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, &motorESpeedLimitRetract, EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH);
 	
 	// Configure motors enable
 	ioport_set_pin_dir(MOTORS_ENABLE_PIN, IOPORT_DIR_OUTPUT);
@@ -121,13 +140,12 @@ Motors::Motors() {
 	
 	// Configure motors Vref timer
 	tc_enable(&MOTORS_VREF_TIMER);
-	tc_set_8bits_mode(&MOTORS_VREF_TIMER);
 	tc_set_wgm(&MOTORS_VREF_TIMER, TC_WG_SS);
-	tc_write_period(&MOTORS_VREF_TIMER, 0xFF);
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, MOTOR_X_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * tc_read_period(&MOTORS_VREF_TIMER));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, MOTOR_Y_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * tc_read_period(&MOTORS_VREF_TIMER));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * tc_read_period(&MOTORS_VREF_TIMER));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, MOTOR_E_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * tc_read_period(&MOTORS_VREF_TIMER));
+	tc_write_period(&MOTORS_VREF_TIMER, MOTORS_VREF_TIMER_PERIOD);
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, MOTOR_X_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD);
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, MOTOR_Y_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD);
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD);
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, MOTOR_E_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD);
 	tc_enable_cc_channels(&MOTORS_VREF_TIMER, static_cast<tc_cc_channel_mask_enable_t>(TC_CCAEN | TC_CCBEN | TC_CCCEN | TC_CCDEN));
 	tc_write_clock_source(&MOTORS_VREF_TIMER, TC_CLKSEL_DIV1_gc);
 	
@@ -156,16 +174,7 @@ Motors::Motors() {
 	// Configure motors step timer
 	tc_enable(&MOTORS_STEP_TIMER);
 	tc_set_wgm(&MOTORS_STEP_TIMER, TC_WG_SS);
-	tc_write_period(&MOTORS_STEP_TIMER, sysclk_get_cpu_hz() / 24000);
-	tc_write_cc(&MOTORS_STEP_TIMER, TC_CCA, 0);
-	tc_write_cc(&MOTORS_STEP_TIMER, TC_CCB, 0);
-	tc_write_cc(&MOTORS_STEP_TIMER, TC_CCC, 0);
-	tc_write_cc(&MOTORS_STEP_TIMER, TC_CCD, 0);
-	tc_set_cca_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
-	tc_set_ccb_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
-	tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
-	tc_set_ccd_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
-	tc_set_overflow_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+	tc_write_period(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD);
 	
 	// Motors step timer overflow callback
 	tc_set_overflow_interrupt_callback(&MOTORS_STEP_TIMER, []() -> void {
@@ -198,7 +207,17 @@ Motors::Motors() {
 	
 		// Set motor X step interrupt to a lower priority
 		tc_set_cca_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
-	
+		
+		// Check if time to skip a motor X delay
+		if(motorXDelaySkips > 1 && ++motorXDelaySkipsCounter >= motorXDelaySkips) {
+		
+			// Clear motor X skip delay counter
+			motorXDelaySkipsCounter = 0;
+			
+			// Return
+			return;
+		}
+		
 		// Check if time to increment motor X step
 		if(++motorXStepCounter >= motorXStepDelay) {
 		
@@ -224,7 +243,17 @@ Motors::Motors() {
 	
 		// Set motor Y step interrupt to a lower priority
 		tc_set_ccb_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
-	
+		
+		// Check if time to skip a motor Y delay
+		if(motorYDelaySkips > 1 && ++motorYDelaySkipsCounter >= motorYDelaySkips) {
+		
+			// Clear motor Y skip delay counter
+			motorYDelaySkipsCounter = 0;
+			
+			// Return
+			return;
+		}
+		
 		// Check if time to increment motor Y step
 		if(++motorYStepCounter >= motorYStepDelay) {
 		
@@ -250,7 +279,17 @@ Motors::Motors() {
 	
 		// Set motor Z step interrupt to a lower priority
 		tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
-	
+		
+		// Check if time to skip a motor Z delay
+		if(motorZDelaySkips > 1 && ++motorZDelaySkipsCounter >= motorZDelaySkips) {
+		
+			// Clear motor Z skip delay counter
+			motorZDelaySkipsCounter = 0;
+			
+			// Return
+			return;
+		}
+		
 		// Check if time to increment motor Z step
 		if(++motorZStepCounter >= motorZStepDelay) {
 		
@@ -267,8 +306,8 @@ Motors::Motors() {
 			else {
 		
 				// Set motor Z Vref to idle
-				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * tc_read_period(&MOTORS_VREF_TIMER));
-			
+				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD);
+				
 				// Disable motor Z step interrupt
 				tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
 			}
@@ -280,7 +319,17 @@ Motors::Motors() {
 	
 		// Set motor E step interrupt to a lower priority
 		tc_set_ccd_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
-	
+		
+		// Check if time to skip a motor E delay
+		if(motorEDelaySkips > 1 && ++motorEDelaySkipsCounter >= motorEDelaySkips) {
+		
+			// Clear motor E skip delay counter
+			motorEDelaySkipsCounter = 0;
+			
+			// Return
+			return;
+		}
+		
 		// Check if time to increment motor E step
 		if(++motorEStepCounter >= motorEStepDelay) {
 		
@@ -348,20 +397,20 @@ void Motors::turnOff() {
 	ioport_set_pin_level(MOTORS_ENABLE_PIN, MOTORS_OFF);
 }
 
-void Motors::setMode(MODES mode) {
-
-	// Set mode
-	this->mode = mode;
-}
-
 void Motors::move(const Gcode &command) {
 
 	// Initialize variables
 	float slowestTime = 0;
+	uint32_t slowestRoundedTime = 0;
+	uint32_t motorXTotalRoundedTime = 0;
+	uint32_t motorYTotalRoundedTime = 0;
+	uint32_t motorZTotalRoundedTime = 0;
+	uint32_t motorETotalRoundedTime = 0;
 	float distanceMmX = 0;
 	float distanceMmY = 0;
 	float distanceMmZ = 0;
 	float distanceMmE = 0;
+	bool validZ;
 
 	// Check if command has an F parameter
 	if(command.hasParameterF())
@@ -386,14 +435,16 @@ void Motors::move(const Gcode &command) {
 			ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, (isnan(currentX) && newX < 0) || (!isnan(currentX) && newX < currentX) ? DIRECTION_LEFT : DIRECTION_RIGHT);
 		
 			// Set motor X feedrate
-			float motorXFeedRate = currentF;
+			float motorXFeedRate = currentF > motorXSpeedLimit ? motorXSpeedLimit : currentF;
+			
+			// Enforce min and max feedrate
 			if(motorXFeedRate > MOTOR_X_MAX_FEEDRATE)
 				motorXFeedRate = MOTOR_X_MAX_FEEDRATE;
 			else if(motorXFeedRate < MOTOR_X_MIN_FEEDRATE)
 				motorXFeedRate = MOTOR_X_MIN_FEEDRATE;
 		
 			// Set motor X total time
-			float motorXTotalTime = distanceMmX / motorXFeedRate * 60 * sysclk_get_cpu_hz() / tc_read_period(&MOTORS_STEP_TIMER);
+			float motorXTotalTime = distanceMmX / motorXFeedRate * 60 * sysclk_get_cpu_hz() / MOTORS_STEP_TIMER_PERIOD;
 		
 			// Set slowest time
 			if(motorXTotalTime > slowestTime)
@@ -422,14 +473,16 @@ void Motors::move(const Gcode &command) {
 			ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, (isnan(currentY) && newY < 0) || (!isnan(currentY) && newY < currentY) ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
 		
 			// Set motor Y feedrate
-			float motorYFeedRate = currentF;
+			float motorYFeedRate = currentF > motorYSpeedLimit ? motorYSpeedLimit : currentF;
+			
+			// Enforce min and max feedrate
 			if(motorYFeedRate > MOTOR_Y_MAX_FEEDRATE)
 				motorYFeedRate = MOTOR_Y_MAX_FEEDRATE;
 			else if(motorYFeedRate < MOTOR_Y_MIN_FEEDRATE)
 				motorYFeedRate = MOTOR_Y_MIN_FEEDRATE;
 		
 			// Set motor Y total time
-			float motorYTotalTime = distanceMmY / motorYFeedRate * 60 * sysclk_get_cpu_hz() / tc_read_period(&MOTORS_STEP_TIMER);
+			float motorYTotalTime = distanceMmY / motorYFeedRate * 60 * sysclk_get_cpu_hz() / MOTORS_STEP_TIMER_PERIOD;
 		
 			// Set slowest time
 			if(motorYTotalTime > slowestTime)
@@ -458,14 +511,16 @@ void Motors::move(const Gcode &command) {
 			ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, newZ < currentZ ? DIRECTION_DOWN : DIRECTION_UP);
 		
 			// Set motor Z feedrate
-			float motorZFeedRate = currentF;
+			float motorZFeedRate = currentF > motorZSpeedLimit ? motorZSpeedLimit : currentF;
+			
+			// Enforce min and max feedrate
 			if(motorZFeedRate > MOTOR_Z_MAX_FEEDRATE)
 				motorZFeedRate = MOTOR_Z_MAX_FEEDRATE;
 			else if(motorZFeedRate < MOTOR_Z_MIN_FEEDRATE)
 				motorZFeedRate = MOTOR_Z_MIN_FEEDRATE;
 		
 			// Set motor Z total time
-			float motorZTotalTime = distanceMmZ / motorZFeedRate * 60 * sysclk_get_cpu_hz() / tc_read_period(&MOTORS_STEP_TIMER);
+			float motorZTotalTime = distanceMmZ / motorZFeedRate * 60 * sysclk_get_cpu_hz() / MOTORS_STEP_TIMER_PERIOD;
 		
 			// Set slowest time
 			if(motorZTotalTime > slowestTime)
@@ -494,15 +549,21 @@ void Motors::move(const Gcode &command) {
 		
 			// Set motor E feedrate
 			float motorEFeedRate = currentF;
-			if(ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) == DIRECTION_RETRACT && motorEFeedRate > MOTOR_E_MAX_FEEDRATE_RETRACTION)
-				motorEFeedRate = MOTOR_E_MAX_FEEDRATE_RETRACTION;
-			else if(ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) == DIRECTION_EXTRUDE && motorEFeedRate > MOTOR_E_MAX_FEEDRATE_EXTRUSION)
+			if(ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) == DIRECTION_EXTRUDE && motorEFeedRate > motorESpeedLimitExtrude)
+				motorEFeedRate = motorESpeedLimitExtrude;
+			else if(ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) == DIRECTION_RETRACT && motorEFeedRate > motorESpeedLimitExtrude)
+				motorEFeedRate = motorESpeedLimitRetract;
+			
+			// Enforce min and max feedrate
+			if(ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) == DIRECTION_EXTRUDE && motorEFeedRate > MOTOR_E_MAX_FEEDRATE_EXTRUSION)
 				motorEFeedRate = MOTOR_E_MAX_FEEDRATE_EXTRUSION;
+			else if(ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) == DIRECTION_RETRACT && motorEFeedRate > MOTOR_E_MAX_FEEDRATE_RETRACTION)
+				motorEFeedRate = MOTOR_E_MAX_FEEDRATE_RETRACTION;
 			else if(motorEFeedRate < MOTOR_E_MIN_FEEDRATE)
 				motorEFeedRate = MOTOR_E_MIN_FEEDRATE;
 		
 			// Set motor E total time
-			float motorETotalTime = distanceMmE / motorEFeedRate * 60 * sysclk_get_cpu_hz() / tc_read_period(&MOTORS_STEP_TIMER);
+			float motorETotalTime = distanceMmE / motorEFeedRate * 60 * sysclk_get_cpu_hz() / MOTORS_STEP_TIMER_PERIOD;
 		
 			// Set slowest time
 			if(motorETotalTime > slowestTime)
@@ -527,6 +588,13 @@ void Motors::move(const Gcode &command) {
 		motorXStepCounter = 0;
 		motorXStepDelay = round(slowestTime / totalXSteps);
 		
+		// Set motor X total rounded time
+		motorXTotalRoundedTime = motorXNumberOfStepsTotal * (motorXStepDelay ? motorXStepDelay : 1);
+		
+		// Set slowest rounded time
+		if(motorXTotalRoundedTime > slowestRoundedTime)
+			slowestRoundedTime = motorXTotalRoundedTime;
+		
 		// Enable motor X step interrupt
 		tc_set_cca_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 	}
@@ -544,6 +612,13 @@ void Motors::move(const Gcode &command) {
 		// Set motor Y step delay
 		motorYStepCounter = 0;
 		motorYStepDelay = round(slowestTime / totalYSteps);
+		
+		// Set motor Y total rounded time
+		motorYTotalRoundedTime = motorYNumberOfStepsTotal * (motorYStepDelay ? motorYStepDelay : 1);
+		
+		// Set slowest rounded time
+		if(motorYTotalRoundedTime > slowestRoundedTime)
+			slowestRoundedTime = motorYTotalRoundedTime;
 		
 		// Enable motor Y step interrupt
 		tc_set_ccb_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
@@ -563,11 +638,24 @@ void Motors::move(const Gcode &command) {
 		motorZStepCounter = 0;
 		motorZStepDelay = round(slowestTime / totalZSteps);
 		
+		// Set motor Z total rounded time
+		motorZTotalRoundedTime = motorZNumberOfStepsTotal * (motorZStepDelay ? motorZStepDelay : 1);
+		
+		// Set slowest rounded time
+		if(motorZTotalRoundedTime > slowestRoundedTime)
+			slowestRoundedTime = motorZTotalRoundedTime;
+		
 		// Enable motor Z step interrupt
 		tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 		
+		// Check if Z is valid
+		if((validZ = nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET)))
+		
+			// Save that Z is invalid
+			nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, INVALID);
+		
 		// Set motor Z Vref to active
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, MOTOR_Z_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * tc_read_period(&MOTORS_VREF_TIMER));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, MOTOR_Z_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD);
 	}
 	
 	// Check if E moves
@@ -584,15 +672,38 @@ void Motors::move(const Gcode &command) {
 		motorEStepCounter = 0;
 		motorEStepDelay = round(slowestTime / totalESteps);
 		
+		// Set motor E total rounded time
+		motorETotalRoundedTime = motorENumberOfStepsTotal * (motorEStepDelay ? motorEStepDelay : 1);
+		
+		// Set slowest rounded time
+		if(motorETotalRoundedTime > slowestRoundedTime)
+			slowestRoundedTime = motorETotalRoundedTime;
+		
 		// Enable motor E step interrupt
 		tc_set_ccd_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 	}
+	
+	// Set motor X delay skips
+	motorXDelaySkipsCounter = 0;
+	motorXDelaySkips = slowestRoundedTime != motorXTotalRoundedTime ? round(static_cast<float>(motorXTotalRoundedTime) / (slowestRoundedTime - motorXTotalRoundedTime)) : 0;
+	
+	// Set motor Y delay skips
+	motorYDelaySkipsCounter = 0;
+	motorYDelaySkips = slowestRoundedTime != motorYTotalRoundedTime ? round(static_cast<float>(motorYTotalRoundedTime) / (slowestRoundedTime - motorYTotalRoundedTime)) : 0;
+	
+	// Set motor Z delay skips
+	motorZDelaySkipsCounter = 0;
+	motorZDelaySkips = slowestRoundedTime != motorZTotalRoundedTime ? round(static_cast<float>(motorZTotalRoundedTime) / (slowestRoundedTime - motorZTotalRoundedTime)) : 0;
+	
+	// Set motor E delay skips
+	motorEDelaySkipsCounter = 0;
+	motorEDelaySkips = slowestRoundedTime != motorETotalRoundedTime ? round(static_cast<float>(motorETotalRoundedTime) / (slowestRoundedTime - motorETotalRoundedTime)) : 0;
 	
 	// Turn on motors
 	turnOn();
 	
 	// Start motors step timer
-	tc_write_count(&MOTORS_STEP_TIMER, tc_read_period(&MOTORS_STEP_TIMER) - 1);
+	tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
 	tc_set_overflow_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_MED);
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
 	
@@ -601,13 +712,31 @@ void Motors::move(const Gcode &command) {
 	
 	// Stop motors step timer
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
+	
+	// Check if Z moved
+	if(distanceMmZ) {
+	
+		// Save current Z
+		nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentZ, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
+	
+		// Check if an emergency stop didn't happen and Z was previously valid
+		if(~(MOTORS_STEP_TIMER.INTCTRLA & TC0_OVFINTLVL_gm) && validZ)
+		
+			// Save that Z is valid
+			nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, VALID);
+	}
+	
+	// Disable motors step timer overflow interrupt
 	tc_set_overflow_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
 }
 
 void Motors::goHome() {
+
+	// Save mode
+	MODES savedMode = mode;
 	
 	// Move to corner
-	setMode(RELATIVE);
+	mode = RELATIVE;
 	Gcode gcode(const_cast<char *>("G0 X109 Y108 F4800"));
 	move(gcode);
 	
@@ -618,4 +747,31 @@ void Motors::goHome() {
 	// Set current X and Y
 	currentX = 54;
 	currentY = 50;
+	
+	// Restore mode
+	mode = savedMode;
+}
+
+void Motors::setZToZero() {
+
+	// Set current Z
+	currentZ = 0.0999;
+
+	// Save current Z
+	nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentZ, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
+	
+	// Save that Z is valid
+	nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, VALID);
+}
+
+void Motors::emergencyStop() {
+
+	// Disable all motor step interrupts
+	tc_set_cca_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+	tc_set_ccb_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+	tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+	tc_set_ccd_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+	
+	// Disable motors step timer overflow interrupt
+	tc_set_overflow_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
 }
