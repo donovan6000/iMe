@@ -55,7 +55,7 @@ class Request {
 // Global variables
 char serialNumber[USB_DEVICE_GET_SERIAL_NAME_LENGTH];
 Request requests[REQUEST_BUFFER_SIZE];
-uint16_t waitCounter;
+uint32_t waitCounter;
 Motors motors;
 
 
@@ -109,7 +109,7 @@ int main() {
 	ioport_set_pin_level(UNKNOWN_PIN_1, IOPORT_PIN_LEVEL_LOW);
 	ioport_set_pin_dir(UNKNOWN_PIN_2, IOPORT_DIR_INPUT);
 	
-	// Configure send wait interrupt on motors Vref timer overflow
+	// Configure send wait interrupt on motors Vref timer overflow since it's unused
 	tc_set_overflow_interrupt_callback(&MOTORS_VREF_TIMER, []() -> void {
 	
 		// Check if time to send wait
@@ -444,27 +444,27 @@ int main() {
 										strcpy(responseBuffer, "ok");
 										
 										// Check if motors coordinates are valid
-										if(!isnan(motors.currentX)) {
+										if(!isnan(motors.currentValues[X])) {
 										
 											// Append motors current X to response
 											strcat(responseBuffer, " X:");
-											floatToString(motors.currentX, numberBuffer);
+											floatToString(motors.currentValues[X], numberBuffer);
 											strcat(responseBuffer, numberBuffer);
 										
 											// Append motors current Y to response
 											strcat(responseBuffer, " Y:");
-											floatToString(motors.currentY, numberBuffer);
+											floatToString(motors.currentValues[Y], numberBuffer);
 											strcat(responseBuffer, numberBuffer);
 										
 											// Append motors current E to response
 											strcat(responseBuffer, " E:");
-											floatToString(motors.currentE, numberBuffer);
+											floatToString(motors.currentValues[E], numberBuffer);
 											strcat(responseBuffer, numberBuffer);
 										}
 										
 										// Append motors current Z to response
 										strcat(responseBuffer, " Z:");
-										floatToString(motors.currentZ, numberBuffer);
+										floatToString(motors.currentValues[Z], numberBuffer);
 										strcat(responseBuffer, numberBuffer);
 									break;
 							
@@ -664,7 +664,7 @@ int main() {
 									case 92:
 									
 										// Set motors current E
-										motors.currentX = gcode.hasParameterE() ? gcode.getParameterE() : 0;
+										motors.currentValues[E] = gcode.hasParameterE() ? gcode.getParameterE() : 0;
 							
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");

@@ -13,6 +13,7 @@
 
 enum MODES {RELATIVE, ABSOLUTE};
 enum STEPS {STEP8 = 8, STEP16 = 16, STEP32 = 32};
+enum AXES {X, Y, Z, E, F, E_POSITIVE = 3, E_NEGATIVE = 4};
 
 
 // Motors class
@@ -46,27 +47,19 @@ class Motors {
 		void emergencyStop();
 		
 		// Current values
-		float currentX;
-		float currentY;
-		float currentZ;
-		float currentE;
-		float currentF;
+		float currentValues[5];
 		
 		// Mode
 		MODES mode;
-		
-		// Speed limits
-		float motorXSpeedLimit;
-		float motorYSpeedLimit;
-		float motorZSpeedLimit;
-		float motorESpeedLimitExtrude;
-		float motorESpeedLimitRetract;
 	
 	// Private
 	private :
 		
 		// Steps
 		STEPS step;
+		
+		// Speed limits
+		float motorsSpeedLimit[5];
 };
 
 
