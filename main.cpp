@@ -55,7 +55,7 @@ class Request {
 // Global variables
 char serialNumber[USB_DEVICE_GET_SERIAL_NAME_LENGTH];
 Request requests[REQUEST_BUFFER_SIZE];
-uint32_t waitCounter;
+uint16_t waitCounter;
 Motors motors;
 
 
@@ -167,154 +167,10 @@ int main() {
 				if(!gcode.isEmpty()) {
 			
 					// Check if command has host command
-					if(gcode.hasHostCommand()) {
-				
-						// Check if host command is to calibrate the accelerometer
-						if(!strcmp(gcode.getHostCommand(), "Calibrate accelerometer")) {
-						
-							// Calibrate accelerometer
-							accelerometer.calibrate();
-							
-							// Set response to confirmation
-							strcpy(responseBuffer, "ok");
-						}
-						
-						// Otherwise check if host command is to get accelerometer's values
-						else if(!strcmp(gcode.getHostCommand(), "Accelerometer values")) {
+					if(gcode.hasHostCommand())
 					
-							// Set response to value
-							accelerometer.readAccelerationValues();
-							strcpy(responseBuffer, "ok X:");
-							ltoa(accelerometer.xAcceleration, numberBuffer, 10);
-							strcat(responseBuffer, numberBuffer);
-							strcat(responseBuffer, "mg Y:");
-							ltoa(accelerometer.yAcceleration, numberBuffer, 10);
-							strcat(responseBuffer, numberBuffer);
-							strcat(responseBuffer, "mg Z:");
-							ltoa(accelerometer.zAcceleration, numberBuffer, 10);
-							strcat(responseBuffer, numberBuffer);
-							strcat(responseBuffer, "mg");
-						}
-						
-						// Otherwise check if host command is to get lock bits
-						else if(!strcmp(gcode.getHostCommand(), "Lock bits")) {
-						
-							// Send lock bits
-							strcpy(responseBuffer, "ok 0x");
-							ltoa(NVM_LOCKBITS, numberBuffer, 16);
-							strcat(responseBuffer, numberBuffer);
-						}
-						
-						// Otherwise check if host command is to get fuse bytes
-						else if(!strcmp(gcode.getHostCommand(), "Fuse bytes")) {
-						
-							// Send fuse bytes
-							strcpy(responseBuffer, "ok 0:0x");
-							ltoa(nvm_fuses_read(FUSEBYTE0), numberBuffer, 16);
-							strcat(responseBuffer, numberBuffer);
-							strcat(responseBuffer," 1:0x");
-							ltoa(nvm_fuses_read(FUSEBYTE1), numberBuffer, 16);
-							strcat(responseBuffer, numberBuffer);
-							strcat(responseBuffer," 2:0x");
-							ltoa(nvm_fuses_read(FUSEBYTE2), numberBuffer, 16);
-							strcat(responseBuffer, numberBuffer);
-							strcat(responseBuffer," 3:0x");
-							ltoa(nvm_fuses_read(FUSEBYTE3), numberBuffer, 16);
-							strcat(responseBuffer, numberBuffer);
-							strcat(responseBuffer," 4:0x");
-							ltoa(nvm_fuses_read(FUSEBYTE4), numberBuffer, 16);
-							strcat(responseBuffer, numberBuffer);
-							strcat(responseBuffer," 5:0x");
-							ltoa(nvm_fuses_read(FUSEBYTE5), numberBuffer, 16);
-							strcat(responseBuffer, numberBuffer);
-						}
-						
-						// Otherwise check if host command is to get application
-						else if(!strcmp(gcode.getHostCommand(), "Application")) {
-						
-							strcpy(responseBuffer, "ok");
-							udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
-						
-							// Send application
-							for(uint16_t i = APP_SECTION_START; i <= APP_SECTION_END; i++) {
-								strcpy(responseBuffer, i == APP_SECTION_START ? "0x" : " 0x");
-								ltoa(pgm_read_byte(i), numberBuffer, 16);
-								strcat(responseBuffer, numberBuffer);
-								if(i != APP_SECTION_END)
-									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
-							}
-						}
-						
-						// Otherwise check if host command is to get bootloader
-						else if(!strcmp(gcode.getHostCommand(), "Bootloader")) {
-						
-							strcpy(responseBuffer, "ok");
-							udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
-						
-							// Send bootloader
-							for(uint16_t i = BOOT_SECTION_START; i <= BOOT_SECTION_END; i++) {
-								strcpy(responseBuffer, i == BOOT_SECTION_START ? "0x" : " 0x");
-								ltoa(pgm_read_byte(i), numberBuffer, 16);
-								strcat(responseBuffer, numberBuffer);
-								if(i != BOOT_SECTION_END)
-									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
-							}
-						}
-						
-						// Otherwise check if host command is to get program
-						else if(!strcmp(gcode.getHostCommand(), "Program")) {
-						
-							strcpy(responseBuffer, "ok");
-							udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
-						
-							// Send bootloader
-							for(uint16_t i = PROGMEM_START; i <= PROGMEM_END; i++) {
-								strcpy(responseBuffer, i == PROGMEM_START ? "0x" : " 0x");
-								ltoa(pgm_read_byte(i), numberBuffer, 16);
-								strcat(responseBuffer, numberBuffer);
-								if(i != PROGMEM_END)
-									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
-							}
-						}
-						
-						// Otherwise check if host command is to get EEPROM
-						else if(!strcmp(gcode.getHostCommand(), "EEPROM")) {
-						
-							strcpy(responseBuffer, "ok");
-							udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
-						
-							// Send EEPROM
-							for(uint16_t i = EEPROM_START; i <= EEPROM_END; i++) {
-								strcpy(responseBuffer, i == EEPROM_START ? "0x" : " 0x");
-								ltoa(nvm_eeprom_read_byte(i), numberBuffer, 16);
-								strcat(responseBuffer, numberBuffer);
-								if(i != EEPROM_END)
-									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
-							}
-						}
-						
-						// Otherwise check if host command is to get user signature
-						else if(!strcmp(gcode.getHostCommand(), "User signature")) {
-						
-							strcpy(responseBuffer, "ok");
-							udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
-						
-							// Send EEPROM
-							for(uint16_t i = USER_SIGNATURES_START; i <= USER_SIGNATURES_END; i++) {
-								strcpy(responseBuffer, i == USER_SIGNATURES_START ? "0x" : " 0x");
-								ltoa(nvm_read_user_signature_row(i), numberBuffer, 16);
-								strcat(responseBuffer, numberBuffer);
-								if(i != USER_SIGNATURES_END)
-									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
-							}
-						}
-						
-						// Otherwise
-						else
-					
-							// Set response to error
-							strcpy(responseBuffer, "ok Error: Unknown host command");
-					}
+						// Set response to error
+						strcpy(responseBuffer, "ok Error: Unknown host command");
 				
 					// Otherwise
 					else {
@@ -360,10 +216,6 @@ int main() {
 						// Check if response wasn't set
 						if(!*responseBuffer) {
 						
-							// Initialize variables used by G-code commands
-							uint32_t delayTime;
-							int32_t speed;
-			
 							// Check if command has an M parameter
 							if(gcode.hasParameterM()) {
 				
@@ -409,6 +261,7 @@ int main() {
 									case 106:
 									
 										// Check if speed is valid
+										int32_t speed;
 										speed = gcode.hasParameterS() ? gcode.getParameterS() : 0;
 										if(speed >= 0 && speed <= 255) {
 								
@@ -603,6 +456,7 @@ int main() {
 									case 4:
 							
 										// Delay specified time
+										uint32_t delayTime;
 										if((delayTime = gcode.getParameterP() + gcode.getParameterS() * 1000))
 											delay_ms(delayTime);
 								

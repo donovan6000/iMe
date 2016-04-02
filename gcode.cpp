@@ -21,6 +21,24 @@
 
 
 // Supporting function implementation
+float getFloat(char *command, uint8_t &i, char *&lastParameterCharacter) {
+
+	// Prevent E parameter from being seen as an exponent
+	char *characterOffset = strpbrk(&command[++i], "Ee");
+	if(characterOffset)
+		*characterOffset = ' ';
+	
+	// Get value
+	float value = strtod(&command[i], &lastParameterCharacter);
+	
+	// Restore E parameter
+	if(characterOffset)
+		*characterOffset = 'E';
+	
+	// Return value
+	return value;
+}
+
 Gcode::Gcode(char *command) {
 
 	// Check if a command is specified
@@ -99,7 +117,6 @@ bool Gcode::parseCommand(char *command) {
 			
 				// Save parameter value
 				char *lastParameterCharacter;
-				char *characterEOffset;
 				switch(parameterBit) {
 			
 					case PARAMETER_G_OFFSET:
@@ -123,68 +140,23 @@ bool Gcode::parseCommand(char *command) {
 					break;
 				
 					case PARAMETER_X_OFFSET:
-					
-						// Prevent E parameter from being seen as an exponent
-						if((characterEOffset = strpbrk(&command[++i], "Ee")))
-							*characterEOffset = ' ';
-						
-						valueX = strtod(&command[i], &lastParameterCharacter);
-						
-						// Restore E parameter
-						if(characterEOffset)
-							*characterEOffset = 'E';
+						valueX = getFloat(command, i, lastParameterCharacter);
 					break;
 				
 					case PARAMETER_Y_OFFSET:
-					
-						// Prevent E parameter from being seen as an exponent
-						if((characterEOffset = strpbrk(&command[++i], "Ee")))
-							*characterEOffset = ' ';
-						
-						valueY = strtod(&command[i], &lastParameterCharacter);
-						
-						// Restore E parameter
-						if(characterEOffset)
-							*characterEOffset = 'E';
+						valueY = getFloat(command, i, lastParameterCharacter);
 					break;
 				
 					case PARAMETER_Z_OFFSET:
-					
-						// Prevent E parameter from being seen as an exponent
-						if((characterEOffset = strpbrk(&command[++i], "Ee")))
-							*characterEOffset = ' ';
-						
-						valueZ = strtod(&command[i], &lastParameterCharacter);
-						
-						// Restore E parameter
-						if(characterEOffset)
-							*characterEOffset = 'E';
+						valueZ = getFloat(command, i, lastParameterCharacter);
 					break;
 				
 					case PARAMETER_F_OFFSET:
-					
-						// Prevent E parameter from being seen as an exponent
-						if((characterEOffset = strpbrk(&command[++i], "Ee")))
-							*characterEOffset = ' ';
-						
-						valueF = strtod(&command[i], &lastParameterCharacter);
-						
-						// Restore E parameter
-						if(characterEOffset)
-							*characterEOffset = 'E';
+						valueF = getFloat(command, i, lastParameterCharacter);
 					break;
 				
 					case PARAMETER_E_OFFSET:
-					
-						// Prevent E parameter from being seen as an exponent
-						if((characterEOffset = strpbrk(&command[++i], "Ee")))
-							*characterEOffset = ' ';
-						
-						valueE = strtod(&command[i], &lastParameterCharacter);
-						
-						// Restore E parameter
-						if(characterEOffset)
-							*characterEOffset = 'E';
+						valueE = getFloat(command, i, lastParameterCharacter);
 					break;
 				
 					case PARAMETER_N_OFFSET:
