@@ -32,6 +32,7 @@ CSRCS = src/ASF/common/boards/user_board/init.c \
 
 # C++ source files
 CPPSRCS = accelerometer.cpp \
+	common.cpp \
 	fan.cpp \
 	gcode.cpp \
 	heater.cpp \

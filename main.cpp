@@ -6,6 +6,7 @@ extern "C" {
 #include <string.h>
 #include <math.h>
 #include "accelerometer.h"
+#include "common.h"
 #include "eeprom.h"
 #include "fan.h"
 #include "gcode.h"
@@ -67,12 +68,6 @@ Purpose: Callback for when USB receives data
 */
 void cdcRxNotifyCallback(uint8_t port);
 
-/*
-Name: floatToString
-Purpose: Converts a float to a string
-*/
-void floatToString(float value, char *buffer);
-
 
 // Main function
 int main() {
@@ -95,8 +90,8 @@ int main() {
 	// Initialize variables
 	uint8_t currentProcessingRequest = 0;
 	char responseBuffer[255];
-	uint32_t currentLineNumber = 0;
-	char numberBuffer[sizeof("4294967295")];
+	uint64_t currentLineNumber = 0;
+	char numberBuffer[sizeof("18446744073709551615")];
 	Accelerometer accelerometer;
 	Fan fan;
 	Gcode gcode;
@@ -253,7 +248,7 @@ int main() {
 						
 										// Set response to temperature
 										strcpy(responseBuffer, "ok\nT:");
-										floatToString(static_cast<float>(heater.getTemperature()) * 2.60 / 2047, numberBuffer);
+										ftoa(static_cast<float>(heater.getTemperature()) * 2.60 / 2047, numberBuffer);
 										strcat(responseBuffer, numberBuffer);
 									break;
 									
@@ -301,23 +296,23 @@ int main() {
 										
 											// Append motors current X to response
 											strcat(responseBuffer, " X:");
-											floatToString(motors.currentValues[X], numberBuffer);
+											ftoa(motors.currentValues[X], numberBuffer);
 											strcat(responseBuffer, numberBuffer);
 										
 											// Append motors current Y to response
 											strcat(responseBuffer, " Y:");
-											floatToString(motors.currentValues[Y], numberBuffer);
+											ftoa(motors.currentValues[Y], numberBuffer);
 											strcat(responseBuffer, numberBuffer);
 										
 											// Append motors current E to response
 											strcat(responseBuffer, " E:");
-											floatToString(motors.currentValues[E], numberBuffer);
+											ftoa(motors.currentValues[E], numberBuffer);
 											strcat(responseBuffer, numberBuffer);
 										}
 										
 										// Append motors current Z to response
 										strcat(responseBuffer, " Z:");
-										floatToString(motors.currentValues[Z], numberBuffer);
+										ftoa(motors.currentValues[Z], numberBuffer);
 										strcat(responseBuffer, numberBuffer);
 									break;
 							
@@ -387,7 +382,7 @@ int main() {
 											
 												// Set response to confirmation
 												strcpy(responseBuffer, "ok PT:");
-												ultoa(offset, numberBuffer, 10);
+												ulltoa(offset, numberBuffer);
 												strcat(responseBuffer, numberBuffer);
 											}
 										}
@@ -411,10 +406,10 @@ int main() {
 											
 												// Set response to value
 												strcpy(responseBuffer, "ok PT:");
-												ultoa(offset, numberBuffer, 10);
+												ulltoa(offset, numberBuffer);
 												strcat(responseBuffer, numberBuffer);
 												strcat(responseBuffer, " DT:");
-												ultoa(value, numberBuffer, 10);
+												ulltoa(value, numberBuffer);
 												strcat(responseBuffer, numberBuffer);
 											}
 										}
@@ -538,9 +533,8 @@ int main() {
 			
 							// Append line number to response
 							uint8_t endOfResponse = responseBuffer[0] == 's' ? 4 : 2;
-							uint32_t value = responseBuffer[0] == 'r' ? currentLineNumber : gcode.getParameterN();
-						
-							ultoa(value, numberBuffer, 10);
+							
+							ulltoa(responseBuffer[0] == 'r' ? currentLineNumber : gcode.getParameterN(), numberBuffer);
 							memmove(&responseBuffer[endOfResponse + 1 + strlen(numberBuffer)], &responseBuffer[endOfResponse], strlen(responseBuffer) - 1);
 							responseBuffer[endOfResponse] = ' ';
 							memcpy(&responseBuffer[endOfResponse + 1], numberBuffer, strlen(numberBuffer));
@@ -614,21 +608,4 @@ void cdcRxNotifyCallback(uint8_t port) {
 			currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
 		}
 	}
-}
-
-void floatToString(float value, char *buffer) {
-
-	// Convert value to string
-	dtostrf(value, 9, 4, buffer);
-	
-	// Remove leading whitespace
-	char *firstValidCharacter = buffer;
-	while(*firstValidCharacter++ == ' ');
-	
-	// Prepend a zero if string doesn't contain one
-	if(*(--firstValidCharacter) == '.')
-		*(--firstValidCharacter) = '0';
-	
-	// Move string to the start of the buffer
-	memmove(buffer, firstValidCharacter, strlen(firstValidCharacter) + 1);
 }

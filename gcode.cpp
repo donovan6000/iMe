@@ -2,6 +2,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "gcode.h"
+#include "common.h"
 
 
 // Definitions
@@ -21,24 +22,6 @@
 
 
 // Supporting function implementation
-float getFloat(char *command, uint8_t &i, char *&lastParameterCharacter) {
-
-	// Prevent E parameter from being seen as an exponent
-	char *characterOffset = strpbrk(&command[++i], "Ee");
-	if(characterOffset)
-		*characterOffset = ' ';
-	
-	// Get value
-	float value = strtod(&command[i], &lastParameterCharacter);
-	
-	// Restore E parameter
-	if(characterOffset)
-		*characterOffset = 'E';
-	
-	// Return value
-	return value;
-}
-
 Gcode::Gcode(char *command) {
 
 	// Check if a command is specified
@@ -52,6 +35,42 @@ Gcode::Gcode(char *command) {
 	
 		// Clear command
 		clearCommand();
+}
+
+void Gcode::setValues(float x, float y, float z, float e, float f) {
+
+	// Clear command
+	clearCommand();
+	
+	// Set X value if provided
+	if(!isnan(x)) {
+		valueX = x;
+		commandParameters |= PARAMETER_X_OFFSET;
+	}
+	
+	// Set Y value if provided
+	if(!isnan(y)) {
+		valueY = y;
+		commandParameters |= PARAMETER_Y_OFFSET;
+	}
+	
+	// Set Z value if provided
+	if(!isnan(z)) {
+		valueZ = z;
+		commandParameters |= PARAMETER_Z_OFFSET;
+	}
+	
+	// Set E value if provided
+	if(!isnan(e)) {
+		valueE = e;
+		commandParameters |= PARAMETER_E_OFFSET;
+	}
+	
+	// Set F value if provided
+	if(!isnan(f)) {
+		valueF = f;
+		commandParameters |= PARAMETER_F_OFFSET;
+	}
 }
 
 bool Gcode::parseCommand(char *command) {
@@ -120,47 +139,47 @@ bool Gcode::parseCommand(char *command) {
 				switch(parameterBit) {
 			
 					case PARAMETER_G_OFFSET:
-						valueG = strtoul(&command[++i], &lastParameterCharacter, 10);
+						valueG = strtoull(&command[++i], &lastParameterCharacter);
 					break;
 				
 					case PARAMETER_M_OFFSET:
-						valueM = strtoul(&command[++i], &lastParameterCharacter, 10);
+						valueM = strtoull(&command[++i], &lastParameterCharacter);
 					break;
 				
 					case PARAMETER_T_OFFSET:
-						valueT = strtoul(&command[++i], &lastParameterCharacter, 10);
+						valueT = strtoull(&command[++i], &lastParameterCharacter);
 					break;
 				
 					case PARAMETER_S_OFFSET:
-						valueS = strtol(&command[++i], &lastParameterCharacter, 10);
+						valueS = strtoll(&command[++i], &lastParameterCharacter);
 					break;
 				
 					case PARAMETER_P_OFFSET:
-						valueP = strtol(&command[++i], &lastParameterCharacter, 10);
+						valueP = strtoll(&command[++i], &lastParameterCharacter);
 					break;
 				
 					case PARAMETER_X_OFFSET:
-						valueX = getFloat(command, i, lastParameterCharacter);
+						valueX = strtof(&command[++i], &lastParameterCharacter);
 					break;
 				
 					case PARAMETER_Y_OFFSET:
-						valueY = getFloat(command, i, lastParameterCharacter);
+						valueY = strtof(&command[++i], &lastParameterCharacter);
 					break;
 				
 					case PARAMETER_Z_OFFSET:
-						valueZ = getFloat(command, i, lastParameterCharacter);
+						valueZ = strtof(&command[++i], &lastParameterCharacter);
 					break;
 				
 					case PARAMETER_F_OFFSET:
-						valueF = getFloat(command, i, lastParameterCharacter);
+						valueF = strtof(&command[++i], &lastParameterCharacter);
 					break;
 				
 					case PARAMETER_E_OFFSET:
-						valueE = getFloat(command, i, lastParameterCharacter);
+						valueE = strtof(&command[++i], &lastParameterCharacter);
 					break;
 				
 					case PARAMETER_N_OFFSET:
-						valueN = strtoul(&command[++i], &lastParameterCharacter, 10);
+						valueN = strtoull(&command[++i], &lastParameterCharacter);
 						
 						// Clear valid checksum
 						validChecksum = false;
@@ -171,7 +190,7 @@ bool Gcode::parseCommand(char *command) {
 						
 							// Check if checksum exists
 							char *lastChecksumCharacter;
-							uint8_t providedChecksum = strtoul(++checksumCharacter, &lastChecksumCharacter, 10);
+							uint8_t providedChecksum = strtoull(++checksumCharacter, &lastChecksumCharacter);
 							if(lastChecksumCharacter != checksumCharacter) {
 							
 								// Calculate checksum
@@ -355,7 +374,7 @@ bool Gcode::hasParameterN() const {
 	return commandParameters & PARAMETER_N_OFFSET;
 }
 
-uint32_t Gcode::getParameterN() const {
+uint64_t Gcode::getParameterN() const {
 
 	// Return parameter's value
 	return valueN;

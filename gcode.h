@@ -7,6 +7,7 @@
 extern "C" {
 	#include <asf.h>
 }
+#include <math.h>
 
 
 // Gcode class
@@ -17,6 +18,9 @@ class Gcode {
 	
 		// Parameterized constructor
 		Gcode(char *command = NULL);
+		
+		// Set values
+		void setValues(float x = NAN, float y = NAN, float z = NAN, float e = NAN, float f = NAN);
 		
 		// Parse command
 		bool parseCommand(char *command);
@@ -91,7 +95,7 @@ class Gcode {
 		bool hasParameterN() const;
 		
 		// Get parameter N
-		uint32_t getParameterN() const;
+		uint64_t getParameterN() const;
 		
 		// Has host command
 		bool hasHostCommand() const;
@@ -119,7 +123,7 @@ class Gcode {
 		float valueZ;
 		float valueF;
 		float valueE;
-		uint32_t valueN;
+		uint64_t valueN;
 		
 		// Valid checksum
 		bool validChecksum;

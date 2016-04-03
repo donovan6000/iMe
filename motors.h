@@ -60,6 +60,9 @@ class Motors {
 		
 		// Speed limits
 		float motorsSpeedLimit[5];
+		
+		// Emergency stop occured
+		bool emergencyStopOccured = false;
 };
 
 
