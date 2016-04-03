@@ -19,9 +19,6 @@ class Gcode {
 		// Parameterized constructor
 		Gcode(char *command = NULL);
 		
-		// Set values
-		void setValues(float x = NAN, float y = NAN, float z = NAN, float e = NAN, float f = NAN);
-		
 		// Parse command
 		bool parseCommand(char *command);
 		

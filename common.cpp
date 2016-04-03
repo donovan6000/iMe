@@ -44,7 +44,7 @@ void lltoa(int64_t value, char *buffer) {
 void ftoa(float value, char *buffer) {
 
 	// Initialize variables
-	uint8_t i = sizeof("4294967296") + NUMBER_OF_DECIMAL_PLACES;
+	uint8_t i = sizeof("4294967296") + NUMBER_OF_DECIMAL_PLACES + 1;
 	
 	// Add terminating character
 	buffer[i] = 0;
@@ -77,7 +77,7 @@ void ftoa(float value, char *buffer) {
 		buffer[--i] = '-';
 	
 	// Move string to the start of the buffer
-	memmove(buffer, &buffer[i], sizeof("4294967296") + NUMBER_OF_DECIMAL_PLACES - i + 1);
+	memmove(buffer, &buffer[i], sizeof("4294967296") + NUMBER_OF_DECIMAL_PLACES - i + 2);
 }
 
 uint64_t strtoull(const char *nptr, char **endptr) {

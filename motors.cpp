@@ -384,7 +384,7 @@ void Motors::move(const Gcode &command) {
 				if(!isnan(currentValues[i]))
 					currentValues[i] = newValue;
 		
-				// Set motor direction, steps per mm, speed limit, min/max feed rates, and set step motor interrupt level
+				// Set motor direction, steps per mm, speed limit, and min/max feed rates
 				float stepsPerMm;
 				float speedLimit;
 				float maxFeedRate;
@@ -552,13 +552,12 @@ void Motors::goHome() {
 	
 	// Move to corner
 	mode = RELATIVE;
-	Gcode gcode;
-	gcode.setValues(109, 108, NAN, NAN, 4800);
+	Gcode gcode(const_cast<char *>("G0 X109 Y108 F4800"));
 	move(gcode);
 	
 	// Move to center
 	if(!emergencyStopOccured) {
-		gcode.setValues(-54, -50);
+		gcode.parseCommand(const_cast<char *>("G0 X-54 Y-50"));
 		move(gcode);
 	}
 	

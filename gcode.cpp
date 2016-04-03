@@ -37,42 +37,6 @@ Gcode::Gcode(char *command) {
 		clearCommand();
 }
 
-void Gcode::setValues(float x, float y, float z, float e, float f) {
-
-	// Clear command
-	clearCommand();
-	
-	// Set X value if provided
-	if(!isnan(x)) {
-		valueX = x;
-		commandParameters |= PARAMETER_X_OFFSET;
-	}
-	
-	// Set Y value if provided
-	if(!isnan(y)) {
-		valueY = y;
-		commandParameters |= PARAMETER_Y_OFFSET;
-	}
-	
-	// Set Z value if provided
-	if(!isnan(z)) {
-		valueZ = z;
-		commandParameters |= PARAMETER_Z_OFFSET;
-	}
-	
-	// Set E value if provided
-	if(!isnan(e)) {
-		valueE = e;
-		commandParameters |= PARAMETER_E_OFFSET;
-	}
-	
-	// Set F value if provided
-	if(!isnan(f)) {
-		valueF = f;
-		commandParameters |= PARAMETER_F_OFFSET;
-	}
-}
-
 bool Gcode::parseCommand(char *command) {
 
 	// Clear command
