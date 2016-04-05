@@ -5,6 +5,7 @@ extern "C" {
 }
 #include <math.h>
 #include "motors.h"
+#include "common.h"
 #include "eeprom.h"
 
 
@@ -54,12 +55,17 @@ extern "C" {
 #define MOTOR_E_VREF_PIN IOPORT_CREATE_PIN(PORTD, 0)
 #define MOTOR_E_STEP_PIN IOPORT_CREATE_PIN(PORTC, 4)
 #define MOTOR_E_CURRENT_SENSE_PIN IOPORT_CREATE_PIN(PORTA, 7)
+#define MOTOR_E_CURRENT_SENSE_ADC ADCA
+#define MOTOR_E_CURRENT_SENSE_ADC_CHANNEL ADC_CH0
+#define MOTOR_E_CURRENT_SENSE_ADC_PIN ADCCH_POS_PIN7
 #define MOTOR_E_VREF_CHANNEL TC_CCA
 #define MOTOR_E_VREF_VOLTAGE 0.149765258
 #define MOTOR_E_STEPS_PER_MM 97.75938
 #define MOTOR_E_MAX_FEEDRATE_EXTRUSION 600
 #define MOTOR_E_MAX_FEEDRATE_RETRACTION 720
 #define MOTOR_E_MIN_FEEDRATE 60
+#define ADC_VREF_PIN IOPORT_CREATE_PIN(PORTA, 0)
+#define ADC_VREF 2.6
 
 // Pin states
 #define MOTORS_ON IOPORT_PIN_LEVEL_LOW
@@ -145,10 +151,6 @@ void stepTimerInterrupt(AXES motor) {
 			// Reset number of steps
 			motorsNumberOfSteps[motor] = 0;
 			
-			// Set motor Z Vref to idle
-			if(motor == Z)
-				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD);
-				
 			// Disable motor step interrupt
 			(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
 		}
@@ -189,10 +191,10 @@ void Motors::initialize() {
 	tc_enable(&MOTORS_VREF_TIMER);
 	tc_set_wgm(&MOTORS_VREF_TIMER, TC_WG_SS);
 	tc_write_period(&MOTORS_VREF_TIMER, MOTORS_VREF_TIMER_PERIOD);
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, MOTOR_X_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD);
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, MOTOR_Y_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD);
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD);
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, MOTOR_E_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD);
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	tc_enable_cc_channels(&MOTORS_VREF_TIMER, static_cast<tc_cc_channel_mask_enable_t>(TC_CCAEN | TC_CCBEN | TC_CCCEN | TC_CCDEN));
 	tc_write_clock_source(&MOTORS_VREF_TIMER, TC_CLKSEL_DIV1_gc);
 	
@@ -276,6 +278,34 @@ void Motors::initialize() {
 		// Run step timer interrupt
 		stepTimerInterrupt(E);
 	});
+	
+	// Configure ADC Vref pin
+	ioport_set_pin_dir(ADC_VREF_PIN, IOPORT_DIR_INPUT);
+	
+	// Read ADC controller configuration
+	adc_config adc_conf;
+	adc_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &adc_conf);
+	
+	// Set ADC parameters to be unsigned, 12bit, Vref refrence, manual trigger, 50kHz frequency
+	adc_set_conversion_parameters(&adc_conf, ADC_SIGN_OFF, ADC_RES_12, ADC_REF_AREFA);
+	adc_set_conversion_trigger(&adc_conf, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
+	adc_set_clock_rate(&adc_conf, 200000);
+	
+	// Write ADC controller configuration
+	adc_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &adc_conf);
+	
+	// Read ADC channel configuration
+	adc_channel_config adcch_conf;
+	adcch_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &adcch_conf);
+	
+	// Set motor E current sense pin as single ended input
+	adcch_set_input(&adcch_conf, MOTOR_E_CURRENT_SENSE_ADC_PIN, ADCCH_NEG_NONE, 1);
+	
+	// Write ADC channel configuration
+	adcch_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &adcch_conf);
+	
+	// Enable ADC controller
+	adc_enable(&MOTOR_E_CURRENT_SENSE_ADC);
 }
 
 void Motors::setMicroStepsPerStep(STEPS step) {
@@ -497,7 +527,7 @@ void Motors::move(const Gcode &command) {
 						nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, INVALID);
 	
 					// Set motor Z Vref to active
-					tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, MOTOR_Z_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD);
+					tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 				break;
 			
 				default:
@@ -525,11 +555,38 @@ void Motors::move(const Gcode &command) {
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
 	
 	// Wait until all motors step interrupts have stopped
-	while(MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm));
+	while(MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm)) {
+	
+		// Check if E motor is moving
+		if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm) {
+		
+			// Read average real motor E voltage
+			uint32_t value = 0;
+			for(uint8_t i = 0; i < 100; i++) {
+				adc_start_conversion(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
+				adc_wait_for_interrupt_flag(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
+				value += adc_get_result(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
+			}
+			value /= 100;
+			float realVoltage = ADC_VREF / (pow(2, 12) - 1) * value;
+			
+			// Get ideal motor E voltage
+			float idealVoltage = static_cast<float>(tc_read_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL)) / MOTORS_VREF_TIMER_PERIOD * MICROCONTROLLER_VOLTAGE;
+			
+			// Adjust motor E Vref to maintain desired voltage
+			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round((MOTOR_E_VREF_VOLTAGE + idealVoltage - realVoltage) / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		}
+	}
 	
 	// Stop motors step timer
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
 	tc_set_overflow_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+	
+	// Reset motor E Vref
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	
+	// Set motor Z Vref to idle
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	
 	// Check if Z motor moved
 	if(totalSteps[Z]) {
@@ -582,6 +639,9 @@ void Motors::setZToZero() {
 }
 
 void Motors::emergencyStop() {
+
+	// Turn off motors
+	turnOff();
 
 	// Disable all motor step interrupts
 	MOTORS_STEP_TIMER.INTCTRLB &= ~(TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm);

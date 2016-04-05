@@ -14,14 +14,11 @@ extern "C" {
 #define HEATER_ENABLE_PIN IOPORT_CREATE_PIN(PORTA, 2)
 #define HEATER_READ_POSITIVE_PIN IOPORT_CREATE_PIN(PORTA, 3)
 #define HEATER_READ_NEGATIVE_PIN IOPORT_CREATE_PIN(PORTA, 4)
-#define HEATER_READ_VREF_PIN IOPORT_CREATE_PIN(PORTA, 0)
 
 #define HEATER_READ_ADC ADCA
 #define HEATER_READ_ADC_CHANNEL ADC_CH0
 #define HEATER_READ_POSITIVE_INPUT ADCCH_POS_PIN3
 #define HEATER_READ_NEGATIVE_INPUT ADCCH_NEG_PIN4
-
-#define VREF_VOLTAGE 2.60
 
 
 // Global variables
@@ -49,9 +46,8 @@ Heater::Heater() {
 	
 	ioport_set_pin_dir(HEATER_READ_POSITIVE_PIN, IOPORT_DIR_INPUT);
 	ioport_set_pin_dir(HEATER_READ_NEGATIVE_PIN, IOPORT_DIR_INPUT);
-	ioport_set_pin_dir(HEATER_READ_VREF_PIN, IOPORT_DIR_INPUT);
 	
-	adc_config heaterReadAdc;
+	/*adc_config heaterReadAdc;
 	adc_channel_config heaterReadAdcChannel;
 	adc_read_configuration(&HEATER_READ_ADC, &heaterReadAdc);
 	adcch_read_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
@@ -66,7 +62,7 @@ Heater::Heater() {
 	adc_enable(&HEATER_READ_ADC);
 	
 	// Delay enough time for ADC to initialize
-	delay_ms(1);
+	delay_ms(1);*/
 	
 	// Configure check temperature interrupt timer
 	/*tc_enable(&TCC0);
@@ -94,10 +90,11 @@ int16_t Heater::getTemperature() {
 	// Turn on heater
 	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, IOPORT_PIN_LEVEL_HIGH);
 	
-	// Get value
+	/*// Get value
 	adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 	adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-	int16_t value = adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+	int16_t value = adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);*/
+	int16_t value = 0;
 	
 	// Turn off heater
 	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, IOPORT_PIN_LEVEL_LOW);
