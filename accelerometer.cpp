@@ -14,7 +14,7 @@ extern "C" {
 #define ACCELEROMETER_SDA_PIN IOPORT_CREATE_PIN(PORTC, 0)
 #define ACCELEROMETER_SCL_PIN IOPORT_CREATE_PIN(PORTC, 1)
 
-// Bus details
+// Device details
 #define MASTER_ADDRESS 0x00
 #define ACCELEROMETER_ADDRESS 0x1D
 #define BUS_SPEED 400000
@@ -38,7 +38,6 @@ extern "C" {
 #define XYZ_DATA_CFG 0x0E
 #define XYZ_DATA_CFG_FS0 0b00000001
 #define XYZ_DATA_CFG_FS1 0b00000010
-#define PL_CFG 0x11
 #define CTRL_REG1 0x2A
 #define CTRL_REG1_ACTIVE 0b00000001
 #define CTRL_REG1_DR0 0b00001000
@@ -48,16 +47,10 @@ extern "C" {
 #define CTRL_REG2_MODS0 0b00000001
 #define CTRL_REG2_MODS1 0b00000010
 #define CTRL_REG2_RST 0b01000000
-#define OFF_X 0x2F
-#define OFF_Y 0x30
-#define OFF_Z 0x31
 
 
 // Supporting function implementation
-Accelerometer::Accelerometer() {
-
-	// Initialize variables
-	uint8_t value;
+void Accelerometer::initialize() {
 	
 	// Configure VDDIO, SDA and SCL pins
 	ioport_set_pin_dir(ACCELEROMETER_VDDIO_PIN, IOPORT_DIR_OUTPUT);
@@ -77,6 +70,7 @@ Accelerometer::Accelerometer() {
 	twi_master_enable(&TWI_MASTER);
 
 	// Create packet
+	uint8_t value;
 	twi_package_t packet;
 	packet.addr[0] = WHO_AM_I;
 	packet.addr_length = 1;
@@ -100,11 +94,17 @@ Accelerometer::Accelerometer() {
 		// Wait enough time for accelerometer to initialize
 		delay_ms(1);
 		
-		// Initialize settings
-		initializeSettings();
-		
-		// Calibrate
-		//calibrate();
+		// Put accelerometer into standby mode
+		writeValue(CTRL_REG1, 0);
+
+		// Set dynamic range to 2g
+		writeValue(XYZ_DATA_CFG, 0);
+	
+		// Set oversampling mode to high resolution
+		writeValue(CTRL_REG2, CTRL_REG2_MODS1);
+	
+		// Set output data rate frequency to 6.25Hz and enable active mode
+		writeValue(CTRL_REG1, CTRL_REG1_DR2 | CTRL_REG1_DR1 | CTRL_REG1_DR0 | CTRL_REG1_ACTIVE);
 	
 		// Set is working
 		isWorking = true;
@@ -121,85 +121,22 @@ void Accelerometer::readAccelerationValues() {
 	readValue(OUT_X_MSB, values, 6);
 	
 	// Set values
-	xValue = ((values[0] << 8) | values[1]) >> 4;
+	xValue = ((values[4] << 8) | values[5]) >> 4;
 	yValue = ((values[2] << 8) | values[3]) >> 4;
-	zValue = ((values[4] << 8) | values[5]) >> 4;
+	zValue = ((values[0] << 8) | values[1]) >> 4;
 	
 	// Calculate acceleration values and account for chips orientation
-	zAcceleration = static_cast<int32_t>(xValue) * 1000 / SENSITIVITY_2G;
-	yAcceleration = static_cast<int32_t>(yValue) * 1000 / SENSITIVITY_2G;
-	xAcceleration = static_cast<int32_t>(zValue) * 1000 / SENSITIVITY_2G;
+	xAcceleration = static_cast<float>(xValue) * 1000 / SENSITIVITY_2G;
+	yAcceleration = static_cast<float>(yValue) * 1000 / SENSITIVITY_2G;
+	zAcceleration = static_cast<float>(zValue) * 1000 / SENSITIVITY_2G;
 }
 
-void Accelerometer::initializeSettings() {
+bool Accelerometer::dataAvailable() {
 
-	// Put accelerometer into standby mode
-	writeValue(CTRL_REG1, 0);
-
-	// Set dynamic range to 2g
-	writeValue(XYZ_DATA_CFG, 0);
-	
-	// Set oversampling mode to high resolution
-	writeValue(CTRL_REG2, CTRL_REG2_MODS1);
-	
-	// Set output data rate frequency to 6.25Hz and enable active mode
-	writeValue(CTRL_REG1, CTRL_REG1_DR2 | CTRL_REG1_DR1 | CTRL_REG1_DR0 | CTRL_REG1_ACTIVE);
-}
-
-void Accelerometer::calibrate() {
-
-	// Initialize variables
-	int32_t averageXValue = 0;
-	int32_t averageYValue = 0;
-	int32_t averageZValue = 0;
-
-	// Put accelerometer into standby mode
-	writeValue(CTRL_REG1, 0);
-
-	// Set dynamic range to 2g
-	writeValue(XYZ_DATA_CFG, 0);
-	
-	// Set oversampling mode to high resolution
-	writeValue(CTRL_REG2, CTRL_REG2_MODS1);
-	
-	// Clear offsets
-	writeValue(OFF_X, 0);
-	writeValue(OFF_Y, 0);
-	writeValue(OFF_Z, 0);
-	
-	// Set output data rate frequency to 1.56Hz and enable active mode
-	writeValue(CTRL_REG1, CTRL_REG1_DR2 | CTRL_REG1_DR1 | CTRL_REG1_DR0 | CTRL_REG1_ACTIVE);
-	
-	// Get average values
-	for(uint8_t i = 0; i < 10; i++) {
-
-		// Read acceleration values
-		readAccelerationValues();
-		
-		// Add values to average
-		averageXValue += xValue;
-		averageYValue += yValue;
-		averageZValue += zValue;
-	}
-	
-	// Compute averages
-	averageXValue /= 10;
-	averageYValue /= 10;
-	averageZValue /= 10;
-	
-	// Put accelerometer into standby mode
-	writeValue(CTRL_REG1, 0);
-	
-	// Set offsets
-	int8_t xOffset = -averageXValue / 2;
-	int8_t yOffset = -averageYValue / 2;
-	int8_t zOffset = -(averageZValue - SENSITIVITY_2G) / 2;
-	writeValue(OFF_X, xOffset);
-	writeValue(OFF_Y, yOffset);
-	writeValue(OFF_Z, zOffset);
-	
-	// Initialize settings
-	initializeSettings();
+	// Return if data is available
+	uint8_t buffer;
+	readValue(STATUS, &buffer);
+	return buffer & (STATUS_XDR | STATUS_YDR | STATUS_ZDR);
 }
 
 void Accelerometer::sendCommand(uint8_t command) {
@@ -212,14 +149,6 @@ void Accelerometer::writeValue(uint8_t address, uint8_t value) {
 
 	// Transmit request
 	transmit(address, value, true);
-}
-
-bool Accelerometer::dataAvailable() {
-
-	// Return if data is available
-	uint8_t buffer;
-	readValue(STATUS, &buffer);
-	return buffer & (STATUS_XDR | STATUS_YDR | STATUS_ZDR);
 }
 
 void Accelerometer::readValue(uint8_t address, uint8_t *responseBuffer, uint8_t responseLength) {

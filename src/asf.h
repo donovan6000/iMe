@@ -80,9 +80,6 @@
 // From module: PMIC - Programmable Multi-level Interrupt Controller
 #include <pmic.h>
 
-// From module: PWM service using timer/counter
-#include <pwm.h>
-
 // From module: Part identification macros
 #include <parts.h>
 
@@ -99,15 +96,8 @@
 // From module: TC - Timer Counter
 #include <tc.h>
 
-// From module: TWI - Two-Wire Interface - XMEGA implementation
-#include <twi_master.h>
-#include <twi_slave.h>
-#include <xmega_twi/twi_master.h>
-#include <xmega_twi/twi_slave.h>
-
-// From module: TWI - Two-wire Master and Slave Interface
+// From module: TWI - Two-wire Master Interface
 #include <twim.h>
-#include <twis.h>
 
 // From module: USB CDC Protocol
 #include <usb_protocol_cdc.h>

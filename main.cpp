@@ -5,7 +5,6 @@ extern "C" {
 }
 #include <string.h>
 #include <math.h>
-#include "accelerometer.h"
 #include "common.h"
 #include "eeprom.h"
 #include "fan.h"
@@ -92,7 +91,6 @@ int main() {
 	char responseBuffer[255];
 	uint64_t currentLineNumber = 0;
 	char numberBuffer[sizeof("18446744073709551615")];
-	Accelerometer accelerometer;
 	Fan fan;
 	Gcode gcode;
 	Heater heater;
@@ -156,7 +154,7 @@ int main() {
 			*responseBuffer = 0;
 			
 			// Check if accelerometer is working
-			if(accelerometer.isWorking) {
+			if(motors.accelerometer.isWorking) {
 		
 				// Check if command contains valid G-code
 				if(!gcode.isEmpty()) {
@@ -272,7 +270,7 @@ int main() {
 									case 107:
 									
 										// Turn off fan
-										fan.turnOff();
+										fan.setSpeed(0);
 										
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
@@ -366,7 +364,7 @@ int main() {
 									case 618:
 								
 										// Check if EEPROM offset, length, and value are provided
-										if(gcode.hasParameterS() && gcode.hasParameterT() && gcode.hasParameterP()) {
+										if(gcode.commandParameters & (PARAMETER_S_OFFSET | PARAMETER_T_OFFSET | PARAMETER_P_OFFSET)) {
 									
 											// Check if offset and length are valid
 											int32_t offset = gcode.getParameterS();
@@ -392,7 +390,7 @@ int main() {
 									case 619:
 								
 										// Check if EEPROM offset and length are provided
-										if(gcode.hasParameterS() && gcode.hasParameterT()) {
+										if(gcode.commandParameters & (PARAMETER_S_OFFSET | PARAMETER_T_OFFSET)) {
 									
 											// Check if offset and length are valid
 											int32_t offset = gcode.getParameterS();
@@ -436,8 +434,8 @@ int main() {
 									case 0:
 									case 1:
 									
-										// Check if command contains a valid parameter
-										if(gcode.hasParameterX() || gcode.hasParameterY() || gcode.hasParameterZ() || gcode.hasParameterE() || gcode.hasParameterF()) {
+										// Check if command contains an X, Y, Z, E, or F parameter
+										if(gcode.commandParameters & (PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET | PARAMETER_F_OFFSET)) {
 										
 											// Move
 											motors.move(gcode);
@@ -533,7 +531,6 @@ int main() {
 			
 							// Append line number to response
 							uint8_t endOfResponse = responseBuffer[0] == 's' ? 4 : 2;
-							
 							ulltoa(responseBuffer[0] == 'r' ? currentLineNumber : gcode.getParameterN(), numberBuffer);
 							memmove(&responseBuffer[endOfResponse + 1 + strlen(numberBuffer)], &responseBuffer[endOfResponse], strlen(responseBuffer) - 1);
 							responseBuffer[endOfResponse] = ' ';

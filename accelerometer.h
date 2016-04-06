@@ -9,8 +9,8 @@ class Accelerometer {
 	// Public
 	public :
 	
-		// Constructor
-		Accelerometer();
+		// Initialize
+		void initialize();
 		
 		// Calibrate
 		void calibrate();
@@ -18,10 +18,15 @@ class Accelerometer {
 		// Read Acceleration values
 		void readAccelerationValues();
 		
+		// X, Y, and Z values
+		int16_t xValue;
+		int16_t yValue;
+		int16_t zValue;
+		
 		// X, Y, and Z acceleration
-		int32_t xAcceleration;
-		int32_t yAcceleration;
-		int32_t zAcceleration;
+		float xAcceleration;
+		float yAcceleration;
+		float zAcceleration;
 		
 		// Is working
 		bool isWorking;
@@ -31,26 +36,21 @@ class Accelerometer {
 		
 		// Initialize settings
 		void initializeSettings();
+		
+		// Data available
+		bool dataAvailable();
 	
 		// Send command
 		void sendCommand(uint8_t command);
 		
 		// Write value
 		void writeValue(uint8_t address, uint8_t value);
-		
-		// Data available
-		bool dataAvailable();
 	
 		// Read value
 		void readValue(uint8_t address, uint8_t *responseBuffer, uint8_t responseLength = 1);
 		
 		// transmit
 		void transmit(uint8_t command, uint8_t value = 0, bool sendValue = false, uint8_t *responseBuffer = NULL, uint8_t responseLength = 0);
-		
-		// X, Y, and Z values
-		int16_t xValue;
-		int16_t yValue;
-		int16_t zValue;
 };
 
 

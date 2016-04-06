@@ -4,8 +4,9 @@ extern "C" {
 	#include <asf.h>
 }
 #include <math.h>
-#include "motors.h"
+#include <string.h>
 #include "common.h"
+#include "motors.h"
 #include "eeprom.h"
 
 
@@ -135,9 +136,6 @@ void stepTimerInterrupt(AXES motor) {
 	
 	// Check if time to increment motor step
 	if(++motorsStepDelayCounter[motor] >= motorsStepDelay[motor]) {
-	
-		// Clear motor step counter
-		motorsStepDelayCounter[motor] = 0;
 
 		// Check if moving another step
 		if(motorsNumberOfSteps[motor]--)
@@ -154,6 +152,9 @@ void stepTimerInterrupt(AXES motor) {
 			// Disable motor step interrupt
 			(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
 		}
+		
+		// Clear motor step counter
+		motorsStepDelayCounter[motor] = 0;
 	}
 }
 
@@ -224,6 +225,7 @@ void Motors::initialize() {
 	tc_enable(&MOTORS_STEP_TIMER);
 	tc_set_wgm(&MOTORS_STEP_TIMER, TC_WG_SS);
 	tc_write_period(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD);
+	tc_set_overflow_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_MED);
 	
 	// Motors step timer overflow callback
 	tc_set_overflow_interrupt_callback(&MOTORS_STEP_TIMER, []() -> void {
@@ -306,6 +308,9 @@ void Motors::initialize() {
 	
 	// Enable ADC controller
 	adc_enable(&MOTOR_E_CURRENT_SENSE_ADC);
+	
+	// Initialize accelerometer
+	accelerometer.initialize();
 }
 
 void Motors::setMicroStepsPerStep(STEPS step) {
@@ -398,23 +403,24 @@ void Motors::move(const Gcode &command) {
 	
 			// Set new value
 			float newValue;
-			if(mode == RELATIVE && !isnan(currentValues[i]))
-				newValue = currentValues[i] + (command.*getParameter)();
+			float tempValue = isnan(currentValues[i]) ? 0 : currentValues[i];
+			if(mode == RELATIVE)
+				newValue = tempValue + (command.*getParameter)();
 			else
 				newValue = (command.*getParameter)();
 		
 			// Check if motor moves
-			float distanceTraveled = fabs(newValue - (!isnan(currentValues[i]) ? currentValues[i] : 0));
+			float distanceTraveled = fabs(newValue - tempValue);
 			if(distanceTraveled) {
 			
 				// Set lower new value
-				bool lowerNewValue = (isnan(currentValues[i]) && newValue < 0) || (!isnan(currentValues[i]) && newValue < currentValues[i]);
+				bool lowerNewValue = newValue < tempValue;
 				
 				// Set current value
 				if(!isnan(currentValues[i]))
 					currentValues[i] = newValue;
 		
-				// Set motor direction, steps per mm, speed limit, and min/max feed rates
+				// Set steps per mm, motor direction, speed limit, and min/max feed rates
 				float stepsPerMm;
 				float speedLimit;
 				float maxFeedRate;
@@ -422,37 +428,38 @@ void Motors::move(const Gcode &command) {
 				switch(i) {
 				
 					case X:
-						ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT);
 						stepsPerMm = MOTOR_X_STEPS_PER_MM;
+						ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT);
 						speedLimit = motorsSpeedLimit[X];
 						maxFeedRate = MOTOR_X_MAX_FEEDRATE;
 						minFeedRate = MOTOR_X_MIN_FEEDRATE;
 					break;
 					
 					case Y:
-						ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
 						stepsPerMm = MOTOR_Y_STEPS_PER_MM;
+						ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
 						speedLimit = motorsSpeedLimit[Y];
 						maxFeedRate = MOTOR_Y_MAX_FEEDRATE;
 						minFeedRate = MOTOR_Y_MIN_FEEDRATE;
 					break;
 					
 					case Z:
-						ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, lowerNewValue ? DIRECTION_DOWN : DIRECTION_UP);
 						stepsPerMm = MOTOR_Z_STEPS_PER_MM;
+						ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, lowerNewValue ? DIRECTION_DOWN : DIRECTION_UP);
 						speedLimit = motorsSpeedLimit[Z];
 						maxFeedRate = MOTOR_Z_MAX_FEEDRATE;
 						minFeedRate = MOTOR_Z_MIN_FEEDRATE;
 					break;
 					
 					default:
-						ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, lowerNewValue ? DIRECTION_RETRACT : DIRECTION_EXTRUDE);
 						stepsPerMm = MOTOR_E_STEPS_PER_MM;
 						if(lowerNewValue) {
+							ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, DIRECTION_RETRACT);
 							speedLimit = motorsSpeedLimit[E_NEGATIVE];
 							maxFeedRate = MOTOR_E_MAX_FEEDRATE_RETRACTION;
 						}
 						else {
+							ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, DIRECTION_EXTRUDE);
 							speedLimit = motorsSpeedLimit[E_POSITIVE];
 							maxFeedRate = MOTOR_E_MAX_FEEDRATE_EXTRUSION;
 						}
@@ -463,20 +470,17 @@ void Motors::move(const Gcode &command) {
 				totalSteps[i] = distanceTraveled * stepsPerMm * step;
 				
 				// Set motor feedrate
-				float motorFeedRate = currentValues[F] > speedLimit ? speedLimit : currentValues[F];
+				float motorFeedRate = min(currentValues[F], speedLimit);
 				
 				// Enforce min/max feed rates
-				if(motorFeedRate > maxFeedRate)
-					motorFeedRate = maxFeedRate;
-				else if(motorFeedRate < minFeedRate)
-					motorFeedRate = minFeedRate;
+				motorFeedRate = min(motorFeedRate, maxFeedRate);
+				motorFeedRate = max(motorFeedRate, minFeedRate);
 		
 				// Set motor total time
 				float motorTotalTime = distanceTraveled / motorFeedRate * 60 * sysclk_get_cpu_hz() / MOTORS_STEP_TIMER_PERIOD;
 		
 				// Set slowest time
-				if(motorTotalTime > slowestTime)
-					slowestTime = motorTotalTime;
+				slowestTime = max(motorTotalTime, slowestTime);
 			}
 		}
 	}
@@ -503,8 +507,7 @@ void Motors::move(const Gcode &command) {
 			motorsTotalRoundedTime[i] = motorsNumberOfSteps[i] * (motorsStepDelay[i] ? motorsStepDelay[i] : 1);
 		
 			// Set slowest rounded time
-			if(motorsTotalRoundedTime[i] > slowestRoundedTime)
-				slowestRoundedTime = motorsTotalRoundedTime[i];
+			slowestRoundedTime = max(slowestRoundedTime, motorsTotalRoundedTime[i]);
 		
 			// Enable motor step interrupt
 			switch(i) {
@@ -551,7 +554,6 @@ void Motors::move(const Gcode &command) {
 	
 	// Start motors step timer
 	tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
-	tc_set_overflow_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_MED);
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
 	
 	// Wait until all motors step interrupts have stopped
@@ -573,14 +575,13 @@ void Motors::move(const Gcode &command) {
 			// Get ideal motor E voltage
 			float idealVoltage = static_cast<float>(tc_read_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL)) / MOTORS_VREF_TIMER_PERIOD * MICROCONTROLLER_VOLTAGE;
 			
-			// Adjust motor E Vref to maintain desired voltage
+			// Adjust motor E Vref to maintain a constant motor current
 			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round((MOTOR_E_VREF_VOLTAGE + idealVoltage - realVoltage) / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		}
 	}
 	
 	// Stop motors step timer
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
-	tc_set_overflow_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
 	
 	// Reset motor E Vref
 	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
@@ -604,16 +605,59 @@ void Motors::move(const Gcode &command) {
 
 void Motors::goHome() {
 
+	/*// Move to corner
+	motorsDelaySkips[X] = motorsDelaySkips[Y] = 0;
+	motorsStepDelay[X] = motorsStepDelay[Y] = 0;
+	motorsNumberOfSteps[X] = motorsNumberOfSteps[Y] = 0xFFFFFFFF;
+	
+	ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
+	ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
+	tc_set_cca_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
+	tc_set_ccb_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
+
+	// Clear Emergency stop occured
+	emergencyStopOccured = false;
+	
+	// Turn on motors
+	turnOn();
+	
+	// Start motors step timer
+	tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
+	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
+	
+	accelerometer.readAccelerationValues();
+	int16_t lastX = accelerometer.xValue;
+	int16_t lastY = accelerometer.yValue;
+	
+	// Wait until all motors step interrupts have stopped
+	while(MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm)) {
+	
+		accelerometer.readAccelerationValues();
+		int16_t newX = accelerometer.xValue;
+		int16_t newY = accelerometer.yValue;
+		
+		if(abs(lastX - newX) <= 2 && abs(lastY - newY) <= 2)
+			break;
+		
+		lastX = newX;
+		lastY = newY;
+	}
+	
+	// Stop motors step timer
+	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);*/
+	
 	// Save mode
 	MODES savedMode = mode;
 	
 	// Move to corner
 	mode = RELATIVE;
-	Gcode gcode(const_cast<char *>("G0 X109 Y108 F4800"));
+	gcode.parseCommand(const_cast<char *>("G0 X112 Y111 F3000"));
 	move(gcode);
 	
-	// Move to center
+	// Check if emergenct stop hasn't occured
 	if(!emergencyStopOccured) {
+	
+		// Move to center
 		gcode.parseCommand(const_cast<char *>("G0 X-54 Y-50"));
 		move(gcode);
 	}

@@ -4,6 +4,7 @@
 
 
 // Header files
+#include "accelerometer.h"
 #include "gcode.h"
 
 
@@ -51,6 +52,9 @@ class Motors {
 		
 		// Mode
 		MODES mode;
+		
+		// Accelerometer
+		Accelerometer accelerometer;
 	
 	// Private
 	private :
@@ -63,6 +67,9 @@ class Motors {
 		
 		// Emergency stop occured
 		bool emergencyStopOccured = false;
+		
+		// Gcode
+		Gcode gcode;
 };
 
 

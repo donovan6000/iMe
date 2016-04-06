@@ -7,18 +7,6 @@
 
 // Definitions
 #define PARAMETER_ORDER "GMTSPXYZFEN"
-#define PARAMETER_G_OFFSET 1
-#define PARAMETER_M_OFFSET (1 << 1)
-#define PARAMETER_T_OFFSET (1 << 2)
-#define PARAMETER_S_OFFSET (1 << 3)
-#define PARAMETER_P_OFFSET (1 << 4)
-#define PARAMETER_X_OFFSET (1 << 5)
-#define PARAMETER_Y_OFFSET (1 << 6)
-#define PARAMETER_Z_OFFSET (1 << 7)
-#define PARAMETER_F_OFFSET (1 << 8)
-#define PARAMETER_E_OFFSET (1 << 9)
-#define PARAMETER_N_OFFSET (1 << 10)
-#define PARAMETER_HOST_COMMAND_OFFSET (1 << 11)
 
 
 // Supporting function implementation

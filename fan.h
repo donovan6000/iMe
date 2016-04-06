@@ -3,6 +3,11 @@
 #define FAN_H
 
 
+// Definitions
+#define FAN_TIMER TCE0
+#define FAN_TIMER_PERIOD 0x208D
+
+
 // Fan class
 class Fan {
 
@@ -11,12 +16,6 @@ class Fan {
 	
 		// Constructor
 		Fan();
-		
-		// Turn on
-		void turnOn();
-		
-		// Turn off
-		void turnOff();
 		
 		// Set speed
 		void setSpeed(uint8_t speed);

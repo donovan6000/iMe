@@ -27,8 +27,7 @@ CSRCS = src/ASF/common/boards/user_board/init.c \
 	src/ASF/xmega/drivers/tc/tc.c \
 	src/ASF/xmega/drivers/twi/twim.c \
 	src/ASF/xmega/drivers/twi/twis.c \
-	src/ASF/xmega/drivers/usb/usb_device.c \
-	src/ASF/xmega/services/pwm/pwm.c
+	src/ASF/xmega/drivers/usb/usb_device.c
 
 # C++ source files
 CPPSRCS = accelerometer.cpp \
@@ -78,7 +77,6 @@ INCPATH = . \
 	src/ASF/xmega/drivers/twi \
 	src/ASF/xmega/drivers/usb \
 	src/ASF/xmega/services \
-	src/ASF/xmega/services/pwm \
 	src/ASF/xmega/utils \
 	src/ASF/xmega/utils/assembler \
 	src/ASF/xmega/utils/bit_handling \
@@ -86,7 +84,7 @@ INCPATH = . \
 	src/config
 
 # Compiler flags
-FLAGS = -D BOARD=USER_BOARD -D FIRMWARE_NAME="\"$(FIRMWARE_NAME)\"" -D FIRMWARE_VERSION="\"$(FIRMWARE_VERSION)\"" -Os -mmcu=atxmega32c4 -Wall -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -fno-strict-aliasing  -Werror-implicit-function-declaration -Wpointer-arith -mcall-prologues -mstrict-X -maccumulate-args -fno-tree-ter
+FLAGS = -D BOARD=USER_BOARD -D IOPORT_XMEGA_COMPAT -D FIRMWARE_NAME="\"$(FIRMWARE_NAME)\"" -D FIRMWARE_VERSION="\"$(FIRMWARE_VERSION)\"" -Os -mmcu=atxmega32c4 -Wall -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -fno-strict-aliasing  -Werror-implicit-function-declaration -Wpointer-arith -mcall-prologues -mstrict-X -maccumulate-args -fno-tree-ter
 ASFLAGS = -std=c++14 -x assembler-with-cpp
 CFLAGS = -std=gnu99 -x c -Wstrict-prototypes -Wmissing-prototypes
 CPPFLAGS = -std=c++14 -x c++

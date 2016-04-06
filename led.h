@@ -12,12 +12,6 @@ class Led {
 		// Constructor
 		Led();
 		
-		// Turn on
-		void turnOn();
-		
-		// Turn off
-		void turnOff();
-		
 		// Set brightness
 		void setBrightness(uint8_t brightness);
 };
