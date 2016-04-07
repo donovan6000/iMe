@@ -417,7 +417,7 @@ int main() {
 										}
 									break;
 									
-									// M0, M21 ,M84, or M110
+									// M0, M21, M84, or M110
 									case 0:
 									case 21:
 									case 84:
@@ -464,8 +464,8 @@ int main() {
 									// G28
 									case 28:
 									
-										// Home motors
-										motors.goHome();
+										// Home XY
+										motors.homeXY();
 										
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
@@ -474,18 +474,28 @@ int main() {
 									// G30
 									case 30:
 									
+										// Calibrate bed center Z0
+										motors.calibrateBedCenterZ0();
+										
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
 									break;
 									
 									// G32
 									case 32:
 									
+										// Calibrate bed orientation
+										motors.calibrateBedOrientation();
+										
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
 									break;
 									
 									// G33
 									case 33:
 									
-										// Set Z to zero
-										motors.setZToZero();
+										// Save Z as bed center Z0
+										motors.saveZAsBedCenterZ0();
 										
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");

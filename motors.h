@@ -44,11 +44,17 @@ class Motors {
 		// Move
 		void move(const Gcode &command);
 		
-		// Go home
-		void goHome();
+		// Home XY
+		void homeXY();
 		
-		// Set Z to zero
-		void setZToZero();
+		// Save Z as bed center Z0
+		void saveZAsBedCenterZ0();
+		
+		// Calibrate bed center Z0
+		void calibrateBedCenterZ0();
+		
+		// Calibrate bed center orientation
+		void calibrateBedOrientation();
 		
 		// Emergency stop
 		void emergencyStop();
@@ -64,6 +70,15 @@ class Motors {
 	
 	// Private
 	private:
+	
+		// Home XYZ
+		void homeXYZ();
+		
+		// Go to Z
+		void gotoZ(float value);
+	
+		// Move to Z0
+		void moveToZ0();
 		
 		// Steps
 		STEPS step;

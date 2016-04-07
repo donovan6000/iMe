@@ -13,6 +13,7 @@ extern "C" {
 // Definitions
 #define MICROCONTROLLER_VOLTAGE 3.3
 #define NUMBER_OF_MOTORS 4
+//#define LEGACY_HOMING
 
 // Motors settings
 #define MOTORS_ENABLE_PIN IOPORT_CREATE_PIN(PORTB, 3)
@@ -593,96 +594,385 @@ void Motors::move(const Gcode &command) {
 	}
 }
 
-void Motors::goHome() {
+void Motors::homeXYZ() {
 
-	// Set up motors to move into corner
-	motorsDelaySkips[X] = motorsDelaySkips[Y] = 0;
-	motorsStepDelay[X] = motorsStepDelay[Y] = 2;
-	motorsNumberOfSteps[X] = motorsNumberOfSteps[Y] = 0x12000;
+	// Go to Z 3
+	gotoZ(3);
 	
-	ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
-	ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
-	tc_set_cca_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
-	tc_set_ccb_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
+	// Check if emergency stop hasn't occured
+	if(!emergencyStopOccured)
 
-	// Clear Emergency stop occured
-	emergencyStopOccured = false;
+		// Home XY
+		homeXY();
+}
+
+void Motors::gotoZ(float value) {
+
+	// Save mode
+	MODES savedMode = mode;
 	
-	// Turn on motors
-	turnOn();
+	// Move to Z value
+	mode = ABSOLUTE;
+	char buffer[255];
+	char numberBuffer[sizeof("18446744073709551615")];
+	strcpy(buffer, "G0 Z");
+	ftoa(value, numberBuffer);
+	strcat(buffer, numberBuffer);
+	strcat(buffer, " F90");
+	Gcode gcode(buffer);
+	move(gcode);
 	
-	// Start motors step timer
-	tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
-	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
-	
-	// Wait until all motors step interrupts have stopped
-	int16_t lastX, lastY;
-	uint8_t counterX = 0, counterY = 0;
-	for(bool firstRun = true; MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm); firstRun = false) {
-		
-		// Get accelerometer values
-		accelerometer.readAccelerationValues();
-		if(!firstRun) {
-		
-			// Check if motor X has hit the corner
-			if(abs(lastX - accelerometer.xValue) >= 15) {
-				if(++counterX >= 2)
-				
-					// Stop motor X interrupt
-					tc_set_cca_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
-			}
-			else
-				counterX = 0;
-			
-			// Check if motor Y has hit the corner
-			if(abs(lastY - accelerometer.yValue) >= 15) {
-				if(++counterY >= 2)
-				
-					// Stop motor Y interrupt
-					tc_set_ccb_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
-			}
-			else
-				counterY = 0;
-		}
-		
-		// Save accelerometer values
-		lastX = accelerometer.xValue;
-		lastY = accelerometer.yValue;
-	}
-	
-	// Stop motors step timer
-	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
-	
-	// Check if emergenct stop hasn't occured
-	if(!emergencyStopOccured) {
+	// Restore mode
+	mode = savedMode;
+}
+
+void Motors::homeXY() {
+
+	// Check if using legacy homing
+	#ifdef LEGACY_HOMING
 	
 		// Save mode
 		MODES savedMode = mode;
 	
-		// Move to center
+		// Move to corner
 		mode = RELATIVE;
-		Gcode gcode(const_cast<char *>("G0 X-54 Y-50 F3000"));
+		Gcode gcode(const_cast<char *>("G0 X112 Y111 F3000"));
 		move(gcode);
+	
+		// Check if emergenct stop hasn't occured
+		if(!emergencyStopOccured) {
+	
+			// Move to center
+			gcode.parseCommand(const_cast<char *>("G0 X-54 Y-50"));
+			move(gcode);
 		
+			// Set current X and Y
+			currentValues[X] = 54;
+			currentValues[Y] = 50;
+		}
+	
 		// Restore mode
 		mode = savedMode;
+	
+	// Otherwise
+	#else
+	
+		// Clear Emergency stop occured
+		emergencyStopOccured = false;
+	
+		// Turn on motors
+		turnOn();
 		
-		// Set current X and Y
-		currentValues[X] = 54;
-		currentValues[Y] = 50;
-	}
+		// Go through X and Y motors
+		for(int8_t i = 1; i >= 0; i--) {
+		
+			// Set up motors to move all the way to the back as a fallback
+			motorsDelaySkips[i] = 0;
+			motorsStepDelay[i]  = 1;
+			int16_t *accelerometerValue;
+			void (*setMotorStepInterruptLevel)(volatile void *tc, TC_INT_LEVEL_t level);
+			if(i) {
+				motorsNumberOfSteps[i] = 111 * MOTOR_Y_STEPS_PER_MM * step;
+				ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
+				setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
+				accelerometerValue = &accelerometer.yValue;
+			}
+			else {
+				motorsNumberOfSteps[i] = 112 * MOTOR_X_STEPS_PER_MM * step;
+				ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
+				setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
+				accelerometerValue = &accelerometer.xValue;
+			}
+			
+			// Enable motor step interrupt 
+			(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
+
+			// Start motors step timer
+			tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
+			tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
+
+			// Wait until all motors step interrupts have stopped
+			int16_t lastValue;
+			uint8_t counter = 0;
+			for(bool firstRun = true; MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm); firstRun = false) {
+	
+				// Get accelerometer values
+				accelerometer.readAccelerationValues();
+				if(!firstRun) {
+	
+					// Check if at the edge
+					if(abs(lastValue - *accelerometerValue) >= 20) {
+						if(++counter >= 2)
+			
+							// Stop motor interrupt
+							(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+					}
+					else
+						counter = 0;
+				}
+	
+				// Save accelerometer values
+				lastValue = *accelerometerValue;
+			}
+
+			// Stop motors step timer
+			tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
+			
+			// Check if emergency stop occured
+			if(emergencyStopOccured)
+			
+				// Break
+				break;
+		}
+		
+		// Check if emergency stop hasn't occured
+		if(!emergencyStopOccured) {
+
+			// Save mode
+			MODES savedMode = mode;
+
+			// Move to center
+			mode = RELATIVE;
+			Gcode gcode(const_cast<char *>("G0 X-54 Y-50 F3000"));
+			move(gcode);
+	
+			// Restore mode
+			mode = savedMode;
+	
+			// Set current X and Y
+			currentValues[X] = 54;
+			currentValues[Y] = 50;
+		}
+	#endif
 }
 
-void Motors::setZToZero() {
+void Motors::saveZAsBedCenterZ0() {
 
 	// Set current Z
-	currentValues[Z] = 0.0999;
+	currentValues[Z] = 0;
 
 	// Save current Z
 	nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
 	
 	// Save that Z is valid
 	nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, VALID);
+}
+
+void Motors::moveToZ0() {
+	
+	// Check if Z is valid
+	bool validZ = nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET);
+	if(validZ)
+
+		// Save that Z is invalid
+		nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, INVALID);
+	
+	// Turn on motors
+	turnOn();
+	
+	// Find Z0
+	float lastZ0 = NAN;
+	float heighest = currentValues[Z];
+	while(true) {
+	
+		// Set up motors to move down
+		motorsDelaySkips[Z] = 0;
+		motorsStepDelay[Z] = 1;
+		motorsNumberOfSteps[Z] = UINT32_MAX;
+	
+		ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, DIRECTION_DOWN);
+		tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
+		
+		// Set motor Z Vref to active
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+
+		// Clear Emergency stop occured
+		emergencyStopOccured = false;
+	
+		// Start motors step timer
+		tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
+		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
+	
+		// Wait until all motors step interrupts have stopped
+		int16_t lastZ;
+		uint8_t counterZ = 0, matchCounter = 0;
+		for(bool firstRun = true; MOTORS_STEP_TIMER.INTCTRLB & TC0_CCCINTLVL_gm; firstRun = false) {
+		
+			// Get accelerometer values
+			accelerometer.readAccelerationValues();
+			if(!firstRun) {
+		
+				// Check if motor Z has hit the bed
+				if(lastZ >= accelerometer.zValue) {
+					if(++counterZ >= 2)
+				
+						// Stop motor Z interrupt
+						tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+				}
+				else
+					counterZ = 0;
+			}
+		
+			// Save accelerometer values
+			lastZ = accelerometer.zValue;
+		}
+	
+		// Stop motors step timer
+		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
+		
+		// Set current Z
+		currentValues[Z] -= (static_cast<float>(UINT32_MAX) - motorsNumberOfSteps[Z]) / (MOTOR_Z_STEPS_PER_MM * step);
+		
+		// Check if emergency stop has occured
+		if(emergencyStopOccured)
+		
+			// Break
+			break;
+		
+		// Check if at the real Z0
+		if(!isnan(lastZ0) && fabs(lastZ0 - currentValues[Z]) <= 1) {
+		
+			if(++matchCounter >= 3)
+			
+				// Break
+				break;
+		}
+		else
+			matchCounter = 0;
+		
+		// Save current Z as last Z0
+		lastZ0 = currentValues[Z];
+		
+		// Move slightly up
+		heighest = min(heighest, currentValues[Z] + 1);
+		gotoZ(heighest);
+		
+		// Check if emergency stop has occured
+		if(emergencyStopOccured)
+		
+			// Break
+			break;
+	}
+	
+	// Set motor Z Vref to idle
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	
+	// Save current Z
+	nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
+
+	// Check if an emergency stop didn't happen and Z was previously valid
+	if(!emergencyStopOccured && validZ)
+	
+		// Save that Z is valid
+		nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, VALID);
+}
+
+void Motors::calibrateBedCenterZ0() {
+
+	// Home XYZ
+	homeXYZ();
+	
+	// Check if emergency stop hasn't occured
+	if(!emergencyStopOccured) {
+
+		// Move to Z0
+		moveToZ0();
+		
+		// Check if emergency stop hasn't occured
+		if(!emergencyStopOccured) {
+
+			// Save Z as bed center Z0
+			saveZAsBedCenterZ0();
+			
+			// Go to Z 3
+			gotoZ(3);
+		}
+	}
+}
+
+void Motors::calibrateBedOrientation() {
+	
+	// Calibrate bed center Z0
+	calibrateBedCenterZ0();
+	
+	// Initialize X and Y positions
+	uint8_t positionsX[] = {9, 99, 99, 9};
+	uint8_t positionsY[] = {5, 5, 95, 95};
+
+	// Save mode
+	MODES savedMode = mode;
+	mode = ABSOLUTE;
+	
+	// Go through all corners
+	for(uint8_t i = 0; i < sizeof(positionsX) / sizeof(positionsX[0]); i++) {
+		
+		// Check if emergency stop has occured
+		if(emergencyStopOccured)
+		
+			// Break
+			break;
+
+		// Move to  corner
+		char buffer[255];
+		char numberBuffer[sizeof("18446744073709551615")];
+		strcpy(buffer, "G0 X");
+		ulltoa(positionsX[i], numberBuffer);
+		strcat(buffer, numberBuffer);
+		strcat(buffer, " Y");
+		ulltoa(positionsY[i], numberBuffer);
+		strcat(buffer, numberBuffer);
+		strcat(buffer, " F3000");
+		Gcode gcode(buffer);
+		move(gcode);
+		
+		// Check if emergency stop has occured
+		if(emergencyStopOccured)
+		
+			// Break
+			break;
+
+		// Move to Z0
+		moveToZ0();
+		
+		// Check if emergency stop has occured
+		if(emergencyStopOccured)
+		
+			// Break
+			break;
+		
+		// Save corner orientation offset and length
+		uint8_t eepromOffset, eepromLength;
+		switch(i) {
+		
+			case 0:
+				eepromOffset = EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET;
+				eepromLength = EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH;
+			break;
+			
+			case 1:
+				eepromOffset = EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET;
+				eepromLength = EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH;
+			break;
+			
+			case 2:
+				eepromOffset = EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET;
+				eepromLength = EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH;
+			break;
+			
+			default:
+				eepromOffset = EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET;
+				eepromLength = EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH;
+		}
+		
+		// Save corner orientation
+		nvm_eeprom_erase_and_write_buffer(eepromOffset, &currentValues[Z], eepromLength);
+	
+		// Go to Z 3
+		gotoZ(3);
+	}
+	
+	// Restore mode
+	mode = savedMode;
 }
 
 void Motors::emergencyStop() {
