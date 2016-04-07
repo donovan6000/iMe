@@ -4,6 +4,7 @@ extern "C" {
 	#include <asf.h>
 }
 #include <string.h>
+#include <ctype.h>
 #include <math.h>
 #include "common.h"
 #include "eeprom.h"
@@ -15,29 +16,29 @@ extern "C" {
 
 
 // Definitions
+#define REQUEST_BUFFER_SIZE 10
+#define WAIT_TIMER MOTORS_VREF_TIMER
+#define WAIT_TIMER_PERIOD MOTORS_VREF_TIMER_PERIOD
 
 // Firmware name and version
 #ifndef FIRMWARE_NAME
-	#define FIRMWARE_NAME "iMe"
+	#define FIRMWARE_NAME iMe
 #endif
 
 #ifndef FIRMWARE_VERSION
-	#define FIRMWARE_VERSION "1900000001"
+	#define FIRMWARE_VERSION 1900000001
 #endif
 
 // Unknown pins
 #define UNKNOWN_PIN_1 IOPORT_CREATE_PIN(PORTA, 1) // Connected to transistors above the microcontroller
 #define UNKNOWN_PIN_2 IOPORT_CREATE_PIN(PORTA, 5) // Connected to a resistor and capacitor in parallel to ground
 
-// Configuration details
-#define REQUEST_BUFFER_SIZE 10
-
 
 // Request class
 class Request {
 
 	// Public
-	public :
+	public:
 	
 		// Constructor
 		Request() {
@@ -56,6 +57,9 @@ class Request {
 char serialNumber[USB_DEVICE_GET_SERIAL_NAME_LENGTH];
 Request requests[REQUEST_BUFFER_SIZE];
 uint16_t waitCounter;
+Fan fan;
+Heater heater;
+Led led;
 Motors motors;
 
 
@@ -88,25 +92,28 @@ int main() {
 	
 	// Initialize variables
 	uint8_t currentProcessingRequest = 0;
-	char responseBuffer[255];
 	uint64_t currentLineNumber = 0;
+	char responseBuffer[255];
 	char numberBuffer[sizeof("18446744073709551615")];
-	Fan fan;
 	Gcode gcode;
-	Heater heater;
-	Led led;
+	
+	// Initialize peripherals
+	fan.initialize();
+	heater.initialize();
+	led.initialize();
 	motors.initialize();
 	
-	// Configure unknown pins to how the official firmware does
+	// Configure unknown pins
 	ioport_set_pin_dir(UNKNOWN_PIN_1, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_level(UNKNOWN_PIN_1, IOPORT_PIN_LEVEL_LOW);
 	ioport_set_pin_dir(UNKNOWN_PIN_2, IOPORT_DIR_INPUT);
+	ioport_set_pin_mode(UNKNOWN_PIN_2, IOPORT_MODE_PULLDOWN);
 	
-	// Configure send wait interrupt on motors Vref timer overflow since it's unused
-	tc_set_overflow_interrupt_callback(&MOTORS_VREF_TIMER, []() -> void {
+	// Configure send wait interrupt
+	tc_set_overflow_interrupt_callback(&WAIT_TIMER, []() -> void {
 	
 		// Check if time to send wait
-		if(++waitCounter >= sysclk_get_cpu_hz() / MOTORS_VREF_TIMER_PERIOD) {
+		if(++waitCounter >= sysclk_get_cpu_hz() / WAIT_TIMER_PERIOD) {
 		
 			// Reset wait counter
 			waitCounter = 0;
@@ -127,7 +134,7 @@ int main() {
 	
 	// Enable send wait interrupt
 	waitCounter = 0;
-	tc_set_overflow_interrupt_level(&MOTORS_VREF_TIMER, TC_INT_LVL_LO);
+	tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_LO);
 	
 	// Main loop
 	while(1) {
@@ -139,7 +146,7 @@ int main() {
 		if(requests[currentProcessingRequest].size) {
 		
 			// Disable send wait interrupt
-			tc_set_overflow_interrupt_level(&MOTORS_VREF_TIMER, TC_INT_LVL_OFF);
+			tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_OFF);
 			
 			// Parse command
 			gcode.parseCommand(requests[currentProcessingRequest].buffer);
@@ -163,7 +170,7 @@ int main() {
 					if(gcode.hasHostCommand())
 					
 						// Set response to error
-						strcpy(responseBuffer, "ok Error: Unknown host command");
+						strcpy(responseBuffer, "Error: Unknown host command");
 				
 					// Otherwise
 					else {
@@ -234,11 +241,27 @@ int main() {
 										strcpy(responseBuffer, "ok");
 									break;
 									
-									// M104
-									case 104 :
+									// M104 or M109
+									case 104:
+									case 109:
 									
-										// Set response to confirmation
-										strcpy(responseBuffer, "ok");
+										// Check if temperature is valid
+										int32_t temperature;
+										temperature = gcode.hasParameterS() ? gcode.getParameterS() : 0;
+										if(!temperature || (temperature >= MIN_TEMPERATURE && temperature <= MAX_TEMPERATURE)) {
+										
+											// Set temperature
+											heater.setTemperature(temperature, temperature && gcode.getParameterM() == 109);
+									
+											// Set response to confirmation
+											strcpy(responseBuffer, "ok");
+										}
+										
+										// Otherwise
+										else
+										
+											// Set response to temperature range
+											strcpy(responseBuffer, "Error: Temperature must be between " TOSTRING(MIN_TEMPERATURE) "\xF8""C and " TOSTRING(MAX_TEMPERATURE) "\xF8""C");
 									break;
 									
 									// M105
@@ -246,16 +269,17 @@ int main() {
 						
 										// Set response to temperature
 										strcpy(responseBuffer, "ok\nT:");
-										ftoa(static_cast<float>(heater.getTemperature()) * 2.60 / 2047, numberBuffer);
+										ftoa(heater.getTemperature(), numberBuffer);
 										strcat(responseBuffer, numberBuffer);
 									break;
 									
-									// M106
+									// M106 or M107
 									case 106:
+									case 107:
 									
 										// Check if speed is valid
 										int32_t speed;
-										speed = gcode.hasParameterS() ? gcode.getParameterS() : 0;
+										speed = gcode.getParameterM() == 107 || !gcode.hasParameterS() ? 0 : gcode.getParameterS();
 										if(speed >= 0 && speed <= 255) {
 								
 											// Set fan's speed
@@ -264,23 +288,6 @@ int main() {
 											// Set response to confirmation
 											strcpy(responseBuffer, "ok");
 										}
-									break;
-									
-									// M107
-									case 107:
-									
-										// Turn off fan
-										fan.setSpeed(0);
-										
-										// Set response to confirmation
-										strcpy(responseBuffer, "ok");
-									break;
-									
-									// M109
-									case 109:
-									
-										// Set response to confirmation
-										strcpy(responseBuffer, "ok");
 									break;
 									
 									// M114
@@ -327,7 +334,7 @@ int main() {
 										else {
 							
 											// Put device details into response
-											strcpy(responseBuffer, "ok REPRAP_PROTOCOL:0 FIRMWARE_NAME:" FIRMWARE_NAME " FIRMWARE_VERSION:" FIRMWARE_VERSION " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
+											strcpy(responseBuffer, "ok REPRAP_PROTOCOL:0 FIRMWARE_NAME:" TOSTRING(FIRMWARE_NAME) " FIRMWARE_VERSION:" TOSTRING(FIRMWARE_VERSION) " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
 											strncat(responseBuffer, serialNumber, EEPROM_SERIAL_NUMBER_LENGTH);
 										}
 									break;
@@ -360,33 +367,8 @@ int main() {
 										}
 									break;
 								
-									// M618
+									// M618 or M619
 									case 618:
-								
-										// Check if EEPROM offset, length, and value are provided
-										if(gcode.commandParameters & (PARAMETER_S_OFFSET | PARAMETER_T_OFFSET | PARAMETER_P_OFFSET)) {
-									
-											// Check if offset and length are valid
-											int32_t offset = gcode.getParameterS();
-											uint8_t length = gcode.getParameterT();
-										
-											if(offset >= 0 && length && length <= 4 && offset + length < EEPROM_SIZE) {
-										
-												// Get value
-												int32_t value = gcode.getParameterP();
-										
-												// Write value to EEPROM
-												nvm_eeprom_erase_and_write_buffer(offset, &value, length);
-											
-												// Set response to confirmation
-												strcpy(responseBuffer, "ok PT:");
-												ulltoa(offset, numberBuffer);
-												strcat(responseBuffer, numberBuffer);
-											}
-										}
-									break;
-								
-									// M619
 									case 619:
 								
 										// Check if EEPROM offset and length are provided
@@ -397,18 +379,40 @@ int main() {
 											uint8_t length = gcode.getParameterT();
 										
 											if(offset >= 0 && length && length <= 4 && offset + length < EEPROM_SIZE) {
-										
-												// Get value from EEPROM
-												uint32_t value = 0;
-												nvm_eeprom_read_buffer(offset, &value, length);
 											
-												// Set response to value
+												// Set response to offset
 												strcpy(responseBuffer, "ok PT:");
 												ulltoa(offset, numberBuffer);
 												strcat(responseBuffer, numberBuffer);
-												strcat(responseBuffer, " DT:");
-												ulltoa(value, numberBuffer);
-												strcat(responseBuffer, numberBuffer);
+												
+												// Check if reading an EEPROM value
+												if(gcode.getParameterM() == 619) {
+												
+													// Get value from EEPROM
+													uint32_t value = 0;
+													nvm_eeprom_read_buffer(offset, &value, length);
+											
+													// Append value to response
+													strcat(responseBuffer, " DT:");
+													ulltoa(value, numberBuffer);
+													strcat(responseBuffer, numberBuffer);
+												}
+												
+												// Otherwise check if EEPROM value is provided
+												else if(gcode.hasParameterP()) {
+										
+													// Get value
+													int32_t value = gcode.getParameterP();
+										
+													// Write value to EEPROM
+													nvm_eeprom_erase_and_write_buffer(offset, &value, length);
+												}
+												
+												// Otherwise
+												else
+												
+													// Clear response buffer
+													*responseBuffer = 0;
 											}
 										}
 									break;
@@ -487,21 +491,12 @@ int main() {
 										strcpy(responseBuffer, "ok");
 									break;
 									
-									// G90
+									// G90 or G91
 									case 90:
-									
-										// Set mode to absolute
-										motors.mode = ABSOLUTE;
-										
-										// Set response to confirmation
-										strcpy(responseBuffer, "ok");
-									break;
-									
-									// G91
 									case 91:
 									
-										// Set mode to relative
-										motors.mode = RELATIVE;
+										// Set mode to absolute
+										motors.mode = gcode.getParameterG() == 90 ? ABSOLUTE : RELATIVE;
 										
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
@@ -544,13 +539,13 @@ int main() {
 			else
 			
 				// Set response to error
-				strcpy(responseBuffer, "ok Error: accelerometer isn't working");
+				strcpy(responseBuffer, "Error: Accelerometer isn't working");
 			
 			// Check if response wasn't set
 			if(!*responseBuffer)
 			
 				// Set response to error
-				strcpy(responseBuffer, "ok Error: Unknown G-code command\n");
+				strcpy(responseBuffer, "Error: Unknown G-code command\n");
 			
 			// Otherwise
 			else
@@ -563,7 +558,7 @@ int main() {
 			
 			// Enable send wait interrupt
 			waitCounter = 0;
-			tc_set_overflow_interrupt_level(&MOTORS_VREF_TIMER, TC_INT_LVL_LO);
+			tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_LO);
 		}
 	}
 	
@@ -591,14 +586,18 @@ void cdcRxNotifyCallback(uint8_t port) {
 		
 			// Check if request contains an emergency stop
 			char *emergencyStopOffset = strstr(requests[currentReceivingRequest].buffer, "M0");
-			if(emergencyStopOffset) {
+			if(emergencyStopOffset && !isdigit(emergencyStopOffset[2])) {
 			
 				// Check if emergency stop isn't after the start of a host command, comment, or checksum
 				char *characterOffset = strpbrk(requests[currentReceivingRequest].buffer, "@*;");
-				if(!characterOffset || emergencyStopOffset < characterOffset)
+				if(!characterOffset || emergencyStopOffset < characterOffset) {
 			
-					// Stop motors
+					// Stop all peripherals
+					fan.setSpeed(0);
+					heater.emergencyStop();
+					led.setBrightness(100);
 					motors.emergencyStop();
+				}
 			}
 			
 			// Increment current receiving request

@@ -3,26 +3,34 @@
 #define HEATER_H
 
 
+// Definitions
+#define MIN_TEMPERATURE 100
+#define MAX_TEMPERATURE 285
+
+
 // Heater class
 class Heater {
 
 	// Public
-	public :
+	public:
 	
-		// Constructor
-		Heater();
+		// Initialize
+		void initialize();
 		
 		// Set temperature
-		void setTemperature(uint16_t value);
+		void setTemperature(uint16_t value, bool wait);
 		
 		// Get temperature
-		int16_t getTemperature();
+		float getTemperature();
 		
-		// Turn off
-		void turnOff();
+		// Emergency stop
+		void emergencyStop();
 	
 	// Private
-	private :
+	private:
+	
+		// Heater read ADC channel
+		adc_channel_config heaterReadAdcChannel;
 };
 
 

@@ -12,10 +12,10 @@
 class Fan {
 
 	// Public
-	public :
+	public:
 	
-		// Constructor
-		Fan();
+		// Initialize
+		void initialize();
 		
 		// Set speed
 		void setSpeed(uint8_t speed);

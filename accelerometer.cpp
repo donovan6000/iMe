@@ -7,14 +7,16 @@ extern "C" {
 
 
 // Definitions
+#define ACCELEROMETER_ENABLE IOPORT_PIN_LEVEL_HIGH
+#define ACCELEROMETER_DISABLE IOPORT_PIN_LEVEL_LOW
 
-// Pins
+// Accelerometer pins
 #define TWI_MASTER TWIC
-#define ACCELEROMETER_VDDIO_PIN IOPORT_CREATE_PIN(PORTB, 1)
+#define ACCELEROMETER_ENABLE_PIN IOPORT_CREATE_PIN(PORTB, 1)
 #define ACCELEROMETER_SDA_PIN IOPORT_CREATE_PIN(PORTC, 0)
 #define ACCELEROMETER_SCL_PIN IOPORT_CREATE_PIN(PORTC, 1)
 
-// Device details
+// Accelerometer settings
 #define MASTER_ADDRESS 0x00
 #define ACCELEROMETER_ADDRESS 0x1D
 #define BUS_SPEED 400000
@@ -52,9 +54,9 @@ extern "C" {
 // Supporting function implementation
 void Accelerometer::initialize() {
 	
-	// Configure VDDIO, SDA and SCL pins
-	ioport_set_pin_dir(ACCELEROMETER_VDDIO_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(ACCELEROMETER_VDDIO_PIN, IOPORT_PIN_LEVEL_HIGH);
+	// Configure enable, SDA and SCL pins
+	ioport_set_pin_dir(ACCELEROMETER_ENABLE_PIN, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_level(ACCELEROMETER_ENABLE_PIN, ACCELEROMETER_ENABLE);
 	ioport_set_pin_mode(ACCELEROMETER_SDA_PIN, IOPORT_MODE_WIREDANDPULL);
 	ioport_set_pin_mode(ACCELEROMETER_SCL_PIN, IOPORT_MODE_WIREDANDPULL);
 	
@@ -79,14 +81,11 @@ void Accelerometer::initialize() {
 	packet.length = 1;
 	packet.no_wait = false;
 	
+	// Clear is working
+	isWorking = false;
+	
 	// Check if transmitting or receiving failed
-	if(twi_master_read(&TWI_MASTER, &packet) != TWI_SUCCESS || value != DEVICE_ID)
-	
-		// Clear is working
-		isWorking = false;
-	
-	// Otherwise
-	else {
+	if(twi_master_read(&TWI_MASTER, &packet) == TWI_SUCCESS && value == DEVICE_ID) {
 	
 		// Reset the accelerometer
 		writeValue(CTRL_REG2, CTRL_REG2_RST);
@@ -103,8 +102,8 @@ void Accelerometer::initialize() {
 		// Set oversampling mode to high resolution
 		writeValue(CTRL_REG2, CTRL_REG2_MODS1);
 	
-		// Set output data rate frequency to 6.25Hz and enable active mode
-		writeValue(CTRL_REG1, CTRL_REG1_DR2 | CTRL_REG1_DR1 | CTRL_REG1_DR0 | CTRL_REG1_ACTIVE);
+		// Set output data rate frequency to 800Hz and enable active mode
+		writeValue(CTRL_REG1, CTRL_REG1_ACTIVE);
 	
 		// Set is working
 		isWorking = true;
@@ -113,17 +112,29 @@ void Accelerometer::initialize() {
 
 void Accelerometer::readAccelerationValues() {
 
-	// Wait until data is available
-	while(!dataAvailable());
+	// Get average acceleration
+	int32_t averageX = 0, averageY = 0, averageZ = 0;
+	for(uint8_t i = 0; i < 100; i++) {
+		
+		// Wait until data is available
+		while(!dataAvailable());
 	
-	// Read values
-	uint8_t values[6];
-	readValue(OUT_X_MSB, values, 6);
+		// Read values
+		uint8_t values[6];
+		readValue(OUT_X_MSB, values, 6);
+		
+		averageX += ((values[4] << 8) | values[5]) >> 4;
+		averageY += ((values[2] << 8) | values[3]) >> 4;
+		averageZ += ((values[0] << 8) | values[1]) >> 4;
+	}
+	averageX /= 100;
+	averageY /= 100;
+	averageZ /= 100;
 	
 	// Set values
-	xValue = ((values[4] << 8) | values[5]) >> 4;
-	yValue = ((values[2] << 8) | values[3]) >> 4;
-	zValue = ((values[0] << 8) | values[1]) >> 4;
+	xValue = averageX;
+	yValue = averageY;
+	zValue = averageZ;
 	
 	// Calculate acceleration values and account for chips orientation
 	xAcceleration = static_cast<float>(xValue) * 1000 / SENSITIVITY_2G;

@@ -12,7 +12,7 @@ extern "C" {
 
 
 // Supporting function implementation
-Fan::Fan() {
+void Fan::initialize() {
 
 	// Configure fan enable pin
 	ioport_set_pin_dir(FAN_ENABLE_PIN, IOPORT_DIR_OUTPUT);
@@ -36,6 +36,6 @@ void Fan::setSpeed(uint8_t speed) {
 	nvm_eeprom_read_buffer(EEPROM_FAN_OFFSET_OFFSET, &fanOffset, EEPROM_FAN_OFFSET_LENGTH);
 	nvm_eeprom_read_buffer(EEPROM_FAN_SCALE_OFFSET, &fanScale, EEPROM_FAN_SCALE_LENGTH);
 	
-	// Set fans speed
+	// Set speed
 	tc_write_cc(&FAN_TIMER, FAN_CHANNEL, !speed ? 0 : (speed * fanScale + fanOffset) * FAN_TIMER_PERIOD / 255);
 }

@@ -11,17 +11,23 @@
 // Definitions
 #define MOTORS_VREF_TIMER TCD0
 #define MOTORS_VREF_TIMER_PERIOD 0x27F
+#define MOTOR_E_CURRENT_SENSE_ADC ADCA
 
+// Modes
 enum MODES {RELATIVE, ABSOLUTE};
+
+// Steps
 enum STEPS {STEP8 = 8, STEP16 = 16, STEP32 = 32};
-enum AXES {X, Y, Z, E, F, E_POSITIVE = 3, E_NEGATIVE = 4};
+
+// Axes
+enum AXES {X, Y, Z, E, F};
 
 
 // Motors class
 class Motors {
 
 	// Public
-	public :
+	public:
 	
 		// Initialize
 		void initialize();
@@ -57,19 +63,16 @@ class Motors {
 		Accelerometer accelerometer;
 	
 	// Private
-	private :
+	private:
 		
 		// Steps
 		STEPS step;
 		
-		// Speed limits
-		float motorsSpeedLimit[5];
-		
 		// Emergency stop occured
 		bool emergencyStopOccured = false;
 		
-		// Gcode
-		Gcode gcode;
+		// Current sense ADC channel
+		adc_channel_config currentSenseAdcChannel;
 };
 
 

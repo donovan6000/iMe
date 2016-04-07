@@ -7,10 +7,10 @@
 class Led {
 
 	// Public
-	public :
+	public:
 	
-		// Constructor
-		Led();
+		// Initialize
+		void initialize();
 		
 		// Set brightness
 		void setBrightness(uint8_t brightness);

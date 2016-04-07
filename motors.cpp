@@ -56,7 +56,6 @@ extern "C" {
 #define MOTOR_E_VREF_PIN IOPORT_CREATE_PIN(PORTD, 0)
 #define MOTOR_E_STEP_PIN IOPORT_CREATE_PIN(PORTC, 4)
 #define MOTOR_E_CURRENT_SENSE_PIN IOPORT_CREATE_PIN(PORTA, 7)
-#define MOTOR_E_CURRENT_SENSE_ADC ADCA
 #define MOTOR_E_CURRENT_SENSE_ADC_CHANNEL ADC_CH0
 #define MOTOR_E_CURRENT_SENSE_ADC_PIN ADCCH_POS_PIN7
 #define MOTOR_E_VREF_CHANNEL TC_CCA
@@ -172,13 +171,6 @@ void Motors::initialize() {
 	// Set current Z
 	nvm_eeprom_read_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
 	
-	// Set speed limits
-	nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_X_OFFSET, &motorsSpeedLimit[X], EEPROM_SPEED_LIMIT_X_LENGTH);
-	nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Y_OFFSET, &motorsSpeedLimit[Y], EEPROM_SPEED_LIMIT_Y_LENGTH);
-	nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Z_OFFSET, &motorsSpeedLimit[Z], EEPROM_SPEED_LIMIT_Z_LENGTH);
-	nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET, &motorsSpeedLimit[E_POSITIVE], EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH);
-	nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, &motorsSpeedLimit[E_NEGATIVE], EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH);
-	
 	// Configure motors enable
 	ioport_set_pin_dir(MOTORS_ENABLE_PIN, IOPORT_DIR_OUTPUT);
 	
@@ -187,17 +179,6 @@ void Motors::initialize() {
 	
 	// Set micro steps per step
 	setMicroStepsPerStep(STEP32);
-	
-	// Configure motors Vref timer
-	tc_enable(&MOTORS_VREF_TIMER);
-	tc_set_wgm(&MOTORS_VREF_TIMER, TC_WG_SS);
-	tc_write_period(&MOTORS_VREF_TIMER, MOTORS_VREF_TIMER_PERIOD);
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	tc_enable_cc_channels(&MOTORS_VREF_TIMER, static_cast<tc_cc_channel_mask_enable_t>(TC_CCAEN | TC_CCBEN | TC_CCCEN | TC_CCDEN));
-	tc_write_clock_source(&MOTORS_VREF_TIMER, TC_CLKSEL_DIV1_gc);
 	
 	// Configure motor X Vref, direction, and step
 	ioport_set_pin_dir(MOTOR_X_VREF_PIN, IOPORT_DIR_OUTPUT);
@@ -220,6 +201,17 @@ void Motors::initialize() {
 	ioport_set_pin_dir(MOTOR_E_STEP_PIN, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_dir(MOTOR_E_CURRENT_SENSE_PIN, IOPORT_DIR_INPUT);
 	ioport_set_pin_mode(MOTOR_E_CURRENT_SENSE_PIN, IOPORT_MODE_PULLDOWN);
+	
+	// Configure motors Vref timer
+	tc_enable(&MOTORS_VREF_TIMER);
+	tc_set_wgm(&MOTORS_VREF_TIMER, TC_WG_SS);
+	tc_write_period(&MOTORS_VREF_TIMER, MOTORS_VREF_TIMER_PERIOD);
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_enable_cc_channels(&MOTORS_VREF_TIMER, static_cast<tc_cc_channel_mask_enable_t>(TC_CCAEN | TC_CCBEN | TC_CCCEN | TC_CCDEN));
+	tc_write_clock_source(&MOTORS_VREF_TIMER, TC_CLKSEL_DIV1_gc);
 	
 	// Configure motors step timer
 	tc_enable(&MOTORS_STEP_TIMER);
@@ -283,6 +275,7 @@ void Motors::initialize() {
 	
 	// Configure ADC Vref pin
 	ioport_set_pin_dir(ADC_VREF_PIN, IOPORT_DIR_INPUT);
+	ioport_set_pin_mode(ADC_VREF_PIN, IOPORT_MODE_PULLDOWN);
 	
 	// Read ADC controller configuration
 	adc_config adc_conf;
@@ -297,14 +290,10 @@ void Motors::initialize() {
 	adc_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &adc_conf);
 	
 	// Read ADC channel configuration
-	adc_channel_config adcch_conf;
-	adcch_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &adcch_conf);
+	adcch_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
 	
 	// Set motor E current sense pin as single ended input
-	adcch_set_input(&adcch_conf, MOTOR_E_CURRENT_SENSE_ADC_PIN, ADCCH_NEG_NONE, 1);
-	
-	// Write ADC channel configuration
-	adcch_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &adcch_conf);
+	adcch_set_input(&currentSenseAdcChannel, MOTOR_E_CURRENT_SENSE_ADC_PIN, ADCCH_NEG_NONE, 1);
 	
 	// Enable ADC controller
 	adc_enable(&MOTOR_E_CURRENT_SENSE_ADC);
@@ -326,7 +315,7 @@ void Motors::setMicroStepsPerStep(STEPS step) {
 		
 			// Configure motor's step control
 			ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_OUTPUT);
-			ioport_set_pin_level(MOTORS_ENABLE_PIN, IOPORT_PIN_LEVEL_LOW);
+			ioport_set_pin_level(MOTORS_STEP_CONTROL_PIN, IOPORT_PIN_LEVEL_LOW);
 		break;
 		
 		// 16 micro steps per step
@@ -334,7 +323,7 @@ void Motors::setMicroStepsPerStep(STEPS step) {
 		
 			// Configure motor's step control
 			ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_OUTPUT);
-			ioport_set_pin_level(MOTORS_ENABLE_PIN, IOPORT_PIN_LEVEL_HIGH);
+			ioport_set_pin_level(MOTORS_STEP_CONTROL_PIN, IOPORT_PIN_LEVEL_HIGH);
 		break;
 		
 		// 32 micro steps per step
@@ -430,7 +419,7 @@ void Motors::move(const Gcode &command) {
 					case X:
 						stepsPerMm = MOTOR_X_STEPS_PER_MM;
 						ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT);
-						speedLimit = motorsSpeedLimit[X];
+						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_X_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_X_LENGTH);
 						maxFeedRate = MOTOR_X_MAX_FEEDRATE;
 						minFeedRate = MOTOR_X_MIN_FEEDRATE;
 					break;
@@ -438,7 +427,7 @@ void Motors::move(const Gcode &command) {
 					case Y:
 						stepsPerMm = MOTOR_Y_STEPS_PER_MM;
 						ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
-						speedLimit = motorsSpeedLimit[Y];
+						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Y_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Y_LENGTH);
 						maxFeedRate = MOTOR_Y_MAX_FEEDRATE;
 						minFeedRate = MOTOR_Y_MIN_FEEDRATE;
 					break;
@@ -446,7 +435,7 @@ void Motors::move(const Gcode &command) {
 					case Z:
 						stepsPerMm = MOTOR_Z_STEPS_PER_MM;
 						ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, lowerNewValue ? DIRECTION_DOWN : DIRECTION_UP);
-						speedLimit = motorsSpeedLimit[Z];
+						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Z_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Z_LENGTH);
 						maxFeedRate = MOTOR_Z_MAX_FEEDRATE;
 						minFeedRate = MOTOR_Z_MIN_FEEDRATE;
 					break;
@@ -455,12 +444,12 @@ void Motors::move(const Gcode &command) {
 						stepsPerMm = MOTOR_E_STEPS_PER_MM;
 						if(lowerNewValue) {
 							ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, DIRECTION_RETRACT);
-							speedLimit = motorsSpeedLimit[E_NEGATIVE];
+							nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH);
 							maxFeedRate = MOTOR_E_MAX_FEEDRATE_RETRACTION;
 						}
 						else {
 							ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, DIRECTION_EXTRUDE);
-							speedLimit = motorsSpeedLimit[E_POSITIVE];
+							nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH);
 							maxFeedRate = MOTOR_E_MAX_FEEDRATE_EXTRUSION;
 						}
 						minFeedRate = MOTOR_E_MIN_FEEDRATE;
@@ -565,6 +554,7 @@ void Motors::move(const Gcode &command) {
 			// Read average real motor E voltage
 			uint32_t value = 0;
 			for(uint8_t i = 0; i < 100; i++) {
+				adcch_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
 				adc_start_conversion(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 				adc_wait_for_interrupt_flag(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 				value += adc_get_result(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
@@ -605,10 +595,10 @@ void Motors::move(const Gcode &command) {
 
 void Motors::goHome() {
 
-	/*// Move to corner
+	// Set up motors to move into corner
 	motorsDelaySkips[X] = motorsDelaySkips[Y] = 0;
-	motorsStepDelay[X] = motorsStepDelay[Y] = 0;
-	motorsNumberOfSteps[X] = motorsNumberOfSteps[Y] = 0xFFFFFFFF;
+	motorsStepDelay[X] = motorsStepDelay[Y] = 2;
+	motorsNumberOfSteps[X] = motorsNumberOfSteps[Y] = 0x12000;
 	
 	ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
 	ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
@@ -625,49 +615,62 @@ void Motors::goHome() {
 	tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
 	
-	accelerometer.readAccelerationValues();
-	int16_t lastX = accelerometer.xValue;
-	int16_t lastY = accelerometer.yValue;
-	
 	// Wait until all motors step interrupts have stopped
-	while(MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm)) {
-	
+	int16_t lastX, lastY;
+	uint8_t counterX = 0, counterY = 0;
+	for(bool firstRun = true; MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm); firstRun = false) {
+		
+		// Get accelerometer values
 		accelerometer.readAccelerationValues();
-		int16_t newX = accelerometer.xValue;
-		int16_t newY = accelerometer.yValue;
+		if(!firstRun) {
 		
-		if(abs(lastX - newX) <= 2 && abs(lastY - newY) <= 2)
-			break;
+			// Check if motor X has hit the corner
+			if(abs(lastX - accelerometer.xValue) >= 15) {
+				if(++counterX >= 2)
+				
+					// Stop motor X interrupt
+					tc_set_cca_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+			}
+			else
+				counterX = 0;
+			
+			// Check if motor Y has hit the corner
+			if(abs(lastY - accelerometer.yValue) >= 15) {
+				if(++counterY >= 2)
+				
+					// Stop motor Y interrupt
+					tc_set_ccb_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+			}
+			else
+				counterY = 0;
+		}
 		
-		lastX = newX;
-		lastY = newY;
+		// Save accelerometer values
+		lastX = accelerometer.xValue;
+		lastY = accelerometer.yValue;
 	}
 	
 	// Stop motors step timer
-	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);*/
-	
-	// Save mode
-	MODES savedMode = mode;
-	
-	// Move to corner
-	mode = RELATIVE;
-	gcode.parseCommand(const_cast<char *>("G0 X112 Y111 F3000"));
-	move(gcode);
+	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
 	
 	// Check if emergenct stop hasn't occured
 	if(!emergencyStopOccured) {
 	
+		// Save mode
+		MODES savedMode = mode;
+	
 		// Move to center
-		gcode.parseCommand(const_cast<char *>("G0 X-54 Y-50"));
+		mode = RELATIVE;
+		Gcode gcode(const_cast<char *>("G0 X-54 Y-50 F3000"));
 		move(gcode);
+		
+		// Restore mode
+		mode = savedMode;
+		
+		// Set current X and Y
+		currentValues[X] = 54;
+		currentValues[Y] = 50;
 	}
-	
-	// Set current X and Y
-	currentValues[X] = 54;
-	currentValues[Y] = 50;
-	
-	// Restore mode
-	mode = savedMode;
 }
 
 void Motors::setZToZero() {

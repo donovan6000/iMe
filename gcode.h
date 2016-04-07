@@ -7,7 +7,6 @@
 extern "C" {
 	#include <asf.h>
 }
-#include <math.h>
 
 
 // Definitions
@@ -29,7 +28,7 @@ extern "C" {
 class Gcode {
 
 	// Public
-	public :
+	public:
 	
 		// Parameterized constructor
 		Gcode(char *command = NULL);
@@ -122,7 +121,7 @@ class Gcode {
 		uint16_t commandParameters;
 	
 	// Private
-	private :
+	private:
 		
 		// Values
 		uint8_t valueG;

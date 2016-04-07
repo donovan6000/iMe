@@ -7,13 +7,10 @@
 class Accelerometer {
 
 	// Public
-	public :
+	public:
 	
 		// Initialize
 		void initialize();
-		
-		// Calibrate
-		void calibrate();
 		
 		// Read Acceleration values
 		void readAccelerationValues();
@@ -32,10 +29,7 @@ class Accelerometer {
 		bool isWorking;
 	
 	// Private
-	private :
-		
-		// Initialize settings
-		void initializeSettings();
+	private:
 		
 		// Data available
 		bool dataAvailable();

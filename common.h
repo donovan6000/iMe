@@ -7,6 +7,11 @@
 #include <inttypes.h>
 
 
+// Definitions
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
+
 // Function prototypes
 
 /*
