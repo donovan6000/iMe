@@ -85,6 +85,10 @@ uint64_t strtoull(const char *nptr, char **endptr) {
 	// Initialize variables
 	uint64_t value = 0;
 	
+	// Skip plus sign
+	if(*nptr == '+')
+		nptr++;
+	
 	// Go through all characters
 	for(; isdigit(*nptr); nptr++) {
 	
@@ -120,6 +124,10 @@ float strtof(const char *nptr, char **endptr) {
 		negative = true;
 		nptr++;
 	}
+	
+	// Otherwise skip plus sign
+	else if(*nptr == '+')
+		nptr++;
 	
 	// Go through all characters
 	for(; isdigit(*nptr); nptr++) {

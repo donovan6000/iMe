@@ -43,6 +43,7 @@ class Motors {
 		
 		// Move
 		void move(const Gcode &command);
+		void move(const char *command);
 		
 		// Home XY
 		void homeXY();
@@ -70,12 +71,9 @@ class Motors {
 	
 	// Private
 	private:
-	
-		// Home XYZ
-		void homeXYZ();
 		
-		// Go to Z
-		void gotoZ(float value);
+		// Move to height
+		void moveToHeight(float height);
 	
 		// Move to Z0
 		void moveToZ0();
@@ -86,7 +84,8 @@ class Motors {
 		// Emergency stop occured
 		bool emergencyStopOccured = false;
 		
-		// Current sense ADC channel
+		// Current sense ADC controller and channel
+		adc_config currentSenseAdcController;
 		adc_channel_config currentSenseAdcChannel;
 };
 

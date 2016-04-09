@@ -10,7 +10,6 @@ extern "C" {
 
 
 // Definitions
-#define TEMPERATURE_TIMER TCC1
 
 // Heater Pins
 #define HEATER_MODE_SELECT_PIN IOPORT_CREATE_PIN(PORTE, 2)
@@ -32,7 +31,9 @@ extern "C" {
 
 
 // Global variables
-float temperature = 0;
+float idealTemperature = 0;
+float actualTemperature = 0;
+adc_channel_config heaterReadAdcChannel;
 
 
 // Supporting function implementation
@@ -56,60 +57,82 @@ void Heater::initialize() {
 	// Set heater read pins to be a differential input
 	adcch_set_input(&heaterReadAdcChannel, HEATER_READ_POSITIVE_INPUT, HEATER_READ_NEGATIVE_INPUT, 1);
 	
-	// Configure check temperature interrupt timer
+	// Configure update temperature timer
 	tc_enable(&TEMPERATURE_TIMER);
 	tc_set_wgm(&TEMPERATURE_TIMER, TC_WG_NORMAL);
 	tc_write_period(&TEMPERATURE_TIMER, sysclk_get_cpu_hz() / 1024);
 	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
 	tc_set_overflow_interrupt_callback(&TEMPERATURE_TIMER, []() -> void {
 	
-		// Set response to temperature
-		char buffer[sizeof("18446744073709551615") + 6];
-		ftoa(temperature, buffer);
-		strcat(buffer, "\n");
+		// Turn on heater
+		ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_ON);
+	
+		// Get heater temperature
+		adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
+		adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+		adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+		int16_t value = adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+	
+		// Update actual temperature
+		actualTemperature = 0;
 		
-		// Send temperature
-		udi_cdc_write_buf(buffer, strlen(buffer));
+		// Turn off heater
+		ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
 	});
 }
 
 void Heater::setTemperature(uint16_t value, bool wait) {
-
-	// Set mode to heat
-	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_ON);
 	
-	// Set temperature
-	temperature = value;
+	// Check if heating
+	if((idealTemperature = value)) {
 	
-	// Enable check temperature interrupt
-	tc_restart(&TEMPERATURE_TIMER);
-	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
+		// Turn on heater
+		ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_ON);
+	
+		// Start update temperature timer
+		tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
+	
+		while(wait && ioport_get_pin_level(HEATER_MODE_SELECT_PIN) == HEATER_ON) {
+		
+			// Delay
+			delay_s(1);
+		
+			// Pause update temperature timer
+			tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_OFF_gc);
+		
+			// Set response to temperature
+			char buffer[sizeof("18446744073709551615") + 6];
+			ftoa(actualTemperature, buffer);
+			strcat(buffer, "\n");
+		
+			// Send temperature
+			udi_cdc_write_buf(buffer, strlen(buffer));
+		
+			// Resume update temperature timer
+			tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
+		}
+	}
+	
+	// Otherwise
+	else
+	
+		// Turn off heater
+		ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
 }
 
-float Heater::getTemperature() {
+float Heater::getTemperature() const {
 
-	// Turn on heater
-	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_ON);
-	
-	// Get heater temperature
-	adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
-	adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-	adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-	int16_t value = adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-	
-	float temp = 0;
-	
-	// Turn off heater
-	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
-	
-	// Return value
-	return temp;
+	// Return actual temperature
+	return actualTemperature;
 }
 
 void Heater::emergencyStop() {
 
-	// Clear temperature
-	temperature = 0;
+	// Stop update temperature timer
+	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_OFF_gc);
+
+	// Clear ideal and actual temperature
+	idealTemperature = actualTemperature = 0;
 
 	// Turn off heater
 	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);

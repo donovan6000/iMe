@@ -40,6 +40,10 @@ extern "C" {
 #define XYZ_DATA_CFG 0x0E
 #define XYZ_DATA_CFG_FS0 0b00000001
 #define XYZ_DATA_CFG_FS1 0b00000010
+#define XYZ_DATA_CFG_HPF_OUT 0b00010000
+#define HP_FILTER_CUTOFF 0x0F
+#define HP_FILTER_CUTOFF_PULSE_HPF_BYP 0b00100000
+#define HP_FILTER_CUTOFF_PULSE_LPF_EN 0b00010000
 #define CTRL_REG1 0x2A
 #define CTRL_REG1_ACTIVE 0b00000001
 #define CTRL_REG1_DR0 0b00001000
@@ -96,12 +100,13 @@ void Accelerometer::initialize() {
 		// Put accelerometer into standby mode
 		writeValue(CTRL_REG1, 0);
 
-		// Set dynamic range to 2g
-		writeValue(XYZ_DATA_CFG, 0);
+		// Set dynamic range to 2g with high pass filtered data
+		writeValue(XYZ_DATA_CFG, XYZ_DATA_CFG_HPF_OUT);
+		writeValue(HP_FILTER_CUTOFF, 2);
 	
 		// Set oversampling mode to high resolution
 		writeValue(CTRL_REG2, CTRL_REG2_MODS1);
-	
+		
 		// Set output data rate frequency to 800Hz and enable active mode
 		writeValue(CTRL_REG1, CTRL_REG1_ACTIVE);
 	

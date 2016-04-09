@@ -4,6 +4,7 @@
 
 
 // Definitions
+#define TEMPERATURE_TIMER TCC1
 #define MIN_TEMPERATURE 100
 #define MAX_TEMPERATURE 285
 
@@ -21,16 +22,10 @@ class Heater {
 		void setTemperature(uint16_t value, bool wait);
 		
 		// Get temperature
-		float getTemperature();
+		float getTemperature() const;
 		
 		// Emergency stop
 		void emergencyStop();
-	
-	// Private
-	private:
-	
-		// Heater read ADC channel
-		adc_channel_config heaterReadAdcChannel;
 };
 
 

@@ -8,6 +8,7 @@ extern "C" {
 #include "common.h"
 #include "motors.h"
 #include "eeprom.h"
+#include "heater.h"
 
 
 // Definitions
@@ -26,8 +27,9 @@ extern "C" {
 #define MOTOR_X_VREF_PIN IOPORT_CREATE_PIN(PORTD, 1)
 #define MOTOR_X_STEP_PIN IOPORT_CREATE_PIN(PORTC, 5)
 #define MOTOR_X_VREF_CHANNEL TC_CCB
-#define MOTOR_X_VREF_VOLTAGE 0.34600939
-#define MOTOR_X_STEPS_PER_MM 19.09165
+#define MOTOR_X_VREF_VOLTAGE_IDLE 0.34600939
+#define MOTOR_X_VREF_VOLTAGE_ACTIVE 0.361502347
+#define MOTOR_X_STEPS_PER_MM 19.3067875
 #define MOTOR_X_MAX_FEEDRATE 4800
 #define MOTOR_X_MIN_FEEDRATE 120
 
@@ -36,8 +38,9 @@ extern "C" {
 #define MOTOR_Y_VREF_PIN IOPORT_CREATE_PIN(PORTD, 3)
 #define MOTOR_Y_STEP_PIN IOPORT_CREATE_PIN(PORTC, 7)
 #define MOTOR_Y_VREF_CHANNEL TC_CCD
-#define MOTOR_Y_VREF_VOLTAGE 0.34600939
-#define MOTOR_Y_STEPS_PER_MM 18.2804
+#define MOTOR_Y_VREF_VOLTAGE_IDLE 0.34600939
+#define MOTOR_Y_VREF_VOLTAGE_ACTIVE 0.41314554
+#define MOTOR_Y_STEPS_PER_MM 18.00885
 #define MOTOR_Y_MAX_FEEDRATE 4800
 #define MOTOR_Y_MIN_FEEDRATE 120
 
@@ -47,8 +50,8 @@ extern "C" {
 #define MOTOR_Z_STEP_PIN IOPORT_CREATE_PIN(PORTC, 6)
 #define MOTOR_Z_VREF_CHANNEL TC_CCC
 #define MOTOR_Z_VREF_VOLTAGE_IDLE 0.098122066
-#define MOTOR_Z_VREF_VOLTAGE_ACTIVE 0.299530516
-#define MOTOR_Z_STEPS_PER_MM 647.6494
+#define MOTOR_Z_VREF_VOLTAGE_ACTIVE 0.325352113
+#define MOTOR_Z_STEPS_PER_MM 646.3295
 #define MOTOR_Z_MAX_FEEDRATE 60
 #define MOTOR_Z_MIN_FEEDRATE 30
 
@@ -60,8 +63,9 @@ extern "C" {
 #define MOTOR_E_CURRENT_SENSE_ADC_CHANNEL ADC_CH0
 #define MOTOR_E_CURRENT_SENSE_ADC_PIN ADCCH_POS_PIN7
 #define MOTOR_E_VREF_CHANNEL TC_CCA
-#define MOTOR_E_VREF_VOLTAGE 0.149765258
-#define MOTOR_E_STEPS_PER_MM 97.75938
+#define MOTOR_E_VREF_VOLTAGE_IDLE 0.149765258
+#define MOTOR_E_VREF_VOLTAGE_ACTIVE 0.247887324
+#define MOTOR_E_STEPS_PER_MM 128.451375
 #define MOTOR_E_MAX_FEEDRATE_EXTRUSION 600
 #define MOTOR_E_MAX_FEEDRATE_RETRACTION 720
 #define MOTOR_E_MIN_FEEDRATE 60
@@ -207,10 +211,10 @@ void Motors::initialize() {
 	tc_enable(&MOTORS_VREF_TIMER);
 	tc_set_wgm(&MOTORS_VREF_TIMER, TC_WG_SS);
 	tc_write_period(&MOTORS_VREF_TIMER, MOTORS_VREF_TIMER_PERIOD);
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	tc_enable_cc_channels(&MOTORS_VREF_TIMER, static_cast<tc_cc_channel_mask_enable_t>(TC_CCAEN | TC_CCBEN | TC_CCCEN | TC_CCDEN));
 	tc_write_clock_source(&MOTORS_VREF_TIMER, TC_CLKSEL_DIV1_gc);
 	
@@ -278,26 +282,15 @@ void Motors::initialize() {
 	ioport_set_pin_dir(ADC_VREF_PIN, IOPORT_DIR_INPUT);
 	ioport_set_pin_mode(ADC_VREF_PIN, IOPORT_MODE_PULLDOWN);
 	
-	// Read ADC controller configuration
-	adc_config adc_conf;
-	adc_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &adc_conf);
+	// Set ADC controller to use unsigned, 12bit, Vref refrence, manual trigger, 200kHz frequency
+	adc_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &currentSenseAdcController);
+	adc_set_conversion_parameters(&currentSenseAdcController, ADC_SIGN_OFF, ADC_RES_12, ADC_REF_AREFA);
+	adc_set_conversion_trigger(&currentSenseAdcController, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
+	adc_set_clock_rate(&currentSenseAdcController, 200000);
 	
-	// Set ADC parameters to be unsigned, 12bit, Vref refrence, manual trigger, 50kHz frequency
-	adc_set_conversion_parameters(&adc_conf, ADC_SIGN_OFF, ADC_RES_12, ADC_REF_AREFA);
-	adc_set_conversion_trigger(&adc_conf, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
-	adc_set_clock_rate(&adc_conf, 200000);
-	
-	// Write ADC controller configuration
-	adc_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &adc_conf);
-	
-	// Read ADC channel configuration
+	// Set ADC channel to use motor E current sense pin as single ended input
 	adcch_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
-	
-	// Set motor E current sense pin as single ended input
 	adcch_set_input(&currentSenseAdcChannel, MOTOR_E_CURRENT_SENSE_ADC_PIN, ADCCH_NEG_NONE, 1);
-	
-	// Enable ADC controller
-	adc_enable(&MOTOR_E_CURRENT_SENSE_ADC);
 	
 	// Initialize accelerometer
 	accelerometer.initialize();
@@ -418,6 +411,16 @@ void Motors::move(const Gcode &command) {
 				switch(i) {
 				
 					case X:
+						
+						// Check if direction changed
+						if(ioport_get_pin_level(MOTOR_X_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT)) {
+						
+							// Adjust for backlash compensation
+							float backlashCompensation;
+							nvm_eeprom_read_buffer(EEPROM_BACKLASH_X_OFFSET, &backlashCompensation, EEPROM_BACKLASH_X_LENGTH);
+							distanceTraveled += backlashCompensation;
+						}
+						
 						stepsPerMm = MOTOR_X_STEPS_PER_MM;
 						ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT);
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_X_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_X_LENGTH);
@@ -426,6 +429,16 @@ void Motors::move(const Gcode &command) {
 					break;
 					
 					case Y:
+					
+						// Check if direction changed
+						if(ioport_get_pin_level(MOTOR_Y_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD)) {
+						
+							// Adjust for backlash compensation
+							float backlashCompensation;
+							nvm_eeprom_read_buffer(EEPROM_BACKLASH_Y_OFFSET, &backlashCompensation, EEPROM_BACKLASH_Y_LENGTH);
+							distanceTraveled += backlashCompensation;
+						}
+					
 						stepsPerMm = MOTOR_Y_STEPS_PER_MM;
 						ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Y_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Y_LENGTH);
@@ -499,18 +512,30 @@ void Motors::move(const Gcode &command) {
 			// Set slowest rounded time
 			slowestRoundedTime = max(slowestRoundedTime, motorsTotalRoundedTime[i]);
 		
-			// Enable motor step interrupt
+			// Check what motor going to move
 			switch(i) {
 		
 				case X:
+				
+					// Enable motor X step interrupt
 					tc_set_cca_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
+					
+					// Set motor X Vref to active
+					tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 				break;
 			
 				case Y:
+				
+					// Enable motor Y step interrupt
 					tc_set_ccb_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
+					
+					// Set motor Y Vref to active
+					tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 				break;
 			
 				case Z:
+				
+					// Enable motor Z step interrupt
 					tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 					
 					// Check if Z is valid
@@ -524,7 +549,12 @@ void Motors::move(const Gcode &command) {
 				break;
 			
 				default:
+				
+					// Enable motor E step interrupt
 					tc_set_ccd_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
+					
+					// Set motor E Vref to active
+					tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 			}
 		}
 	
@@ -552,33 +582,43 @@ void Motors::move(const Gcode &command) {
 		// Check if E motor is moving
 		if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm) {
 		
-			// Read average real motor E voltage
+			// Pause update temperature timer
+			tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_OFF_gc);
+		
+			// Read actual motor E voltages
 			uint32_t value = 0;
+			adc_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &currentSenseAdcController);
+			adcch_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
+			adc_enable(&MOTOR_E_CURRENT_SENSE_ADC);
 			for(uint8_t i = 0; i < 100; i++) {
-				adcch_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
 				adc_start_conversion(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 				adc_wait_for_interrupt_flag(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 				value += adc_get_result(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 			}
+			
+			// Resume update temperature timer
+			tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
+			
+			// Set average actual motor E voltage
 			value /= 100;
-			float realVoltage = ADC_VREF / (pow(2, 12) - 1) * value;
+			float actualVoltage = ADC_VREF / (pow(2, 12) - 1) * value;
 			
 			// Get ideal motor E voltage
 			float idealVoltage = static_cast<float>(tc_read_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL)) / MOTORS_VREF_TIMER_PERIOD * MICROCONTROLLER_VOLTAGE;
 			
 			// Adjust motor E Vref to maintain a constant motor current
-			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round((MOTOR_E_VREF_VOLTAGE + idealVoltage - realVoltage) / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round((MOTOR_E_VREF_VOLTAGE_ACTIVE + idealVoltage - actualVoltage) / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		}
 	}
 	
 	// Stop motors step timer
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
 	
-	// Reset motor E Vref
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	
-	// Set motor Z Vref to idle
+	// Set motors Vref to idle
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	
 	// Check if Z motor moved
 	if(totalSteps[Z]) {
@@ -594,19 +634,14 @@ void Motors::move(const Gcode &command) {
 	}
 }
 
-void Motors::homeXYZ() {
+void Motors::move(const char *command) {
 
-	// Go to Z 3
-	gotoZ(3);
-	
-	// Check if emergency stop hasn't occured
-	if(!emergencyStopOccured)
-
-		// Home XY
-		homeXY();
+	// Move
+	Gcode gcode(const_cast<char *>(command));
+	move(gcode);
 }
 
-void Motors::gotoZ(float value) {
+void Motors::moveToHeight(float height) {
 
 	// Save mode
 	MODES savedMode = mode;
@@ -616,11 +651,10 @@ void Motors::gotoZ(float value) {
 	char buffer[255];
 	char numberBuffer[sizeof("18446744073709551615")];
 	strcpy(buffer, "G0 Z");
-	ftoa(value, numberBuffer);
+	ftoa(height, numberBuffer);
 	strcat(buffer, numberBuffer);
 	strcat(buffer, " F90");
-	Gcode gcode(buffer);
-	move(gcode);
+	move(buffer);
 	
 	// Restore mode
 	mode = savedMode;
@@ -636,15 +670,13 @@ void Motors::homeXY() {
 	
 		// Move to corner
 		mode = RELATIVE;
-		Gcode gcode(const_cast<char *>("G0 X112 Y111 F3000"));
-		move(gcode);
+		move("G0 X112 Y111 F3000");
 	
 		// Check if emergenct stop hasn't occured
 		if(!emergencyStopOccured) {
 	
 			// Move to center
-			gcode.parseCommand(const_cast<char *>("G0 X-54 Y-50"));
-			move(gcode);
+			move("G0 X-54 Y-50");
 		
 			// Set current X and Y
 			currentValues[X] = 54;
@@ -676,12 +708,18 @@ void Motors::homeXY() {
 				ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
 				setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
 				accelerometerValue = &accelerometer.yValue;
+				
+				// Set motor Y Vref to active
+				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 			}
 			else {
 				motorsNumberOfSteps[i] = 112 * MOTOR_X_STEPS_PER_MM * step;
 				ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
 				setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
 				accelerometerValue = &accelerometer.xValue;
+				
+				// Set motor X Vref to active
+				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 			}
 			
 			// Enable motor step interrupt 
@@ -718,6 +756,10 @@ void Motors::homeXY() {
 			// Stop motors step timer
 			tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
 			
+			// Set motors Vref to idle
+			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+			
 			// Check if emergency stop occured
 			if(emergencyStopOccured)
 			
@@ -733,8 +775,7 @@ void Motors::homeXY() {
 
 			// Move to center
 			mode = RELATIVE;
-			Gcode gcode(const_cast<char *>("G0 X-54 Y-50 F3000"));
-			move(gcode);
+			move("G0 X-54 Y-50 F3000");
 	
 			// Restore mode
 			mode = savedMode;
@@ -772,12 +813,13 @@ void Motors::moveToZ0() {
 	
 	// Find Z0
 	float lastZ0 = NAN;
-	float heighest = currentValues[Z];
+	float heighest = currentValues[Z] + 2;
+	uint8_t matchCounter = 0;
 	while(true) {
 	
 		// Set up motors to move down
 		motorsDelaySkips[Z] = 0;
-		motorsStepDelay[Z] = 1;
+		motorsStepDelay[Z] = 2;
 		motorsNumberOfSteps[Z] = UINT32_MAX;
 	
 		ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, DIRECTION_DOWN);
@@ -795,7 +837,7 @@ void Motors::moveToZ0() {
 	
 		// Wait until all motors step interrupts have stopped
 		int16_t lastZ;
-		uint8_t counterZ = 0, matchCounter = 0;
+		uint8_t counterZ = 0;
 		for(bool firstRun = true; MOTORS_STEP_TIMER.INTCTRLB & TC0_CCCINTLVL_gm; firstRun = false) {
 		
 			// Get accelerometer values
@@ -803,14 +845,22 @@ void Motors::moveToZ0() {
 			if(!firstRun) {
 		
 				// Check if motor Z has hit the bed
-				if(lastZ >= accelerometer.zValue) {
-					if(++counterZ >= 2)
+				if(abs(lastZ - accelerometer.zValue) >= 3) {
+					if(++counterZ >= 1)
 				
 						// Stop motor Z interrupt
 						tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
 				}
 				else
 					counterZ = 0;
+				
+				/*char responseBuffer[255];
+				char numberBuffer[sizeof("18446744073709551615")];
+				strcpy(responseBuffer, "Z:");
+				lltoa(accelerometer.zValue, numberBuffer);
+				strcat(responseBuffer, numberBuffer);
+				strcat(responseBuffer, "\r\n");
+				udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));*/
 			}
 		
 			// Save accelerometer values
@@ -823,6 +873,14 @@ void Motors::moveToZ0() {
 		// Set current Z
 		currentValues[Z] -= (static_cast<float>(UINT32_MAX) - motorsNumberOfSteps[Z]) / (MOTOR_Z_STEPS_PER_MM * step);
 		
+		/*char responseBuffer[255];
+		char numberBuffer[sizeof("18446744073709551615")];
+		strcpy(responseBuffer, "Z:");
+		ftoa(fabs(lastZ0 - currentValues[Z]), numberBuffer);
+		strcat(responseBuffer, numberBuffer);
+		strcat(responseBuffer, "\r\n");
+		udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));*/
+		
 		// Check if emergency stop has occured
 		if(emergencyStopOccured)
 		
@@ -832,7 +890,7 @@ void Motors::moveToZ0() {
 		// Check if at the real Z0
 		if(!isnan(lastZ0) && fabs(lastZ0 - currentValues[Z]) <= 1) {
 		
-			if(++matchCounter >= 3)
+			if(++matchCounter >= 2)
 			
 				// Break
 				break;
@@ -844,8 +902,8 @@ void Motors::moveToZ0() {
 		lastZ0 = currentValues[Z];
 		
 		// Move slightly up
-		heighest = min(heighest, currentValues[Z] + 1);
-		gotoZ(heighest);
+		heighest = min(heighest, currentValues[Z] + 2);
+		moveToHeight(heighest);
 		
 		// Check if emergency stop has occured
 		if(emergencyStopOccured)
@@ -869,23 +927,30 @@ void Motors::moveToZ0() {
 
 void Motors::calibrateBedCenterZ0() {
 
-	// Home XYZ
-	homeXYZ();
+	// Move to height 3mm
+	moveToHeight(3);
 	
 	// Check if emergency stop hasn't occured
 	if(!emergencyStopOccured) {
 
-		// Move to Z0
-		moveToZ0();
-		
+		// Home XY
+		//homeXY();
+	
 		// Check if emergency stop hasn't occured
 		if(!emergencyStopOccured) {
 
-			// Save Z as bed center Z0
-			saveZAsBedCenterZ0();
+			// Move to Z0
+			moveToZ0();
+		
+			// Check if emergency stop hasn't occured
+			if(!emergencyStopOccured) {
+
+				// Save Z as bed center Z0
+				saveZAsBedCenterZ0();
 			
-			// Go to Z 3
-			gotoZ(3);
+				// Move to height 3mm
+				moveToHeight(3);
+			}
 		}
 	}
 }
@@ -904,7 +969,7 @@ void Motors::calibrateBedOrientation() {
 	mode = ABSOLUTE;
 	
 	// Go through all corners
-	for(uint8_t i = 0; i < sizeof(positionsX) / sizeof(positionsX[0]); i++) {
+	for(uint8_t i = 0; i < 4; i++) {
 		
 		// Check if emergency stop has occured
 		if(emergencyStopOccured)
@@ -922,8 +987,7 @@ void Motors::calibrateBedOrientation() {
 		ulltoa(positionsY[i], numberBuffer);
 		strcat(buffer, numberBuffer);
 		strcat(buffer, " F3000");
-		Gcode gcode(buffer);
-		move(gcode);
+		move(buffer);
 		
 		// Check if emergency stop has occured
 		if(emergencyStopOccured)
@@ -940,7 +1004,7 @@ void Motors::calibrateBedOrientation() {
 			// Break
 			break;
 		
-		// Save corner orientation offset and length
+		// Get corner orientation offset and length
 		uint8_t eepromOffset, eepromLength;
 		switch(i) {
 		
@@ -967,8 +1031,8 @@ void Motors::calibrateBedOrientation() {
 		// Save corner orientation
 		nvm_eeprom_erase_and_write_buffer(eepromOffset, &currentValues[Z], eepromLength);
 	
-		// Go to Z 3
-		gotoZ(3);
+		// Move to height 3mm
+		moveToHeight(3);
 	}
 	
 	// Restore mode
