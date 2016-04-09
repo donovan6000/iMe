@@ -341,17 +341,24 @@ void Motors::turnOff() {
 	ioport_set_pin_level(MOTORS_ENABLE_PIN, MOTORS_OFF);
 }
 
-void Motors::move(const Gcode &command) {
+void Motors::move(const Gcode &command, bool compensationCommand) {
 
 	// Check if command has an F parameter
-	if(command.hasParameterF())
+	float currentF = currentValues[F];
+	if(command.hasParameterF()) {
 	
+		// Save F value if not a compensation command
+		if(!compensationCommand)
+			currentValues[F] = command.getParameterF();
+		
 		// Set current F
-		currentValues[F] = command.getParameterF();
+		currentF = command.getParameterF();
+	}
 	
 	// Initialize variables
 	float slowestTime = 0;
 	float totalSteps[NUMBER_OF_MOTORS] = {};
+	float backlashValues[2] = {};
 	
 	// Go through all motors
 	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
@@ -399,8 +406,8 @@ void Motors::move(const Gcode &command) {
 				// Set lower new value
 				bool lowerNewValue = newValue < tempValue;
 				
-				// Set current value
-				if(!isnan(currentValues[i]))
+				// Set current value if not a compensation command
+				if(!compensationCommand && !isnan(currentValues[i]))
 					currentValues[i] = newValue;
 		
 				// Set steps per mm, motor direction, speed limit, and min/max feed rates
@@ -415,10 +422,10 @@ void Motors::move(const Gcode &command) {
 						// Check if direction changed
 						if(ioport_get_pin_level(MOTOR_X_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT)) {
 						
-							// Adjust for backlash compensation
-							float backlashCompensation;
-							nvm_eeprom_read_buffer(EEPROM_BACKLASH_X_OFFSET, &backlashCompensation, EEPROM_BACKLASH_X_LENGTH);
-							distanceTraveled += backlashCompensation;
+							// Compensate for backlash
+							float backlashX;
+							nvm_eeprom_read_buffer(EEPROM_BACKLASH_X_OFFSET, &backlashX, EEPROM_BACKLASH_X_LENGTH);
+							backlashValues[X] = lowerNewValue ? -backlashX : backlashX;
 						}
 						
 						stepsPerMm = MOTOR_X_STEPS_PER_MM;
@@ -434,9 +441,9 @@ void Motors::move(const Gcode &command) {
 						if(ioport_get_pin_level(MOTOR_Y_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD)) {
 						
 							// Adjust for backlash compensation
-							float backlashCompensation;
-							nvm_eeprom_read_buffer(EEPROM_BACKLASH_Y_OFFSET, &backlashCompensation, EEPROM_BACKLASH_Y_LENGTH);
-							distanceTraveled += backlashCompensation;
+							float backlashY;
+							nvm_eeprom_read_buffer(EEPROM_BACKLASH_Y_OFFSET, &backlashY, EEPROM_BACKLASH_Y_LENGTH);
+							backlashValues[Y] = lowerNewValue ? -backlashY : backlashY;
 						}
 					
 						stepsPerMm = MOTOR_Y_STEPS_PER_MM;
@@ -473,7 +480,7 @@ void Motors::move(const Gcode &command) {
 				totalSteps[i] = distanceTraveled * stepsPerMm * step;
 				
 				// Set motor feedrate
-				float motorFeedRate = min(currentValues[F], speedLimit);
+				float motorFeedRate = min(currentF, speedLimit);
 				
 				// Enforce min/max feed rates
 				motorFeedRate = min(motorFeedRate, maxFeedRate);
@@ -487,6 +494,10 @@ void Motors::move(const Gcode &command) {
 			}
 		}
 	}
+	
+	// Compensate for backlash if not a compensation command
+	if(!compensationCommand)
+		compensateForBacklash(backlashValues[X], backlashValues[Y]);
 	
 	// Initialize variables
 	uint32_t motorsTotalRoundedTime[NUMBER_OF_MOTORS] = {};
@@ -634,11 +645,11 @@ void Motors::move(const Gcode &command) {
 	}
 }
 
-void Motors::move(const char *command) {
+void Motors::move(const char *command, bool compensationCommand) {
 
 	// Move
 	Gcode gcode(const_cast<char *>(command));
-	move(gcode);
+	move(gcode, compensationCommand);
 }
 
 void Motors::moveToHeight(float height) {
@@ -655,6 +666,32 @@ void Motors::moveToHeight(float height) {
 	strcat(buffer, numberBuffer);
 	strcat(buffer, " F90");
 	move(buffer);
+	
+	// Restore mode
+	mode = savedMode;
+}
+
+void Motors::compensateForBacklash(float backlashX, float backlashY) {
+
+	// Save mode
+	MODES savedMode = mode;
+	
+	// Move to Z value
+	mode = RELATIVE;
+	char buffer[255];
+	char numberBuffer[sizeof("18446744073709551615")];
+	strcpy(buffer, "G0 X");
+	ftoa(backlashX, numberBuffer);
+	strcat(buffer, numberBuffer);
+	strcat(buffer, " Y");
+	ftoa(backlashY, numberBuffer);
+	strcat(buffer, numberBuffer);
+	strcat(buffer, " F");
+	float backlashSpeed;
+	nvm_eeprom_read_buffer(EEPROM_BACKLASH_SPEED_OFFSET, &backlashSpeed, EEPROM_BACKLASH_SPEED_LENGTH);
+	ftoa(backlashSpeed, numberBuffer);
+	strcat(buffer, numberBuffer);
+	move(buffer, true);
 	
 	// Restore mode
 	mode = savedMode;

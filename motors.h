@@ -42,8 +42,8 @@ class Motors {
 		void turnOff();
 		
 		// Move
-		void move(const Gcode &command);
-		void move(const char *command);
+		void move(const Gcode &command, bool compensationCommand = false);
+		void move(const char *command, bool compensationCommand = false);
 		
 		// Home XY
 		void homeXY();
@@ -74,6 +74,9 @@ class Motors {
 		
 		// Move to height
 		void moveToHeight(float height);
+		
+		// Compensate for backlash
+		void compensateForBacklash(float backlashX, float backlashY);
 	
 		// Move to Z0
 		void moveToZ0();
