@@ -6,6 +6,7 @@
 // Header files
 #include "accelerometer.h"
 #include "gcode.h"
+#include "vector.h"
 
 
 // Definitions
@@ -46,7 +47,6 @@ class Motors {
 		
 		// Move
 		void move(const Gcode &command, bool compensationCommand = false);
-		void move(const char *command, bool compensationCommand = false);
 		
 		// Home XY
 		void homeXY();
@@ -96,6 +96,20 @@ class Motors {
 		// Current sense ADC controller and channel
 		adc_config currentSenseAdcController;
 		adc_channel_config currentSenseAdcChannel;
+		
+		// Get height adjustment required
+		float getHeightAdjustmentRequired(float x, float y);
+		
+		// Vectors
+		Vector backRightVector;
+		Vector backLeftVector;
+		Vector frontLeftVector;
+		Vector frontRightVector;
+		Vector centerVector;
+		Vector backPlane;
+		Vector leftPlane;
+		Vector rightPlane;
+		Vector frontPlane;
 };
 
 

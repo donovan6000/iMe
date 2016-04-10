@@ -9,7 +9,6 @@ extern "C" {
 #include "motors.h"
 #include "eeprom.h"
 #include "heater.h"
-#include "vector.h"
 
 
 // Definitions
@@ -161,77 +160,47 @@ bool isPointInTriangle(const Vector &pt, const Vector &v1, const Vector &v2, con
 	return flag == flag2 && flag2 == flag3;
 }
 
-float getHeightAdjustmentRequired(float x, float y) {
+float Motors::getHeightAdjustmentRequired(float x, float y) {
 
-	// Get corner orientations and offsets
-	float backRightOrientation;
-	nvm_eeprom_read_buffer(EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET, &backRightOrientation, EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH);
-	float backRightOffset;
-	nvm_eeprom_read_buffer(EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET, &backRightOffset, EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH);
-	float backLeftOrientation;
-	nvm_eeprom_read_buffer(EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET, &backLeftOrientation, EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH);
-	float backLeftOffset;
-	nvm_eeprom_read_buffer(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, &backLeftOffset, EEPROM_BED_OFFSET_BACK_LEFT_LENGTH);
-	float frontLeftOrientation;
-	nvm_eeprom_read_buffer(EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET, &frontLeftOrientation, EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH);
-	float frontLeftOffset;
-	nvm_eeprom_read_buffer(EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET, &frontLeftOffset, EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH);
-	float frontRightOrientation;
-	nvm_eeprom_read_buffer(EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET, &frontRightOrientation, EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH);
-	float frontRightOffset;
-	nvm_eeprom_read_buffer(EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET, &frontRightOffset, EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH);
-
-	// Set corner vectors
-	Vector vector(99, 95, backRightOrientation + backRightOffset);
-	Vector vector2(9, 95, backLeftOrientation + backLeftOffset);
-	Vector vector3(9, 5, frontLeftOrientation + frontLeftOffset);
-	Vector vector4(99, 5, frontRightOrientation + frontRightOffset);
-	Vector vector5(54, 50, 0);
-	
-	// Calculate planes
-	Vector planeABC, vector7, vector8, vector9;
-	planeABC = generatePlaneEquation(vector2, vector, vector5);
-	vector7 = generatePlaneEquation(vector2, vector3, vector5);
-	vector8 = generatePlaneEquation(vector, vector4, vector5);
-	vector9 = generatePlaneEquation(vector3, vector4, vector5);
-	Vector point(x, y, 0);
+	// Initialize variables
+	Vector point(x, y);
 	
 	// Return height adjustment
-	if(x <= vector3.x && y >= vector.y)
-		return (getZFromXYAndPlane(point, planeABC) + getZFromXYAndPlane(point, vector7)) / 2;
+	if(x <= frontLeftVector.x && y >= backRightVector.y)
+		return (getZFromXYAndPlane(point, backPlane) + getZFromXYAndPlane(point, leftPlane)) / 2;
 	
-	else if(x <= vector3.x && y <= vector3.y)
-		return (getZFromXYAndPlane(point, vector9) + getZFromXYAndPlane(point, vector7)) / 2;
+	else if(x <= frontLeftVector.x && y <= frontLeftVector.y)
+		return (getZFromXYAndPlane(point, frontPlane) + getZFromXYAndPlane(point, leftPlane)) / 2;
 	
-	else if(x >= vector4.x && y <= vector3.y)
-		return (getZFromXYAndPlane(point, vector9) + getZFromXYAndPlane(point, vector8)) / 2;
+	else if(x >= frontRightVector.x && y <= frontLeftVector.y)
+		return (getZFromXYAndPlane(point, frontPlane) + getZFromXYAndPlane(point, rightPlane)) / 2;
 	
-	else if(x >= vector4.x && y >= vector.y)
-		return (getZFromXYAndPlane(point, planeABC) + getZFromXYAndPlane(point, vector8)) / 2;
+	else if(x >= frontRightVector.x && y >= backRightVector.y)
+		return (getZFromXYAndPlane(point, backPlane) + getZFromXYAndPlane(point, rightPlane)) / 2;
 	
-	else if(x <= vector3.x)
-		return getZFromXYAndPlane(point, vector7);
+	else if(x <= frontLeftVector.x)
+		return getZFromXYAndPlane(point, leftPlane);
 	
-	else if(x >= vector4.x)
-		return getZFromXYAndPlane(point, vector8);
+	else if(x >= frontRightVector.x)
+		return getZFromXYAndPlane(point, rightPlane);
 	
-	else if(y >= vector.y)
-		return getZFromXYAndPlane(point, planeABC);
+	else if(y >= backRightVector.y)
+		return getZFromXYAndPlane(point, backPlane);
 	
-	else if(y <= vector3.y)
-		return getZFromXYAndPlane(point, vector9);
+	else if(y <= frontLeftVector.y)
+		return getZFromXYAndPlane(point, frontPlane);
 	
-	else if(isPointInTriangle(point, vector5, vector3, vector2))
-		return getZFromXYAndPlane(point, vector7);
+	else if(isPointInTriangle(point, centerVector, frontLeftVector, backLeftVector))
+		return getZFromXYAndPlane(point, leftPlane);
 	
-	else if(isPointInTriangle(point, vector5, vector4, vector))
-		return getZFromXYAndPlane(point, vector8);
+	else if(isPointInTriangle(point, centerVector, frontRightVector, backRightVector))
+		return getZFromXYAndPlane(point, rightPlane);
 	
-	else if(isPointInTriangle(point, vector5, vector2, vector))
-		return getZFromXYAndPlane(point, planeABC);
+	else if(isPointInTriangle(point, centerVector, backLeftVector, backRightVector))
+		return getZFromXYAndPlane(point, backPlane);
 	
 	else
-		return getZFromXYAndPlane(point, vector9);
+		return getZFromXYAndPlane(point, frontPlane);
 }
 
 void stepTimerInterrupt(AXES motor) {
@@ -430,6 +399,27 @@ void Motors::initialize() {
 	
 	// Initialize accelerometer
 	accelerometer.initialize();
+	
+	// Set back right vector
+	backRightVector.x = 99;
+	backRightVector.y = 95;
+	
+	// Set back left vector
+	backLeftVector.x = 9;
+	backLeftVector.y = 95;
+	
+	// Set front left vector
+	frontLeftVector.x = 9;
+	frontLeftVector.y = 5;
+	
+	// Set front right vector
+	frontRightVector.x = 99;
+	frontRightVector.y = 5;
+	
+	// Set center vector
+	centerVector.x = 54;
+	centerVector.y = 50;
+	centerVector.z = 0;
 }
 
 void Motors::setMicroStepsPerStep(STEPS step) {
@@ -480,10 +470,10 @@ void Motors::turnOff() {
 void Motors::move(const Gcode &command, bool compensationCommand) {
 
 	// Check if command has an F parameter
-	if(command.hasParameterF())
+	if(command.commandParameters & PARAMETER_F_OFFSET)
 	
 		// Save F value
-		currentValues[F] = command.getParameterF();
+		currentValues[F] = command.valueF;
 	
 	// Initialize variables
 	bool runCommand = true;
@@ -501,40 +491,40 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
 	
 		// Set has parameter and get parameter function
-		bool (Gcode::*hasParameter)() const;
-		float (Gcode::*getParameter)() const;
+		uint16_t parameterOffset;
+		const float *parameter;
 		switch(i) {
 		
 			case X:
-				hasParameter = &Gcode::hasParameterX;
-				getParameter = &Gcode::getParameterX;
+				parameterOffset = PARAMETER_X_OFFSET;
+				parameter = &command.valueX;
 			break;
 			
 			case Y:
-				hasParameter = &Gcode::hasParameterY;
-				getParameter = &Gcode::getParameterY;
+				parameterOffset = PARAMETER_Y_OFFSET;
+				parameter = &command.valueY;
 			break;
 			
 			case Z:
-				hasParameter = &Gcode::hasParameterZ;
-				getParameter = &Gcode::getParameterZ;
+				parameterOffset = PARAMETER_Z_OFFSET;
+				parameter = &command.valueZ;
 			break;
 			
 			default:
-				hasParameter = &Gcode::hasParameterE;
-				getParameter = &Gcode::getParameterE;
+				parameterOffset = PARAMETER_E_OFFSET;
+				parameter = &command.valueE;
 		}
 	
 		// Check if command has parameter
-		if((command.*hasParameter)()) {
+		if(command.commandParameters & parameterOffset) {
 	
 			// Set new value
 			float newValue;
 			float tempValue = isnan(currentValues[i]) ? 0 : currentValues[i];
 			if(mode == RELATIVE)
-				newValue = tempValue + (command.*getParameter)();
+				newValue = tempValue + *parameter;
 			else
-				newValue = (command.*getParameter)();
+				newValue = *parameter;
 			
 			// Check if motor moves
 			float distanceTraveled = fabs(newValue - tempValue);
@@ -638,7 +628,16 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 	
 		// Clear Emergency stop occured
 		emergencyStopOccured = false;
-	
+		
+		// Set motors Vref to active
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));				
+		
+		// Turn on motors
+		turnOn();
+		
 		// Compensate for backlash if applicable
 		if(backlashDirectionX != NONE || backlashDirectionY != NONE)
 			compensateForBacklash(backlashDirectionX, backlashDirectionY);
@@ -680,44 +679,26 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 				// Set slowest rounded time
 				slowestRoundedTime = max(slowestRoundedTime, motorsTotalRoundedTime[i]);
 		
-				// Check what motor going to move
+				// Enable motor step interrupt
+				void (*setMotorStepInterruptLevel)(volatile void *tc, TC_INT_LEVEL_t level);
 				switch(i) {
 		
 					case X:
-				
-						// Enable motor X step interrupt
-						tc_set_cca_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
-					
-						// Set motor X Vref to active
-						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+						setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
 					break;
 			
 					case Y:
-				
-						// Enable motor Y step interrupt
-						tc_set_ccb_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
-					
-						// Set motor Y Vref to active
-						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+						setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
 					break;
 			
 					case Z:
-				
-						// Enable motor Z step interrupt
-						tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
-	
-						// Set motor Z Vref to active
-						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+						setMotorStepInterruptLevel = tc_set_ccc_interrupt_level;
 					break;
 			
 					default:
-				
-						// Enable motor E step interrupt
-						tc_set_ccd_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
-					
-						// Set motor E Vref to active
-						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+						setMotorStepInterruptLevel = tc_set_ccd_interrupt_level;
 				}
+				(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 			}
 	
 		// Go through all motors
@@ -727,9 +708,6 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 			motorsDelaySkipsCounter[i] = 0;
 			motorsDelaySkips[i] = slowestRoundedTime != motorsTotalRoundedTime[i] ? round(static_cast<float>(motorsTotalRoundedTime[i]) / (slowestRoundedTime - motorsTotalRoundedTime[i])) : 0;
 		}
-	
-		// Turn on motors
-		turnOn();
 	
 		// Start motors step timer
 		tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
@@ -772,33 +750,30 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 	
 		// Stop motors step timer
 		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
+	}
+	
+	// Check if not a compensation command
+	if(!compensationCommand) {
 	
 		// Set motors Vref to idle
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	}
 	
-	// Check if not a compensation command and Z motor moved
-	if(!compensationCommand && totalSteps[Z]) {
+		// Check if Z motor moved
+		if(totalSteps[Z]) {
 
-		// Save current Z
-		nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
+			// Save current Z
+			nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
 
-		// Check if Z was previously valid and an emergency stop didn't happen
-		if(validZ && !emergencyStopOccured)
+			// Check if Z was previously valid and an emergency stop didn't happen
+			if(validZ && !emergencyStopOccured)
 	
-			// Save that Z is valid
-			nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, VALID);
+				// Save that Z is valid
+				nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, VALID);
+		}
 	}
-}
-
-void Motors::move(const char *command, bool compensationCommand) {
-
-	// Move
-	Gcode gcode(const_cast<char *>(command));
-	move(gcode, compensationCommand);
 }
 
 void Motors::moveToHeight(float height) {
@@ -806,15 +781,15 @@ void Motors::moveToHeight(float height) {
 	// Save mode
 	MODES savedMode = mode;
 	
-	// Move to Z value
+	// Set mode to absolute
 	mode = ABSOLUTE;
-	char buffer[255];
-	char numberBuffer[sizeof("18446744073709551615")];
-	strcpy(buffer, "G0 Z");
-	ftoa(height, numberBuffer);
-	strcat(buffer, numberBuffer);
-	strcat(buffer, " F90");
-	move(buffer);
+	
+	// Move to Z value
+	Gcode gcode;
+	gcode.valueZ = height;
+	gcode.valueF = 90;
+	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_F_OFFSET;
+	move(gcode);
 	
 	// Restore mode
 	mode = savedMode;
@@ -854,18 +829,12 @@ void Motors::compensateForBacklash(BACKLASH_DIRECTION backlashDirectionX, BACKLA
 	nvm_eeprom_read_buffer(EEPROM_BACKLASH_SPEED_OFFSET, &backlashSpeed, EEPROM_BACKLASH_SPEED_LENGTH);
 	
 	// Move by backlash amount
-	char buffer[255];
-	char numberBuffer[sizeof("18446744073709551615")];
-	strcpy(buffer, "G0 X");
-	ftoa(backlashX, numberBuffer);
-	strcat(buffer, numberBuffer);
-	strcat(buffer, " Y");
-	ftoa(backlashY, numberBuffer);
-	strcat(buffer, numberBuffer);
-	strcat(buffer, " F");
-	ftoa(backlashSpeed, numberBuffer);
-	strcat(buffer, numberBuffer);
-	move(buffer, true);
+	Gcode gcode;
+	gcode.valueX = backlashX;
+	gcode.valueY = backlashY;
+	gcode.valueF = backlashSpeed;
+	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
+	move(gcode, true);
 	
 	// Restore X, Y, and F values
 	currentValues[X] = savedX;
@@ -891,12 +860,36 @@ void Motors::compensateForBedLeveling(float startValues[]) {
 		currentValues[i] = startValues[i];
 	}
 	
+	// Update vectors
+	float orientation, offset;
+	nvm_eeprom_read_buffer(EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET, &orientation, EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH);
+	nvm_eeprom_read_buffer(EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET, &offset, EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH);
+	backRightVector.z = orientation + offset;
+	
+	nvm_eeprom_read_buffer(EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET, &orientation, EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH);
+	nvm_eeprom_read_buffer(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, &offset, EEPROM_BED_OFFSET_BACK_LEFT_LENGTH);
+	backLeftVector.z = orientation + offset;
+	
+	nvm_eeprom_read_buffer(EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET, &orientation, EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH);
+	nvm_eeprom_read_buffer(EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET, &offset, EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH);
+	frontLeftVector.z = orientation + offset;
+	
+	nvm_eeprom_read_buffer(EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET, &orientation, EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH);
+	nvm_eeprom_read_buffer(EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET, &offset, EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH);
+	frontRightVector.z = orientation + offset;
+	
+	// Update planes
+	backPlane = generatePlaneEquation(backLeftVector, backRightVector, centerVector);
+	leftPlane = generatePlaneEquation(backLeftVector, frontLeftVector, centerVector);
+	rightPlane = generatePlaneEquation(backRightVector, frontRightVector, centerVector);
+	frontPlane = generatePlaneEquation(frontLeftVector, frontRightVector, centerVector);
+	
 	// Get bed height offset
 	float bedHeightOffset;
 	nvm_eeprom_read_buffer(EEPROM_BED_HEIGHT_OFFSET_OFFSET, &bedHeightOffset, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
 	
 	// Adjust values for additional real height
-	currentValues[Z] += bedHeightOffset + getHeightAdjustmentRequired(startValues[X], startValues[Y]);
+	currentValues[Z] += getHeightAdjustmentRequired(startValues[X], startValues[Y]);
 	startValues[Z] += bedHeightOffset;
 
 	// Get delta values
@@ -912,6 +905,8 @@ void Motors::compensateForBedLeveling(float startValues[]) {
 		deltas[i] = horizontalDistance ? deltas[i] / horizontalDistance : 0;
 	
 	// Go through all segments
+	Gcode gcode;
+	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET;
 	for(uint32_t numberOfSegments = max(1, ceil(horizontalDistance / SEGMENT_LENGTH)), i = 1; i <= numberOfSegments; i++) {
 	
 		// Set segment values
@@ -920,21 +915,11 @@ void Motors::compensateForBedLeveling(float startValues[]) {
 			segmentValues[j] = i != numberOfSegments ? startValues[j] + i * SEGMENT_LENGTH * deltas[j] : savedValues[j];
 		
 		// Move to end of current segment
-		char buffer[255];
-		char numberBuffer[sizeof("18446744073709551615")];
-		strcpy(buffer, "G0 X");
-		ftoa(segmentValues[X], numberBuffer);
-		strcat(buffer, numberBuffer);
-		strcat(buffer, " Y");
-		ftoa(segmentValues[Y], numberBuffer);
-		strcat(buffer, numberBuffer);
-		strcat(buffer, " Z");
-		ftoa(segmentValues[Z] + getHeightAdjustmentRequired(segmentValues[X], segmentValues[Y]), numberBuffer);
-		strcat(buffer, numberBuffer);
-		strcat(buffer, " E");
-		ftoa(segmentValues[E], numberBuffer);
-		strcat(buffer, numberBuffer);
-		move(buffer, true);
+		gcode.valueX = segmentValues[X];
+		gcode.valueY = segmentValues[Y];
+		gcode.valueZ = segmentValues[Z] + getHeightAdjustmentRequired(segmentValues[X], segmentValues[Y]);
+		gcode.valueE = segmentValues[E];
+		move(gcode, true);
 	}
 	
 	// Restore X, Y, Z, and E values
@@ -953,15 +938,25 @@ void Motors::homeXY() {
 		// Save mode
 		MODES savedMode = mode;
 	
-		// Move to corner
+		// Set mode to relative
 		mode = RELATIVE;
-		move("G0 X112 Y111 F3000");
+		
+		// Move to corner
+		Gcode gcode;
+		gcode.valueX = 112;
+		gcode.valueY = 111;
+		gcode.valueF = 3000;
+		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
+		move(gcode);
 	
 		// Check if emergenct stop hasn't occured
 		if(!emergencyStopOccured) {
 	
 			// Move to center
-			move("G0 X-54 Y-50");
+			gcode.valueX = -54;
+			gcode.valueY = -50;
+			gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET;
+			move(gcode);
 		
 			// Set current X and Y
 			currentValues[X] = 54;
@@ -1057,10 +1052,17 @@ void Motors::homeXY() {
 
 			// Save mode
 			MODES savedMode = mode;
+			
+			// Set mode to relative
+			mode = RELATIVE;
 
 			// Move to center
-			mode = RELATIVE;
-			move("G0 X-54 Y-50 F3000");
+			Gcode gcode;
+			gcode.valueX = -54;
+			gcode.valueY = -50;
+			gcode.valueF = 3000;
+			gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
+			move(gcode);
 	
 			// Restore mode
 			mode = savedMode;
@@ -1263,16 +1265,12 @@ void Motors::calibrateBedOrientation() {
 			break;
 
 		// Move to  corner
-		char buffer[255];
-		char numberBuffer[sizeof("18446744073709551615")];
-		strcpy(buffer, "G0 X");
-		ulltoa(positionsX[i], numberBuffer);
-		strcat(buffer, numberBuffer);
-		strcat(buffer, " Y");
-		ulltoa(positionsY[i], numberBuffer);
-		strcat(buffer, numberBuffer);
-		strcat(buffer, " F3000");
-		move(buffer);
+		Gcode gcode;
+		gcode.valueX = positionsX[i];
+		gcode.valueY = positionsY[i];
+		gcode.valueF = 3000;
+		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
+		move(gcode);
 		
 		// Check if emergency stop has occured
 		if(emergencyStopOccured)

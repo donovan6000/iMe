@@ -22,6 +22,7 @@ extern "C" {
 #define PARAMETER_E_OFFSET (1 << 9)
 #define PARAMETER_N_OFFSET (1 << 10)
 #define PARAMETER_HOST_COMMAND_OFFSET (1 << 11)
+#define CHECKSUM_OFFSET (1 << 12)
 
 
 // Gcode class
@@ -119,9 +120,6 @@ class Gcode {
 		
 		// Command parameters
 		uint16_t commandParameters;
-	
-	// Private
-	private:
 		
 		// Values
 		uint8_t valueG;
@@ -135,9 +133,6 @@ class Gcode {
 		float valueF;
 		float valueE;
 		uint64_t valueN;
-		
-		// Valid checksum
-		bool validChecksum;
 		
 		// Host command
 		char hostCommand[UDI_CDC_COMM_EP_SIZE];

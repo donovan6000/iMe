@@ -164,10 +164,10 @@ int main() {
 			if(motors.accelerometer.isWorking) {
 		
 				// Check if command contains valid G-code
-				if(!gcode.isEmpty()) {
+				if(gcode.commandParameters) {
 			
 					// Check if command has host command
-					if(gcode.hasHostCommand())
+					if(gcode.commandParameters & PARAMETER_HOST_COMMAND_OFFSET)
 					
 						// Set response to error
 						strcpy(responseBuffer, "Error: Unknown host command");
@@ -176,10 +176,10 @@ int main() {
 					else {
 			
 						// Check if command has an N parameter
-						if(gcode.hasParameterN()) {
+						if(gcode.commandParameters & PARAMETER_N_OFFSET) {
 						
 							// Check if command is a starting line number
-							if(gcode.getParameterN() == 0 && gcode.getParameterM() == 110)
+							if(gcode.valueN == 0 && gcode.valueM == 110)
 				
 								// Reset current line number
 								currentLineNumber = 0;
@@ -194,13 +194,13 @@ int main() {
 							else {
 					
 								// Check if line number is correct
-								if(gcode.getParameterN() == currentLineNumber)
+								if(gcode.valueN == currentLineNumber)
 					
 									// Increment current line number
 									currentLineNumber++;
 						
 								// Otherwise check if command has already been processed
-								else if(gcode.getParameterN() < currentLineNumber)
+								else if(gcode.valueN < currentLineNumber)
 						
 									// Set response to skip
 									strcpy(responseBuffer, "skip");
@@ -217,9 +217,9 @@ int main() {
 						if(!*responseBuffer) {
 						
 							// Check if command has an M parameter
-							if(gcode.hasParameterM()) {
+							if(gcode.commandParameters & PARAMETER_M_OFFSET) {
 				
-								switch(gcode.getParameterM()) {
+								switch(gcode.valueM) {
 								
 									// M17
 									case 17:
@@ -247,11 +247,11 @@ int main() {
 									
 										// Check if temperature is valid
 										int32_t temperature;
-										temperature = gcode.hasParameterS() ? gcode.getParameterS() : 0;
+										temperature = gcode.commandParameters & PARAMETER_S_OFFSET ? gcode.valueS : 0;
 										if(!temperature || (temperature >= MIN_TEMPERATURE && temperature <= MAX_TEMPERATURE)) {
 										
 											// Set temperature
-											//heater.setTemperature(temperature, temperature && gcode.getParameterM() == 109);
+											heater.setTemperature(temperature, temperature && gcode.valueM == 109);
 									
 											// Set response to confirmation
 											strcpy(responseBuffer, "ok");
@@ -269,8 +269,8 @@ int main() {
 						
 										// Set response to temperature
 										strcpy(responseBuffer, "ok\nT:");
-										//ftoa(heater.getTemperature(), numberBuffer);
-										//strcat(responseBuffer, numberBuffer);
+										ftoa(heater.getTemperature(), numberBuffer);
+										strcat(responseBuffer, numberBuffer);
 									break;
 									
 									// M106 or M107
@@ -279,7 +279,7 @@ int main() {
 									
 										// Check if speed is valid
 										int32_t speed;
-										speed = gcode.getParameterM() == 107 || !gcode.hasParameterS() ? 0 : gcode.getParameterS();
+										speed = gcode.valueM == 107 || !(gcode.commandParameters & PARAMETER_S_OFFSET) ? 0 : gcode.valueS;
 										if(speed >= 0 && speed <= 255) {
 								
 											// Set fan's speed
@@ -325,7 +325,7 @@ int main() {
 									case 115:
 							
 										// Check if command is to reset
-										if(gcode.getParameterS() == 628)
+										if(gcode.valueS == 628)
 							
 											// Perform software reset
 											reset_do_soft_reset();
@@ -351,10 +351,10 @@ int main() {
 									case 420:
 									
 										// Check if duty cycle is provided
-										if(gcode.hasParameterT()) {
+										if(gcode.commandParameters & PARAMETER_T_OFFSET) {
 										
 											// Check if brightness is valid
-											uint8_t brightness = gcode.getParameterT();
+											uint8_t brightness = gcode.valueT;
 											
 											if(brightness <= 100) {
 											
@@ -375,8 +375,8 @@ int main() {
 										if(gcode.commandParameters & (PARAMETER_S_OFFSET | PARAMETER_T_OFFSET)) {
 									
 											// Check if offset and length are valid
-											int32_t offset = gcode.getParameterS();
-											uint8_t length = gcode.getParameterT();
+											int32_t offset = gcode.valueS;
+											uint8_t length = gcode.valueT;
 										
 											if(offset >= 0 && length && length <= 4 && offset + length < EEPROM_SIZE) {
 											
@@ -386,7 +386,7 @@ int main() {
 												strcat(responseBuffer, numberBuffer);
 												
 												// Check if reading an EEPROM value
-												if(gcode.getParameterM() == 619) {
+												if(gcode.valueM == 619) {
 												
 													// Get value from EEPROM
 													uint32_t value = 0;
@@ -399,10 +399,10 @@ int main() {
 												}
 												
 												// Otherwise check if EEPROM value is provided
-												else if(gcode.hasParameterP()) {
+												else if(gcode.commandParameters & PARAMETER_P_OFFSET) {
 										
 													// Get value
-													int32_t value = gcode.getParameterP();
+													int32_t value = gcode.valueP;
 										
 													// Write value to EEPROM
 													nvm_eeprom_erase_and_write_buffer(offset, &value, length);
@@ -430,9 +430,9 @@ int main() {
 							}
 						
 							// Otherwise check if command has a G parameter
-							else if(gcode.hasParameterG()) {
+							else if(gcode.commandParameters & PARAMETER_G_OFFSET) {
 				
-								switch(gcode.getParameterG()) {
+								switch(gcode.valueG) {
 					
 									// G0 or G1
 									case 0:
@@ -454,7 +454,7 @@ int main() {
 							
 										// Delay specified time
 										uint32_t delayTime;
-										if((delayTime = gcode.getParameterP() + gcode.getParameterS() * 1000))
+										if((delayTime = gcode.valueP + gcode.valueS * 1000))
 											delay_ms(delayTime);
 								
 										// Set response to confirmation
@@ -506,7 +506,7 @@ int main() {
 									case 91:
 									
 										// Set mode to absolute
-										motors.mode = gcode.getParameterG() == 90 ? ABSOLUTE : RELATIVE;
+										motors.mode = gcode.valueG == 90 ? ABSOLUTE : RELATIVE;
 										
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
@@ -516,7 +516,7 @@ int main() {
 									case 92:
 									
 										// Set motors current E
-										motors.currentValues[E] = gcode.hasParameterE() ? gcode.getParameterE() : 0;
+										motors.currentValues[E] = gcode.commandParameters & PARAMETER_E_OFFSET ? gcode.valueE : 0;
 							
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
@@ -525,18 +525,18 @@ int main() {
 							}
 							
 							// Otherwise check if command has parameter T
-							else if(gcode.hasParameterT())
+							else if(gcode.commandParameters & PARAMETER_T_OFFSET)
 							
 								// Set response to confirmation
 								strcpy(responseBuffer, "ok");
 						}
 					
 						// Check if command has an N parameter and it was processed
-						if(gcode.hasParameterN() && (!strncmp(responseBuffer, "ok", 2) || !strncmp(responseBuffer, "rs", 2) || !strncmp(responseBuffer, "skip", 4))) {
+						if(gcode.commandParameters & PARAMETER_N_OFFSET && (!strncmp(responseBuffer, "ok", 2) || !strncmp(responseBuffer, "rs", 2) || !strncmp(responseBuffer, "skip", 4))) {
 			
 							// Append line number to response
 							uint8_t endOfResponse = responseBuffer[0] == 's' ? 4 : 2;
-							ulltoa(responseBuffer[0] == 'r' ? currentLineNumber : gcode.getParameterN(), numberBuffer);
+							ulltoa(responseBuffer[0] == 'r' ? currentLineNumber : gcode.valueN, numberBuffer);
 							memmove(&responseBuffer[endOfResponse + 1 + strlen(numberBuffer)], &responseBuffer[endOfResponse], strlen(responseBuffer) - 1);
 							responseBuffer[endOfResponse] = ' ';
 							memcpy(&responseBuffer[endOfResponse + 1], numberBuffer, strlen(numberBuffer));
