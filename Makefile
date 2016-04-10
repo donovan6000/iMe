@@ -37,7 +37,8 @@ CPPSRCS = accelerometer.cpp \
 	heater.cpp \
 	led.cpp \
 	main.cpp \
-	motors.cpp
+	motors.cpp \
+	vector.cpp
 
 # Include paths
 INCPATH = . \

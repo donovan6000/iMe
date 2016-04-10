@@ -22,6 +22,9 @@ enum STEPS {STEP8 = 8, STEP16 = 16, STEP32 = 32};
 // Axes
 enum AXES {X, Y, Z, E, F};
 
+// Backlash direction
+enum BACKLASH_DIRECTION {NONE, POSITIVE, NEGATIVE};
+
 
 // Motors class
 class Motors {
@@ -76,7 +79,10 @@ class Motors {
 		void moveToHeight(float height);
 		
 		// Compensate for backlash
-		void compensateForBacklash(float backlashX, float backlashY);
+		void compensateForBacklash(BACKLASH_DIRECTION backlashDirectionX, BACKLASH_DIRECTION backlashDirectionY);
+		
+		// Compensate for bed leveling
+		void compensateForBedLeveling(float startValues[]);
 	
 		// Move to Z0
 		void moveToZ0();
