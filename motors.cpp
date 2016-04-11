@@ -620,11 +620,14 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 	// Check if not a compensation command
 	if(!compensationCommand) {
 	
-		// Check if Z is valid
-		if((validZ = nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET)))
+		// Check if Z motor will move
+		if(totalSteps[Z])
+		
+			// Check if Z is valid
+			if((validZ = nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET)))
 
-			// Save that Z is invalid
-			nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, INVALID);
+				// Save that Z is invalid
+				nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, INVALID);
 	
 		// Clear Emergency stop occured
 		emergencyStopOccured = false;
@@ -808,32 +811,30 @@ void Motors::compensateForBacklash(BACKLASH_DIRECTION backlashDirectionX, BACKLA
 	float savedY = currentValues[Y];
 	float savedF = currentValues[F];
 	
+	// Initialize G-code
+	Gcode gcode;
+	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
+	
 	// Set backlash X
-	float backlashX = 0;
+	gcode.valueX = 0;
 	if(backlashDirectionX != NONE) {
-		nvm_eeprom_read_buffer(EEPROM_BACKLASH_X_OFFSET, &backlashX, EEPROM_BACKLASH_X_LENGTH);
+		nvm_eeprom_read_buffer(EEPROM_BACKLASH_X_OFFSET, &gcode.valueX, EEPROM_BACKLASH_X_LENGTH);
 		if(backlashDirectionX == NEGATIVE)
-			backlashX *= -1;
+			gcode.valueX *= -1;
 	}
 	
 	// Set backlash Y
-	float backlashY = 0;
+	gcode.valueY = 0;
 	if(backlashDirectionY != NONE) {
-		nvm_eeprom_read_buffer(EEPROM_BACKLASH_Y_OFFSET, &backlashY, EEPROM_BACKLASH_Y_LENGTH);
+		nvm_eeprom_read_buffer(EEPROM_BACKLASH_Y_OFFSET, &gcode.valueY, EEPROM_BACKLASH_Y_LENGTH);
 		if(backlashDirectionY == NEGATIVE)
-			backlashY *= -1;
+			gcode.valueY *= -1;
 	}
 	
 	// Set backlash speed
-	float backlashSpeed;
-	nvm_eeprom_read_buffer(EEPROM_BACKLASH_SPEED_OFFSET, &backlashSpeed, EEPROM_BACKLASH_SPEED_LENGTH);
+	nvm_eeprom_read_buffer(EEPROM_BACKLASH_SPEED_OFFSET, &gcode.valueF, EEPROM_BACKLASH_SPEED_LENGTH);
 	
 	// Move by backlash amount
-	Gcode gcode;
-	gcode.valueX = backlashX;
-	gcode.valueY = backlashY;
-	gcode.valueF = backlashSpeed;
-	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
 	move(gcode, true);
 	
 	// Restore X, Y, and F values
@@ -888,9 +889,8 @@ void Motors::compensateForBedLeveling(float startValues[]) {
 	float bedHeightOffset;
 	nvm_eeprom_read_buffer(EEPROM_BED_HEIGHT_OFFSET_OFFSET, &bedHeightOffset, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
 	
-	// Adjust values for additional real height
-	currentValues[Z] += getHeightAdjustmentRequired(startValues[X], startValues[Y]);
-	startValues[Z] += bedHeightOffset;
+	// Adjust current Z value for current real height
+	currentValues[Z] += bedHeightOffset + getHeightAdjustmentRequired(startValues[X], startValues[Y]);
 
 	// Get delta values
 	float deltas[NUMBER_OF_MOTORS];
@@ -914,10 +914,10 @@ void Motors::compensateForBedLeveling(float startValues[]) {
 		for(uint8_t j = 0; j < NUMBER_OF_MOTORS; j++)
 			segmentValues[j] = i != numberOfSegments ? startValues[j] + i * SEGMENT_LENGTH * deltas[j] : savedValues[j];
 		
-		// Move to end of current segment
+		// Move to end of current segment and adjust Z for the bed height offset and bed leveling
 		gcode.valueX = segmentValues[X];
 		gcode.valueY = segmentValues[Y];
-		gcode.valueZ = segmentValues[Z] + getHeightAdjustmentRequired(segmentValues[X], segmentValues[Y]);
+		gcode.valueZ = segmentValues[Z] + bedHeightOffset + getHeightAdjustmentRequired(segmentValues[X], segmentValues[Y]);
 		gcode.valueE = segmentValues[E];
 		move(gcode, true);
 	}
@@ -949,13 +949,12 @@ void Motors::homeXY() {
 		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
 		move(gcode);
 	
-		// Check if emergenct stop hasn't occured
+		// Check if emergency stop hasn't occured
 		if(!emergencyStopOccured) {
 	
 			// Move to center
 			gcode.valueX = -54;
 			gcode.valueY = -50;
-			gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET;
 			move(gcode);
 		
 			// Set current X and Y

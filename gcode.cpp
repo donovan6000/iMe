@@ -343,6 +343,6 @@ const char *Gcode::getHostCommand() const {
 
 bool Gcode::hasValidChecksum() const {
 
-	// Return valid checksum
+	// Return if checksum is valid
 	return commandParameters & CHECKSUM_OFFSET;
 }
