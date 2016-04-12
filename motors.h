@@ -17,9 +17,6 @@
 // Modes
 enum MODES {RELATIVE, ABSOLUTE};
 
-// Steps
-enum STEPS {STEP8 = 8, STEP16 = 16, STEP32 = 32};
-
 // Axes
 enum AXES {X, Y, Z, E, F};
 
@@ -35,9 +32,6 @@ class Motors {
 	
 		// Initialize
 		void initialize();
-		
-		// Set micro steps per step
-		void setMicroStepsPerStep(STEPS step);
 		
 		// Turn on
 		void turnOn();
@@ -86,9 +80,6 @@ class Motors {
 	
 		// Move to Z0
 		void moveToZ0();
-		
-		// Steps
-		STEPS step;
 		
 		// Emergency stop occured
 		bool emergencyStopOccured = false;

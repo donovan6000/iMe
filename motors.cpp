@@ -4,8 +4,6 @@ extern "C" {
 	#include <asf.h>
 }
 #include <math.h>
-#include <string.h>
-#include "common.h"
 #include "motors.h"
 #include "eeprom.h"
 #include "heater.h"
@@ -16,6 +14,7 @@ extern "C" {
 #define NUMBER_OF_MOTORS 4
 //#define LEGACY_HOMING
 #define SEGMENT_LENGTH 2
+#define MICROSTEPS_PER_STEP 32
 
 // Motors settings
 #define MOTORS_ENABLE_PIN IOPORT_CREATE_PIN(PORTB, 3)
@@ -287,8 +286,27 @@ void Motors::initialize() {
 	// Turn motors off
 	turnOff();
 	
-	// Set micro steps per step
-	setMicroStepsPerStep(STEP32);
+	// Set 8 microsteps per step
+	#if MICROSTEPS_PER_STEP == 8 
+	
+		// Configure motor's step control
+		ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_OUTPUT);
+		ioport_set_pin_level(MOTORS_STEP_CONTROL_PIN, IOPORT_PIN_LEVEL_LOW);
+	
+	// Otherwise set 16 microsteps per step
+	#elif MICROSTEPS_PER_STEP == 16
+	
+		// Configure motor's step control
+		ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_OUTPUT);
+		ioport_set_pin_level(MOTORS_STEP_CONTROL_PIN, IOPORT_PIN_LEVEL_HIGH);
+	
+	// Otherwise set 32 microsteps per step
+	#else
+	
+		// Configure motor's step control
+		ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_INPUT);
+		ioport_set_pin_mode(MOTORS_STEP_CONTROL_PIN, IOPORT_MODE_TOTEM);
+	#endif
 	
 	// Configure motor X Vref, direction, and step
 	ioport_set_pin_dir(MOTOR_X_VREF_PIN, IOPORT_DIR_OUTPUT);
@@ -397,6 +415,9 @@ void Motors::initialize() {
 	adcch_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
 	adcch_set_input(&currentSenseAdcChannel, MOTOR_E_CURRENT_SENSE_ADC_PIN, ADCCH_NEG_NONE, 1);
 	
+	// Enable ADC controller
+	adc_enable(&MOTOR_E_CURRENT_SENSE_ADC);
+	
 	// Initialize accelerometer
 	accelerometer.initialize();
 	
@@ -422,39 +443,6 @@ void Motors::initialize() {
 	centerVector.z = 0;
 }
 
-void Motors::setMicroStepsPerStep(STEPS step) {
-
-	// Set steps
-	this->step = step;
-
-	// Check specified micro steps per step
-	switch(step) {
-	
-		// 8 micro steps per step
-		case STEP8:
-		
-			// Configure motor's step control
-			ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_OUTPUT);
-			ioport_set_pin_level(MOTORS_STEP_CONTROL_PIN, IOPORT_PIN_LEVEL_LOW);
-		break;
-		
-		// 16 micro steps per step
-		case STEP16:
-		
-			// Configure motor's step control
-			ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_OUTPUT);
-			ioport_set_pin_level(MOTORS_STEP_CONTROL_PIN, IOPORT_PIN_LEVEL_HIGH);
-		break;
-		
-		// 32 micro steps per step
-		default:
-		
-			// Configure motor's step control
-			ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_INPUT);
-			ioport_set_pin_mode(MOTORS_STEP_CONTROL_PIN, IOPORT_MODE_TOTEM);
-	}
-}
-
 void Motors::turnOn() {
 
 	// Turn on motors
@@ -478,8 +466,8 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 	// Initialize variables
 	bool runCommand = true;
 	bool validZ = false;
-	float slowestTime = 0;
-	float totalSteps[NUMBER_OF_MOTORS] = {};
+	uint32_t slowestTime = 0;
+	bool motorMoves[NUMBER_OF_MOTORS] = {};
 	BACKLASH_DIRECTION backlashDirectionX = NONE, backlashDirectionY = NONE;
 	
 	// Get start values
@@ -598,8 +586,8 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 						minFeedRate = MOTOR_E_MIN_FEEDRATE;
 				}
 				
-				// Set total steps
-				totalSteps[i] = distanceTraveled * stepsPerMm * step;
+				// Set motor moves and number of steps
+				motorMoves[i] = (motorsNumberOfSteps[i] = round(distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP));
 				
 				// Set motor feedrate
 				float motorFeedRate = min(currentValues[F], speedLimit);
@@ -609,7 +597,7 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 				motorFeedRate = max(motorFeedRate, minFeedRate);
 		
 				// Set motor total time
-				float motorTotalTime = distanceTraveled / motorFeedRate * 60 * sysclk_get_cpu_hz() / MOTORS_STEP_TIMER_PERIOD;
+				uint32_t motorTotalTime = round(distanceTraveled / motorFeedRate * 60 * sysclk_get_cpu_hz() / MOTORS_STEP_TIMER_PERIOD);
 		
 				// Set slowest time
 				slowestTime = max(motorTotalTime, slowestTime);
@@ -621,7 +609,7 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 	if(!compensationCommand) {
 	
 		// Check if Z motor will move
-		if(totalSteps[Z])
+		if(motorMoves[Z])
 		
 			// Check if Z is valid
 			if((validZ = nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET)))
@@ -645,7 +633,7 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 		if(backlashDirectionX != NONE || backlashDirectionY != NONE)
 			compensateForBacklash(backlashDirectionX, backlashDirectionY);
 		
-		// Run command if it's not applicable for bed leveling
+		// Set run command if it's not applicable for bed leveling
 		runCommand = false;
 		for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
 			if(isnan(startValues[i]))
@@ -667,17 +655,14 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 		for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
 	
 			// Check if motor moves
-			if(totalSteps[i]) {
-		
-				// Set motor number of steps
-				motorsNumberOfSteps[i] = round(totalSteps[i]);
+			if(motorMoves[i]) {
 		
 				// Set motor step delay
 				motorsStepDelayCounter[i] = 0;
-				motorsStepDelay[i] = round(slowestTime / totalSteps[i]);
+				motorsStepDelay[i] = round(static_cast<float>(slowestTime) / motorsNumberOfSteps[i]);
 		
 				// Set motor total rounded time
-				motorsTotalRoundedTime[i] = motorsNumberOfSteps[i] * (motorsStepDelay[i] ? motorsStepDelay[i] : 1);
+				motorsTotalRoundedTime[i] = motorsNumberOfSteps[i] * motorsStepDelay[i];
 		
 				// Set slowest rounded time
 				slowestRoundedTime = max(slowestRoundedTime, motorsTotalRoundedTime[i]);
@@ -719,7 +704,7 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 		// Wait until all motors step interrupts have stopped
 		while(MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm)) {
 	
-			// Check if E motor is moving
+			/*// Check if E motor is moving
 			if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm) {
 		
 				// Pause update temperature timer
@@ -729,7 +714,6 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 				uint32_t value = 0;
 				adc_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &currentSenseAdcController);
 				adcch_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
-				adc_enable(&MOTOR_E_CURRENT_SENSE_ADC);
 				for(uint8_t i = 0; i < 100; i++) {
 					adc_start_conversion(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 					adc_wait_for_interrupt_flag(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
@@ -748,7 +732,7 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 			
 				// Adjust motor E Vref to maintain a constant motor current
 				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round((MOTOR_E_VREF_VOLTAGE_ACTIVE + idealVoltage - actualVoltage) / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-			}
+			}*/
 		}
 	
 		// Stop motors step timer
@@ -765,7 +749,7 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	
 		// Check if Z motor moved
-		if(totalSteps[Z]) {
+		if(motorMoves[Z]) {
 
 			// Save current Z
 			nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
@@ -792,7 +776,7 @@ void Motors::moveToHeight(float height) {
 	gcode.valueZ = height;
 	gcode.valueF = 90;
 	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_F_OFFSET;
-	move(gcode);
+	move(gcode, true);
 	
 	// Restore mode
 	mode = savedMode;
@@ -816,7 +800,6 @@ void Motors::compensateForBacklash(BACKLASH_DIRECTION backlashDirectionX, BACKLA
 	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
 	
 	// Set backlash X
-	gcode.valueX = 0;
 	if(backlashDirectionX != NONE) {
 		nvm_eeprom_read_buffer(EEPROM_BACKLASH_X_OFFSET, &gcode.valueX, EEPROM_BACKLASH_X_LENGTH);
 		if(backlashDirectionX == NEGATIVE)
@@ -824,7 +807,6 @@ void Motors::compensateForBacklash(BACKLASH_DIRECTION backlashDirectionX, BACKLA
 	}
 	
 	// Set backlash Y
-	gcode.valueY = 0;
 	if(backlashDirectionY != NONE) {
 		nvm_eeprom_read_buffer(EEPROM_BACKLASH_Y_OFFSET, &gcode.valueY, EEPROM_BACKLASH_Y_LENGTH);
 		if(backlashDirectionY == NEGATIVE)
@@ -890,7 +872,7 @@ void Motors::compensateForBedLeveling(float startValues[]) {
 	nvm_eeprom_read_buffer(EEPROM_BED_HEIGHT_OFFSET_OFFSET, &bedHeightOffset, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
 	
 	// Adjust current Z value for current real height
-	currentValues[Z] += bedHeightOffset + getHeightAdjustmentRequired(startValues[X], startValues[Y]);
+	currentValues[Z] += bedHeightOffset + getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
 
 	// Get delta values
 	float deltas[NUMBER_OF_MOTORS];
@@ -941,13 +923,16 @@ void Motors::homeXY() {
 		// Set mode to relative
 		mode = RELATIVE;
 		
+		// Clear Emergency stop occured
+		emergencyStopOccured = false;
+		
 		// Move to corner
 		Gcode gcode;
 		gcode.valueX = 112;
 		gcode.valueY = 111;
 		gcode.valueF = 3000;
 		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
-		move(gcode);
+		move(gcode, true);
 	
 		// Check if emergency stop hasn't occured
 		if(!emergencyStopOccured) {
@@ -955,7 +940,7 @@ void Motors::homeXY() {
 			// Move to center
 			gcode.valueX = -54;
 			gcode.valueY = -50;
-			move(gcode);
+			move(gcode, true);
 		
 			// Set current X and Y
 			currentValues[X] = 54;
@@ -983,7 +968,7 @@ void Motors::homeXY() {
 			int16_t *accelerometerValue;
 			void (*setMotorStepInterruptLevel)(volatile void *tc, TC_INT_LEVEL_t level);
 			if(i) {
-				motorsNumberOfSteps[i] = 111 * MOTOR_Y_STEPS_PER_MM * step;
+				motorsNumberOfSteps[i] = 111 * MOTOR_Y_STEPS_PER_MM * MICROSTEPS_PER_STEP;
 				ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
 				setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
 				accelerometerValue = &accelerometer.yValue;
@@ -992,7 +977,7 @@ void Motors::homeXY() {
 				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 			}
 			else {
-				motorsNumberOfSteps[i] = 112 * MOTOR_X_STEPS_PER_MM * step;
+				motorsNumberOfSteps[i] = 112 * MOTOR_X_STEPS_PER_MM * MICROSTEPS_PER_STEP;
 				ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
 				setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
 				accelerometerValue = &accelerometer.xValue;
@@ -1061,7 +1046,7 @@ void Motors::homeXY() {
 			gcode.valueY = -50;
 			gcode.valueF = 3000;
 			gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
-			move(gcode);
+			move(gcode, true);
 	
 			// Restore mode
 			mode = savedMode;
@@ -1157,7 +1142,7 @@ void Motors::moveToZ0() {
 		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
 		
 		// Set current Z
-		currentValues[Z] -= (static_cast<float>(UINT32_MAX) - motorsNumberOfSteps[Z]) / (MOTOR_Z_STEPS_PER_MM * step);
+		currentValues[Z] -= (static_cast<float>(UINT32_MAX) - motorsNumberOfSteps[Z]) / (MOTOR_Z_STEPS_PER_MM * MICROSTEPS_PER_STEP);
 		
 		/*char responseBuffer[255];
 		char numberBuffer[sizeof("18446744073709551615")];
@@ -1220,7 +1205,7 @@ void Motors::calibrateBedCenterZ0() {
 	if(!emergencyStopOccured) {
 
 		// Home XY
-		//homeXY();
+		homeXY();
 	
 		// Check if emergency stop hasn't occured
 		if(!emergencyStopOccured) {

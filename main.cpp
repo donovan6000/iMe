@@ -251,7 +251,7 @@ int main() {
 										if(!temperature || (temperature >= MIN_TEMPERATURE && temperature <= MAX_TEMPERATURE)) {
 										
 											// Set temperature
-											heater.setTemperature(temperature, temperature && gcode.valueM == 109);
+											//heater.setTemperature(temperature, temperature && gcode.valueM == 109);
 									
 											// Set response to confirmation
 											strcpy(responseBuffer, "ok");
@@ -268,9 +268,9 @@ int main() {
 									case 105:
 						
 										// Set response to temperature
-										strcpy(responseBuffer, "ok\nT:");
-										ftoa(heater.getTemperature(), numberBuffer);
-										strcat(responseBuffer, numberBuffer);
+										strcpy(responseBuffer, "ok\nT:0");
+										//ftoa(heater.getTemperature(), numberBuffer);
+										//strcat(responseBuffer, numberBuffer);
 									break;
 									
 									// M106 or M107
