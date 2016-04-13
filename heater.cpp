@@ -10,6 +10,7 @@ extern "C" {
 
 
 // Definitions
+#define UPDATE_TEMPERATURE_INTERVAL 0.5
 
 // Heater Pins
 #define HEATER_MODE_SELECT_PIN IOPORT_CREATE_PIN(PORTE, 2)
@@ -31,7 +32,7 @@ extern "C" {
 
 
 // Global variables
-uint8_t temperatureCounter = 0;
+uint8_t temperatureIntervalCounter = 0;
 float idealTemperature = 0;
 float actualTemperature = 0;
 adc_config heaterReadAdcController;
@@ -66,12 +67,12 @@ void Heater::initialize() {
 	// Configure update temperature timer
 	tc_enable(&TEMPERATURE_TIMER);
 	tc_set_wgm(&TEMPERATURE_TIMER, TC_WG_NORMAL);
-	tc_write_period(&TEMPERATURE_TIMER, sysclk_get_cpu_hz() / 1024 / 3);
-	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_HI);
+	tc_write_period(&TEMPERATURE_TIMER, sysclk_get_cpu_hz() / 1024 * UPDATE_TEMPERATURE_INTERVAL);
+	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
 	tc_set_overflow_interrupt_callback(&TEMPERATURE_TIMER, []() -> void {
 	
-		// Increment temperature counter
-		temperatureCounter++;
+		// Increment temperature interval counter
+		temperatureIntervalCounter++;
 	
 		// Check if setting the temperature
 		if(idealTemperature) {
@@ -139,12 +140,10 @@ void Heater::setTemperature(uint16_t value, bool wait) {
 		// Wait until temperature has been reached
 		while(wait && ioport_get_pin_level(HEATER_MODE_SELECT_PIN) == lowerNewValue ? HEATER_OFF : HEATER_ON) {
 		
-			// Delay one second in short intervals
-			for(temperatureCounter = 0; temperatureCounter < sysclk_get_cpu_hz() / 1024;)
-				
-				// Break if an emergency stop occured
-				if(emergencyStopOccured)
-					break;
+			// Delay one second
+			tc_restart(&TEMPERATURE_TIMER);
+			for(temperatureIntervalCounter = 0; temperatureIntervalCounter < 1 / UPDATE_TEMPERATURE_INTERVAL && !emergencyStopOccured;)
+				delay_us(1);
 			
 			// Break if an emergency stop occured
 			if(emergencyStopOccured)

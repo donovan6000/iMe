@@ -4,8 +4,6 @@ extern "C" {
 	#include <asf.h>
 }
 #include <math.h>
-#include <string.h>
-#include "common.h"
 #include "motors.h"
 #include "eeprom.h"
 #include "heater.h"
@@ -66,7 +64,7 @@ extern "C" {
 #define MOTOR_E_CURRENT_SENSE_ADC_PIN ADCCH_POS_PIN7
 #define MOTOR_E_VREF_CHANNEL TC_CCA
 #define MOTOR_E_VREF_VOLTAGE_IDLE 0.149765258
-#define MOTOR_E_VREF_VOLTAGE_ACTIVE 0.247887324
+#define MOTOR_E_VREF_VOLTAGE_ACTIVE 0.149765258
 #define MOTOR_E_STEPS_PER_MM 128.451375
 #define MOTOR_E_MAX_FEEDRATE_EXTRUSION 600
 #define MOTOR_E_MAX_FEEDRATE_RETRACTION 720
@@ -722,24 +720,28 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 				uint32_t value = 0;
 				adc_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &currentSenseAdcController);
 				adcch_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
-				for(uint8_t i = 0; i < 100; i++) {
+				for(uint8_t i = 0; MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm && i < 100; i++) {
 					adc_start_conversion(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 					adc_wait_for_interrupt_flag(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 					value += adc_get_result(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 				}
-			
+				
 				// Resume update temperature timer
 				tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
+				
+				// Check if motor E is still moving
+				if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm) {
 			
-				// Set average actual motor E voltage
-				value /= 100;
-				float actualVoltage = ADC_VREF / (pow(2, 12) - 1) * value;
+					// Set average actual motor E voltage
+					value /= 100;
+					float actualVoltage = ADC_VREF / (pow(2, 12) - 1) * value;
 			
-				// Get ideal motor E voltage
-				float idealVoltage = static_cast<float>(tc_read_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL)) / MOTORS_VREF_TIMER_PERIOD * MICROCONTROLLER_VOLTAGE;
-			
-				// Adjust motor E Vref to maintain a constant motor current
-				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round((MOTOR_E_VREF_VOLTAGE_ACTIVE + idealVoltage - actualVoltage) / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+					// Get ideal motor E voltage
+					float idealVoltage = static_cast<float>(tc_read_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL)) / MOTORS_VREF_TIMER_PERIOD * MICROCONTROLLER_VOLTAGE;
+					
+					// Adjust motor E Vref to maintain a constant motor current
+					tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round((MOTOR_E_VREF_VOLTAGE_ACTIVE + idealVoltage - actualVoltage) / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+				}
 			}
 		}
 	
@@ -1119,14 +1121,6 @@ void Motors::moveToZ0() {
 				}
 				else
 					counterZ = 0;
-				
-				/*char responseBuffer[255];
-				char numberBuffer[sizeof("18446744073709551615")];
-				strcpy(responseBuffer, "Z:");
-				lltoa(accelerometer.zValue, numberBuffer);
-				strcat(responseBuffer, numberBuffer);
-				strcat(responseBuffer, "\r\n");
-				udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));*/
 			}
 		
 			// Save accelerometer values
@@ -1138,14 +1132,6 @@ void Motors::moveToZ0() {
 		
 		// Set current Z
 		currentValues[Z] -= (static_cast<float>(UINT32_MAX) - motorsNumberOfSteps[Z]) / (MOTOR_Z_STEPS_PER_MM * MICROSTEPS_PER_STEP);
-		
-		/*char responseBuffer[255];
-		char numberBuffer[sizeof("18446744073709551615")];
-		strcpy(responseBuffer, "Z:");
-		ftoa(fabs(lastZ0 - currentValues[Z]), numberBuffer);
-		strcat(responseBuffer, numberBuffer);
-		strcat(responseBuffer, "\r\n");
-		udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));*/
 		
 		// Check if emergency stop has occured
 		if(emergencyStopOccured)
