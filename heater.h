@@ -26,6 +26,9 @@ class Heater {
 		
 		// Emergency stop
 		void emergencyStop();
+		
+		// Emergency stop occured
+		bool emergencyStopOccured;
 };
 
 

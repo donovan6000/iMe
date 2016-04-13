@@ -4,6 +4,8 @@ extern "C" {
 	#include <asf.h>
 }
 #include <math.h>
+#include <string.h>
+#include "common.h"
 #include "motors.h"
 #include "eeprom.h"
 #include "heater.h"
@@ -280,6 +282,9 @@ void Motors::initialize() {
 	// Set current Z
 	nvm_eeprom_read_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
 	
+	// Set bed height offset
+	nvm_eeprom_read_buffer(EEPROM_BED_HEIGHT_OFFSET_OFFSET, &bedHeightOffset, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
+	
 	// Configure motors enable
 	ioport_set_pin_dir(MOTORS_ENABLE_PIN, IOPORT_DIR_OUTPUT);
 	
@@ -441,6 +446,9 @@ void Motors::initialize() {
 	centerVector.x = 54;
 	centerVector.y = 50;
 	centerVector.z = 0;
+	
+	// Clear Emergency stop occured
+	emergencyStopOccured = false;
 }
 
 void Motors::turnOn() {
@@ -467,7 +475,7 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 	bool runCommand = true;
 	bool validZ = false;
 	uint32_t slowestTime = 0;
-	bool motorMoves[NUMBER_OF_MOTORS] = {};
+	uint32_t motorMoves[NUMBER_OF_MOTORS] = {};
 	BACKLASH_DIRECTION backlashDirectionX = NONE, backlashDirectionY = NONE;
 	
 	// Get start values
@@ -478,7 +486,7 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 	// Go through all motors
 	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
 	
-		// Set has parameter and get parameter function
+		// Get parameter offset and parameter
 		uint16_t parameterOffset;
 		const float *parameter;
 		switch(i) {
@@ -586,8 +594,8 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 						minFeedRate = MOTOR_E_MIN_FEEDRATE;
 				}
 				
-				// Set motor moves and number of steps
-				motorMoves[i] = (motorsNumberOfSteps[i] = round(distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP));
+				// Set motor moves
+				motorMoves[i] = round(distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP);
 				
 				// Set motor feedrate
 				float motorFeedRate = min(currentValues[F], speedLimit);
@@ -616,15 +624,12 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 
 				// Save that Z is invalid
 				nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, INVALID);
-	
-		// Clear Emergency stop occured
-		emergencyStopOccured = false;
 		
 		// Set motors Vref to active
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));				
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));			
 		
 		// Turn on motors
 		turnOn();
@@ -656,6 +661,9 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 	
 			// Check if motor moves
 			if(motorMoves[i]) {
+			
+				// Set motor number of steps
+				motorsNumberOfSteps[i] = motorMoves[i];
 		
 				// Set motor step delay
 				motorsStepDelayCounter[i] = 0;
@@ -701,10 +709,10 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 		tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
 		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
 	
-		// Wait until all motors step interrupts have stopped
-		while(MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm)) {
+		// Wait until all motors step interrupts have stopped or an emergency stop occurs
+		while(MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm) && !emergencyStopOccured) {
 	
-			/*// Check if E motor is moving
+			// Check if E motor is moving
 			if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm) {
 		
 				// Pause update temperature timer
@@ -732,11 +740,14 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 			
 				// Adjust motor E Vref to maintain a constant motor current
 				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round((MOTOR_E_VREF_VOLTAGE_ACTIVE + idealVoltage - actualVoltage) / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-			}*/
+			}
 		}
 	
 		// Stop motors step timer
 		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
+		
+		// Set motor E Vref back to default
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	}
 	
 	// Check if not a compensation command
@@ -867,12 +878,11 @@ void Motors::compensateForBedLeveling(float startValues[]) {
 	rightPlane = generatePlaneEquation(backRightVector, frontRightVector, centerVector);
 	frontPlane = generatePlaneEquation(frontLeftVector, frontRightVector, centerVector);
 	
-	// Get bed height offset
-	float bedHeightOffset;
-	nvm_eeprom_read_buffer(EEPROM_BED_HEIGHT_OFFSET_OFFSET, &bedHeightOffset, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
-	
 	// Adjust current Z value for current real height
 	currentValues[Z] += bedHeightOffset + getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+	
+	// Update bed height offset
+	nvm_eeprom_read_buffer(EEPROM_BED_HEIGHT_OFFSET_OFFSET, &bedHeightOffset, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
 
 	// Get delta values
 	float deltas[NUMBER_OF_MOTORS];
@@ -923,9 +933,6 @@ void Motors::homeXY() {
 		// Set mode to relative
 		mode = RELATIVE;
 		
-		// Clear Emergency stop occured
-		emergencyStopOccured = false;
-		
 		// Move to corner
 		Gcode gcode;
 		gcode.valueX = 112;
@@ -953,14 +960,11 @@ void Motors::homeXY() {
 	// Otherwise
 	#else
 	
-		// Clear Emergency stop occured
-		emergencyStopOccured = false;
-	
 		// Turn on motors
 		turnOn();
 		
 		// Go through X and Y motors
-		for(int8_t i = 1; i >= 0; i--) {
+		for(int8_t i = 1; i >= 0 && !emergencyStopOccured; i--) {
 		
 			// Set up motors to move all the way to the back as a fallback
 			motorsDelaySkips[i] = 0;
@@ -993,10 +997,10 @@ void Motors::homeXY() {
 			tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
 			tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
 
-			// Wait until all motors step interrupts have stopped
+			// Wait until all motors step interrupts have stopped or an emergency stop occurs
 			int16_t lastValue;
 			uint8_t counter = 0;
-			for(bool firstRun = true; MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm); firstRun = false) {
+			for(bool firstRun = true; MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm) && !emergencyStopOccured; firstRun = false) {
 	
 				// Get accelerometer values
 				accelerometer.readAccelerationValues();
@@ -1021,14 +1025,8 @@ void Motors::homeXY() {
 			tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
 			
 			// Set motors Vref to idle
-			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-			
-			// Check if emergency stop occured
-			if(emergencyStopOccured)
-			
-				// Break
-				break;
+			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		}
 		
 		// Check if emergency stop hasn't occured
@@ -1086,7 +1084,7 @@ void Motors::moveToZ0() {
 	float lastZ0 = NAN;
 	float heighest = currentValues[Z] + 2;
 	uint8_t matchCounter = 0;
-	while(true) {
+	while(!emergencyStopOccured) {
 	
 		// Set up motors to move down
 		motorsDelaySkips[Z] = 0;
@@ -1098,18 +1096,15 @@ void Motors::moveToZ0() {
 		
 		// Set motor Z Vref to active
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-
-		// Clear Emergency stop occured
-		emergencyStopOccured = false;
 	
 		// Start motors step timer
 		tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
 		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
 	
-		// Wait until all motors step interrupts have stopped
+		// TODO Wait until all motors step interrupts have stopped or an emergency stop occurs
 		int16_t lastZ;
 		uint8_t counterZ = 0;
-		for(bool firstRun = true; MOTORS_STEP_TIMER.INTCTRLB & TC0_CCCINTLVL_gm; firstRun = false) {
+		for(bool firstRun = true; MOTORS_STEP_TIMER.INTCTRLB & TC0_CCCINTLVL_gm && !emergencyStopOccured; firstRun = false) {
 		
 			// Get accelerometer values
 			accelerometer.readAccelerationValues();
@@ -1175,12 +1170,6 @@ void Motors::moveToZ0() {
 		// Move slightly up
 		heighest = min(heighest, currentValues[Z] + 2);
 		moveToHeight(heighest);
-		
-		// Check if emergency stop has occured
-		if(emergencyStopOccured)
-		
-			// Break
-			break;
 	}
 	
 	// Set motor Z Vref to idle
@@ -1189,8 +1178,8 @@ void Motors::moveToZ0() {
 	// Save current Z
 	nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
 
-	// Check if an emergency stop didn't happen and Z was previously valid
-	if(!emergencyStopOccured && validZ)
+	// Check if Z was previously valid and an emergency stop didn't happen
+	if(validZ && !emergencyStopOccured)
 	
 		// Save that Z is valid
 		nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, VALID);
@@ -1240,13 +1229,7 @@ void Motors::calibrateBedOrientation() {
 	mode = ABSOLUTE;
 	
 	// Go through all corners
-	for(uint8_t i = 0; i < 4; i++) {
-		
-		// Check if emergency stop has occured
-		if(emergencyStopOccured)
-		
-			// Break
-			break;
+	for(uint8_t i = 0; i < 4 && !emergencyStopOccured; i++) {
 
 		// Move to  corner
 		Gcode gcode;
@@ -1254,7 +1237,7 @@ void Motors::calibrateBedOrientation() {
 		gcode.valueY = positionsY[i];
 		gcode.valueF = 3000;
 		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
-		move(gcode);
+		move(gcode, true);
 		
 		// Check if emergency stop has occured
 		if(emergencyStopOccured)
@@ -1314,6 +1297,6 @@ void Motors::emergencyStop() {
 	// Disable all motor step interrupts
 	MOTORS_STEP_TIMER.INTCTRLB &= ~(TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm);
 	
-	//  Set Emergency stop occured
+	// Set emergency stop occured
 	emergencyStopOccured = true;
 }

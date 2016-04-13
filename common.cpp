@@ -5,10 +5,6 @@
 #include "common.h"
 
 
-// Definitions
-#define NUMBER_OF_DECIMAL_PLACES 4
-
-
 // Supporting function implementation
 void ulltoa(uint64_t value, char *buffer) {
 

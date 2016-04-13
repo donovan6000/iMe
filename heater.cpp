@@ -31,8 +31,10 @@ extern "C" {
 
 
 // Global variables
+uint8_t temperatureCounter = 0;
 float idealTemperature = 0;
 float actualTemperature = 0;
+adc_config heaterReadAdcController;
 adc_channel_config heaterReadAdcChannel;
 
 
@@ -51,34 +53,76 @@ void Heater::initialize() {
 	ioport_set_pin_dir(HEATER_READ_NEGATIVE_PIN, IOPORT_DIR_INPUT);
 	ioport_set_pin_mode(HEATER_READ_NEGATIVE_PIN, IOPORT_MODE_PULLDOWN);
 	
-	// Read ADC channel configuration
-	adcch_read_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
+	// Set ADC controller to use signed, 12bit, Vref refrence, manual trigger, 200kHz frequency
+	adc_read_configuration(&HEATER_READ_ADC, &heaterReadAdcController);
+	adc_set_conversion_parameters(&heaterReadAdcController, ADC_SIGN_ON, ADC_RES_12, ADC_REF_AREFA);
+	adc_set_conversion_trigger(&heaterReadAdcController, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
+	adc_set_clock_rate(&heaterReadAdcController, 200000);
 	
-	// Set heater read pins to be a differential input
+	// Set ADC channel to use heater read pins as a differential input
+	adcch_read_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
 	adcch_set_input(&heaterReadAdcChannel, HEATER_READ_POSITIVE_INPUT, HEATER_READ_NEGATIVE_INPUT, 1);
 	
 	// Configure update temperature timer
 	tc_enable(&TEMPERATURE_TIMER);
 	tc_set_wgm(&TEMPERATURE_TIMER, TC_WG_NORMAL);
-	tc_write_period(&TEMPERATURE_TIMER, sysclk_get_cpu_hz() / 1024);
-	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
+	tc_write_period(&TEMPERATURE_TIMER, sysclk_get_cpu_hz() / 1024 / 3);
+	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_HI);
 	tc_set_overflow_interrupt_callback(&TEMPERATURE_TIMER, []() -> void {
 	
-		// Turn on heater
-		ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_ON);
+		// Increment temperature counter
+		temperatureCounter++;
 	
-		// Get heater temperature
-		adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
-		adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-		adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-		int16_t value = adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+		// Check if setting the temperature
+		if(idealTemperature) {
 	
-		// Update actual temperature
-		actualTemperature = 0;
+			// Turn on heater
+			ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_ON);
+	
+			// Get heater temperature
+			adc_write_configuration(&HEATER_READ_ADC, &heaterReadAdcController);
+			adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
+			adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+			adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+			int16_t value = adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+			
+			// Get heater calibration mode
+			uint8_t heaterCalibrationMode = nvm_eeprom_read_byte(EEPROM_HEATER_CALIBRATION_MODE_OFFSET);
+			
+			// Get heater temperature measurement B
+			float heaterTemperatureMeasurementB;
+			nvm_eeprom_read_buffer(EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_OFFSET, &heaterTemperatureMeasurementB, EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_LENGTH);
+			
+			// Get heater resistance M
+			float heaterResistanceM;
+			nvm_eeprom_read_buffer(EEPROM_HEATER_RESISTANCE_M_OFFSET, &heaterResistanceM, EEPROM_HEATER_RESISTANCE_M_LENGTH);
+			
+			// Check which heater calibration mode was used
+			switch(heaterCalibrationMode) {
+			
+				default:
+				
+					// TODO Update actual temperature
+					actualTemperature = value * 0;
+			}
+			
+			// Check if temperature has been reached
+			if(actualTemperature > idealTemperature)
+			
+				// Turn heater off
+				ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
+		}
 		
-		// Turn off heater
-		ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
+		// Otherwise
+		else
+		
+			// Turn heater off
+			ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
 	});
+	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
+	
+	// Clear emergency stop occured
+	emergencyStopOccured = false;
 }
 
 void Heater::setTemperature(uint16_t value, bool wait) {
@@ -86,31 +130,38 @@ void Heater::setTemperature(uint16_t value, bool wait) {
 	// Check if heating
 	if((idealTemperature = value)) {
 	
-		// Turn on heater
-		ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_ON);
+		// Set if newer temperature is lower
+		bool lowerNewValue = value < getTemperature();
 	
-		// Start update temperature timer
-		tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
-	
-		while(wait && ioport_get_pin_level(HEATER_MODE_SELECT_PIN) == HEATER_ON) {
+		// Turn on/off heater depending on new temperature
+		ioport_set_pin_level(HEATER_MODE_SELECT_PIN, lowerNewValue ? HEATER_OFF : HEATER_ON);
 		
-			// Delay
-			delay_s(1);
+		// Wait until temperature has been reached
+		while(wait && ioport_get_pin_level(HEATER_MODE_SELECT_PIN) == lowerNewValue ? HEATER_OFF : HEATER_ON) {
 		
-			// Pause update temperature timer
-			tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_OFF_gc);
+			// Delay one second in short intervals
+			for(temperatureCounter = 0; temperatureCounter < sysclk_get_cpu_hz() / 1024;)
+				
+				// Break if an emergency stop occured
+				if(emergencyStopOccured)
+					break;
+			
+			// Break if an emergency stop occured
+			if(emergencyStopOccured)
+				break;
 		
 			// Set response to temperature
-			char buffer[sizeof("18446744073709551615") + 6];
-			ftoa(actualTemperature, buffer);
+			char buffer[sizeof("4294967296") + NUMBER_OF_DECIMAL_PLACES + 2];
+			ftoa(getTemperature(), buffer);
 			strcat(buffer, "\n");
 		
 			// Send temperature
 			udi_cdc_write_buf(buffer, strlen(buffer));
-		
-			// Resume update temperature timer
-			tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
 		}
+		
+		// Clear ideal temperature if an emergency stop occured
+		if(emergencyStopOccured)
+			idealTemperature = 0;
 	}
 	
 	// Otherwise
@@ -122,18 +173,33 @@ void Heater::setTemperature(uint16_t value, bool wait) {
 
 float Heater::getTemperature() const {
 
-	// Return actual temperature
-	return actualTemperature;
+	// Pause update temperature timer
+	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_OFF_gc);
+
+	// Get actual temperature
+	float value = actualTemperature;
+	
+	// Resume update temperature timer
+	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
+	
+	// Return value
+	return value;
 }
 
 void Heater::emergencyStop() {
 
-	// Stop update temperature timer
+	// Pause update temperature timer
 	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_OFF_gc);
 
 	// Clear ideal and actual temperature
 	idealTemperature = actualTemperature = 0;
+	
+	// Resume update temperature timer
+	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
 
 	// Turn off heater
 	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
+	
+	// Set Emergency stop occured
+	emergencyStopOccured = true;
 }

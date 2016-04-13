@@ -10,6 +10,7 @@
 // Definitions
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
+#define NUMBER_OF_DECIMAL_PLACES 4
 
 
 // Function prototypes

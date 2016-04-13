@@ -65,6 +65,9 @@ class Motors {
 		
 		// Accelerometer
 		Accelerometer accelerometer;
+		
+		// Emergency stop occured
+		bool emergencyStopOccured;
 	
 	// Private
 	private:
@@ -81,15 +84,15 @@ class Motors {
 		// Move to Z0
 		void moveToZ0();
 		
-		// Emergency stop occured
-		bool emergencyStopOccured = false;
-		
 		// Current sense ADC controller and channel
 		adc_config currentSenseAdcController;
 		adc_channel_config currentSenseAdcChannel;
 		
 		// Get height adjustment required
 		float getHeightAdjustmentRequired(float x, float y);
+		
+		// Bed height offset
+		float bedHeightOffset;
 		
 		// Vectors
 		Vector backRightVector;

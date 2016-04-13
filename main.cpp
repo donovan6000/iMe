@@ -45,11 +45,15 @@ class Request {
 		
 			// Clear size
 			size = 0;
+			
+			// Clear is emergency stop
+			isEmergencyStop = false;
 		}
 	
 	// Size and buffer
 	uint8_t size;
 	char buffer[UDI_CDC_COMM_EP_SIZE + 1];
+	bool isEmergencyStop;
 };
 
 
@@ -57,6 +61,7 @@ class Request {
 char serialNumber[USB_DEVICE_GET_SERIAL_NAME_LENGTH];
 Request requests[REQUEST_BUFFER_SIZE];
 uint16_t waitCounter;
+bool emergencyStopOccured = false;
 Fan fan;
 Heater heater;
 Led led;
@@ -91,8 +96,8 @@ int main() {
 	ioport_init();
 	
 	// Initialize variables
-	uint8_t currentProcessingRequest = 0;
 	uint64_t currentLineNumber = 0;
+	uint8_t currentProcessingRequest = 0;
 	char responseBuffer[255];
 	char numberBuffer[sizeof("18446744073709551615")];
 	Gcode gcode;
@@ -150,12 +155,36 @@ int main() {
 			
 			// Parse command
 			gcode.parseCommand(requests[currentProcessingRequest].buffer);
-		
+			
 			// Clear request buffer size
 			requests[currentProcessingRequest].size = 0;
 			
 			// Increment current processing request
+			uint8_t requestPosition = currentProcessingRequest;
 			currentProcessingRequest = currentProcessingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentProcessingRequest + 1;
+			
+			// Check if an emergency stop has occured
+			if(emergencyStopOccured) {
+			
+				// Check if request is an emergency stop
+				if(requests[requestPosition].isEmergencyStop) {
+				
+					// Clear that request is an emergency stop
+					requests[requestPosition].isEmergencyStop = false;
+					
+					// Clear peripherals emergency stop occured
+					heater.emergencyStopOccured = motors.emergencyStopOccured = false;
+				
+					// Clear emergency stop occured
+					emergencyStopOccured = false;
+				}
+				
+				// Otherwise
+				else
+				
+					// Skip command
+					continue;
+			}
 			
 			// Clear response buffer
 			*responseBuffer = 0;
@@ -251,7 +280,7 @@ int main() {
 										if(!temperature || (temperature >= MIN_TEMPERATURE && temperature <= MAX_TEMPERATURE)) {
 										
 											// Set temperature
-											//heater.setTemperature(temperature, temperature && gcode.valueM == 109);
+											heater.setTemperature(temperature, temperature && gcode.valueM == 109);
 									
 											// Set response to confirmation
 											strcpy(responseBuffer, "ok");
@@ -261,16 +290,16 @@ int main() {
 										else
 										
 											// Set response to temperature range
-											strcpy(responseBuffer, "Error: Temperature must be between " TOSTRING(MIN_TEMPERATURE) "\xF8""C and " TOSTRING(MAX_TEMPERATURE) "\xF8""C");
+											strcpy(responseBuffer, "Error: Temperature must be between " TOSTRING(MIN_TEMPERATURE) " and " TOSTRING(MAX_TEMPERATURE) " degrees Celsius");
 									break;
 									
 									// M105
 									case 105:
 						
 										// Set response to temperature
-										strcpy(responseBuffer, "ok\nT:0");
-										//ftoa(heater.getTemperature(), numberBuffer);
-										//strcat(responseBuffer, numberBuffer);
+										strcpy(responseBuffer, "ok\nT:");
+										ftoa(heater.getTemperature(), numberBuffer);
+										strcat(responseBuffer, numberBuffer);
 									break;
 									
 									// M106 or M107
@@ -280,10 +309,10 @@ int main() {
 										// Check if speed is valid
 										int32_t speed;
 										speed = gcode.valueM == 107 || !(gcode.commandParameters & PARAMETER_S_OFFSET) ? 0 : gcode.valueS;
-										if(speed >= 0 && speed <= 255) {
+										if(speed >= 0) {
 								
 											// Set fan's speed
-											fan.setSpeed(speed);
+											fan.setSpeed(min(255, speed));
 										
 											// Set response to confirmation
 											strcpy(responseBuffer, "ok");
@@ -583,8 +612,8 @@ void cdcRxNotifyCallback(uint8_t port) {
 	// Initialize variables
 	static uint8_t currentReceivingRequest = 0;
 
-	// Check if currently receiving request is empty
-	if(!requests[currentReceivingRequest].size) {
+	// Check if currently receiving request is empty and an emergency stop isn't being processed
+	if(!requests[currentReceivingRequest].size && !emergencyStopOccured) {
 	
 		// Get request
 		requests[currentReceivingRequest].size = udi_cdc_multi_get_nb_received_data(port);
@@ -598,7 +627,7 @@ void cdcRxNotifyCallback(uint8_t port) {
 			char *emergencyStopOffset = strstr(requests[currentReceivingRequest].buffer, "M0");
 			if(emergencyStopOffset && !isdigit(emergencyStopOffset[2])) {
 			
-				// Check if emergency stop isn't after the start of a host command, comment, or checksum
+				// Check if emergency stop isn't after the start of a host command, checksum, or comment
 				char *characterOffset = strpbrk(requests[currentReceivingRequest].buffer, "@*;");
 				if(!characterOffset || emergencyStopOffset < characterOffset) {
 			
@@ -607,6 +636,12 @@ void cdcRxNotifyCallback(uint8_t port) {
 					heater.emergencyStop();
 					led.setBrightness(100);
 					motors.emergencyStop();
+					
+					// Set that command is emergency stop
+					requests[currentReceivingRequest].isEmergencyStop = true;
+					
+					// Set that an emergency stop occured
+					emergencyStopOccured = true;
 				}
 			}
 			
