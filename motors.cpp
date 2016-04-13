@@ -713,8 +713,8 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 			// Check if E motor is moving
 			if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm) {
 		
-				// Pause update temperature timer
-				tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_OFF_gc);
+				// Prevent updating temperature
+				tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
 		
 				// Read actual motor E voltages
 				uint32_t value = 0;
@@ -726,8 +726,8 @@ void Motors::move(const Gcode &command, bool compensationCommand) {
 					value += adc_get_result(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 				}
 				
-				// Resume update temperature timer
-				tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
+				// Allow updating temperature
+				tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
 				
 				// Check if motor E is still moving
 				if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm) {

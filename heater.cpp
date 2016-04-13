@@ -37,6 +37,7 @@ float idealTemperature = 0;
 float actualTemperature = 0;
 adc_config heaterReadAdcController;
 adc_channel_config heaterReadAdcChannel;
+bool brightness = true;
 
 
 // Supporting function implementation
@@ -172,14 +173,14 @@ void Heater::setTemperature(uint16_t value, bool wait) {
 
 float Heater::getTemperature() const {
 
-	// Pause update temperature timer
-	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_OFF_gc);
+	// Prevent updating temperature
+	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
 
 	// Get actual temperature
 	float value = actualTemperature;
 	
-	// Resume update temperature timer
-	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
+	// Allow updating temperature
+	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
 	
 	// Return value
 	return value;
@@ -187,14 +188,14 @@ float Heater::getTemperature() const {
 
 void Heater::emergencyStop() {
 
-	// Pause update temperature timer
-	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_OFF_gc);
+	// Prevent updating temperature
+	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
 
 	// Clear ideal and actual temperature
 	idealTemperature = actualTemperature = 0;
 	
-	// Resume update temperature timer
-	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
+	// Allow updating temperature
+	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
 
 	// Turn off heater
 	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
