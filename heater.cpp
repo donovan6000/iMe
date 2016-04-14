@@ -187,14 +187,8 @@ float Heater::getTemperature() const {
 
 void Heater::emergencyStop() {
 
-	// Prevent updating temperature
-	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
-
 	// Clear ideal and actual temperature
 	idealTemperature = actualTemperature = 0;
-	
-	// Allow updating temperature
-	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
 
 	// Turn off heater
 	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);

@@ -37,19 +37,19 @@ void ftoa(float value, char *buffer);
 Name: strtoull
 Purpose: Converts a string to an unsigned long long
 */
-uint64_t strtoull(const char *nptr, char **endptr);
+uint64_t strtoull(const char *nptr, char **endptr = NULL);
 
 /*
 Name: strtoll
 Purpose: Converts a string to a long long
 */
-int64_t strtoll(const char *nptr, char **endptr);
+int64_t strtoll(const char *nptr, char **endptr = NULL);
 
 /*
 Name: strtof
 Purpose: Converts a string to a float
 */
-float strtof(const char *nptr, char **endptr);
+float strtof(const char *nptr, char **endptr = NULL);
 
 
 #endif

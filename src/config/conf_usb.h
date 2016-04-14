@@ -33,6 +33,10 @@ extern char serialNumber[];
 #endif
 
 
+// USB interrupt priority
+#define UDD_USB_INT_LEVEL USB_INTLVL_LO_gc
+
+
 // Communication ports used
 #define UDI_CDC_PORT_NB 1
 

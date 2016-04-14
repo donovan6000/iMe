@@ -3,9 +3,9 @@
 #define CONF_TWIM_H
 
 
-// Interrupt level
-#define CONF_TWIM_INTLVL TWI_MASTER_INTLVL_MED_gc
-#define CONF_PMIC_INTLVL PMIC_MEDLVLEN_bm
+// TWI interrupt priority
+#define CONF_TWIM_INTLVL TWI_MASTER_INTLVL_LO_gc
+#define CONF_PMIC_INTLVL PMIC_LOLVLEN_bm
 
 
 #endif

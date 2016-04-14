@@ -36,10 +36,9 @@ extern "C" {
 // Request structure
 struct Request {
 	
-	// Size, buffer, and is emergency stop
+	// Size and buffer
 	uint8_t size;
 	char buffer[UDI_CDC_COMM_EP_SIZE + 1];
-	bool isEmergencyStop;
 };
 
 
@@ -65,15 +64,13 @@ void cdcRxNotifyCallback(uint8_t port);
 
 // Main function
 int main() {
-
-	// Initialize interrupt controller
-	pmic_init();
-	
-	// Initialize interrupt vectors
-	irq_initialize_vectors();
 	
 	// Initialize system clock
 	sysclk_init();
+	
+	// Initialize interrupt controller
+	pmic_init();
+	pmic_set_scheduling(PMIC_SCH_ROUND_ROBIN);
 	
 	// Initialize board
 	board_init();
@@ -81,15 +78,9 @@ int main() {
 	// Initialize I/O ports
 	ioport_init();
 	
-	// Go through all requests
-	for(uint8_t i = 0; i < REQUEST_BUFFER_SIZE; i++) {
-	
-		// Clear size
+	// Initialize requests
+	for(uint8_t i = 0; i < REQUEST_BUFFER_SIZE; i++)
 		requests[i].size = 0;
-		
-		// Clear is emergency stop
-		requests[i].isEmergencyStop = false;
-	}
 	
 	// Initialize variables
 	uint64_t currentLineNumber = 0;
@@ -152,21 +143,12 @@ int main() {
 			// Parse command
 			gcode.parseCommand(requests[currentProcessingRequest].buffer);
 			
-			// Clear request buffer size
-			requests[currentProcessingRequest].size = 0;
-			
-			// Increment current processing request
-			uint8_t requestPosition = currentProcessingRequest;
-			currentProcessingRequest = currentProcessingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentProcessingRequest + 1;
-			
 			// Check if an emergency stop has occured
+			bool skipCommand = false;
 			if(emergencyStopOccured) {
 			
 				// Check if request is an emergency stop
-				if(requests[requestPosition].isEmergencyStop) {
-				
-					// Clear that request is an emergency stop
-					requests[requestPosition].isEmergencyStop = false;
+				if(!strcmp(requests[currentProcessingRequest].buffer, "M0")) {
 					
 					// Clear peripherals emergency stop occured
 					heater.emergencyStopOccured = motors.emergencyStopOccured = false;
@@ -178,9 +160,19 @@ int main() {
 				// Otherwise
 				else
 				
-					// Skip command
-					continue;
+					// Set to skip command
+					skipCommand = true;
 			}
+			
+			// Clear request buffer size
+			requests[currentProcessingRequest].size = 0;
+			
+			// Increment current processing request
+			currentProcessingRequest = currentProcessingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentProcessingRequest + 1;
+			
+			// Check if skipping command
+			if(skipCommand)
+				continue;
 			
 			// Clear response buffer
 			*responseBuffer = 0;
@@ -619,27 +611,32 @@ void cdcRxNotifyCallback(uint8_t port) {
 		// Check if request isn't empty
 		if(requests[currentReceivingRequest].size) {
 		
-			// Check if request contains an emergency stop
-			char *emergencyStopOffset = strstr(requests[currentReceivingRequest].buffer, "M0");
-			if(emergencyStopOffset && !isdigit(emergencyStopOffset[2])) {
+			// Go through all characters in the request that happen before a host command, comment, or checksum
+			for(uint8_t i = 0; i < requests[currentReceivingRequest].size && requests[currentReceivingRequest].buffer[i] != '@' && requests[currentReceivingRequest].buffer[i] != ';' && requests[currentReceivingRequest].buffer[i] != '*'; i++)
 			
-				// Check if emergency stop isn't after the start of a host command, checksum, or comment
-				char *characterOffset = strpbrk(requests[currentReceivingRequest].buffer, "@*;");
-				if(!characterOffset || emergencyStopOffset < characterOffset) {
-			
-					// Stop all peripherals
-					fan.setSpeed(0);
-					heater.emergencyStop();
-					led.setBrightness(100);
-					motors.emergencyStop();
+				// Check if at an M parameter
+				if(toupper(requests[currentReceivingRequest].buffer[i]) == 'M') {
+				
+					// Get parameter
+					char *lastParameterCharacter;
+					uint16_t parameterValue = strtoull(&requests[currentReceivingRequest].buffer[++i], &lastParameterCharacter);
 					
-					// Set that command is emergency stop
-					requests[currentReceivingRequest].isEmergencyStop = true;
-					
-					// Set that an emergency stop occured
-					emergencyStopOccured = true;
+					// Check if parameter exists and it's an emergency stop
+					if(lastParameterCharacter != &requests[currentReceivingRequest].buffer[i] && !parameterValue) {
+				
+						// Set request to contain only an emergency stop
+						strcpy(requests[currentReceivingRequest].buffer, "M0");
+		
+						// Stop all peripherals
+						fan.setSpeed(0);
+						heater.emergencyStop();
+						led.setBrightness(100);
+						motors.emergencyStop();
+				
+						// Set that an emergency stop occured
+						emergencyStopOccured = true;
+					}
 				}
-			}
 			
 			// Increment current receiving request
 			currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
