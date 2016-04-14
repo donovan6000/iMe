@@ -5,7 +5,6 @@ extern "C" {
 }
 #include <string.h>
 #include <ctype.h>
-#include <math.h>
 #include "common.h"
 #include "eeprom.h"
 #include "fan.h"
@@ -325,28 +324,24 @@ int main() {
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
 										
-										// Check if motors coordinates are valid
-										if(!isnan(motors.currentValues[X])) {
-										
-											// Append motors current X to response
-											strcat(responseBuffer, " X:");
-											ftoa(motors.currentValues[X], numberBuffer);
-											strcat(responseBuffer, numberBuffer);
-										
-											// Append motors current Y to response
-											strcat(responseBuffer, " Y:");
-											ftoa(motors.currentValues[Y], numberBuffer);
-											strcat(responseBuffer, numberBuffer);
-										
-											// Append motors current E to response
-											strcat(responseBuffer, " E:");
-											ftoa(motors.currentValues[E], numberBuffer);
-											strcat(responseBuffer, numberBuffer);
-										}
+										// Append motors current X to response
+										strcat(responseBuffer, " X:");
+										ftoa(motors.currentValues[X], numberBuffer);
+										strcat(responseBuffer, numberBuffer);
+									
+										// Append motors current Y to response
+										strcat(responseBuffer, " Y:");
+										ftoa(motors.currentValues[Y], numberBuffer);
+										strcat(responseBuffer, numberBuffer);
 										
 										// Append motors current Z to response
 										strcat(responseBuffer, " Z:");
 										ftoa(motors.currentValues[Z], numberBuffer);
+										strcat(responseBuffer, numberBuffer);
+									
+										// Append motors current E to response
+										strcat(responseBuffer, " E:");
+										ftoa(motors.currentValues[E], numberBuffer);
 										strcat(responseBuffer, numberBuffer);
 									break;
 							
@@ -371,8 +366,12 @@ int main() {
 									// M117
 									case 117:
 									
-										// Set response to valid Z
-										strcpy(responseBuffer, "ok ZV:");
+										// Set response to valid values
+										strcpy(responseBuffer, "ok XV:");
+										strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_X_STATE_OFFSET) ? "1" : "0");
+										strcat(responseBuffer, " YV:");
+										strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_Y_STATE_OFFSET) ? "1" : "0");
+										strcat(responseBuffer, " ZV:");
 										strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET) ? "1" : "0");
 									break;
 									

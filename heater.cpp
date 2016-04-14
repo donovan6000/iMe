@@ -37,7 +37,6 @@ float idealTemperature = 0;
 float actualTemperature = 0;
 adc_config heaterReadAdcController;
 adc_channel_config heaterReadAdcChannel;
-bool brightness = true;
 
 
 // Supporting function implementation

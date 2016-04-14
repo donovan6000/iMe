@@ -40,7 +40,7 @@ class Motors {
 		void turnOff();
 		
 		// Move
-		void move(const Gcode &command, bool compensationCommand = false);
+		void move(const Gcode &command, bool applyCompensation = true, bool saveChanges = true);
 		
 		// Home XY
 		void homeXY();
@@ -84,12 +84,12 @@ class Motors {
 		// Move to Z0
 		void moveToZ0();
 		
+		// Get height adjustment required
+		float getHeightAdjustmentRequired(float x, float y);
+		
 		// Current sense ADC controller and channel
 		adc_config currentSenseAdcController;
 		adc_channel_config currentSenseAdcChannel;
-		
-		// Get height adjustment required
-		float getHeightAdjustmentRequired(float x, float y);
 		
 		// Bed height offset
 		float bedHeightOffset;
