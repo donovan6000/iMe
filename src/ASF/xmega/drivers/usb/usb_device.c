@@ -4,7 +4,7 @@
  * \brief USB Device driver
  * Compliance with common driver UDD
  *
- * Copyright (c) 2011-2015 Atmel Corporation. All rights reserved.
+ * Copyright (c) 2011-2016 Atmel Corporation. All rights reserved.
  *
  * \asf_license_start
  *
@@ -641,7 +641,6 @@ bool udd_ep_set_halt(udd_ep_id_t ep)
 
 	ep_ctrl = udd_ep_get_ctrl(ep);
 	udd_endpoint_enable_stall(ep_ctrl);
-	udd_endpoint_clear_dtgl(ep_ctrl);
 
 	udd_ep_abort(ep);
 	return true;
@@ -654,6 +653,7 @@ bool udd_ep_clear_halt(udd_ep_id_t ep)
 	Assert(udd_ep_is_valid(ep));
 
 	ep_ctrl = udd_ep_get_ctrl(ep);
+	udd_endpoint_clear_dtgl(ep_ctrl);
 	if (!udd_endpoint_is_stall(ep_ctrl)) {
 		return true; // No stall on going
 	}

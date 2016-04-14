@@ -28,6 +28,8 @@ extern char serialNumber[];
 // High speed support
 #if(UC3A3 || UC3A4)
 	#define USB_DEVICE_HS_SUPPORT
+#elif(SAM3XA || SAM3U)
+	#define USB_DEVICE_HS_SUPPORT
 #endif
 
 

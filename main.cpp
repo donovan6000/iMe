@@ -138,7 +138,7 @@ int main() {
 	tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_LO);
 	
 	// Main loop
-	while(1) {
+	while(true) {
 	
 		// Delay to allow enough time for a response to be received
 		delay_us(1);
