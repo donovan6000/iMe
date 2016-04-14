@@ -10,22 +10,13 @@
 
 
 // Supporting function implementation
-Gcode::Gcode(char *command) {
+Gcode::Gcode() {
 
-	// Check if a command is specified
-	if(command)
-	
-		// Parse command
-		parseCommand(command);
-	
-	// Otherwise
-	else
-	
-		// Clear command
-		clearCommand();
+	// Clear command
+	clearCommand();
 }
 
-bool Gcode::parseCommand(char *command) {
+bool Gcode::parseCommand(const char *command) {
 
 	// Clear command
 	clearCommand();
@@ -149,7 +140,7 @@ bool Gcode::parseCommand(char *command) {
 								
 								// Set valid checksum
 								if(calculatedChecksum == providedChecksum)
-									commandParameters |= CHECKSUM_OFFSET;
+									commandParameters |= VALID_CHECKSUM_OFFSET;
 							}
 						}
 				}
@@ -344,5 +335,5 @@ const char *Gcode::getHostCommand() const {
 bool Gcode::hasValidChecksum() const {
 
 	// Return if checksum is valid
-	return commandParameters & CHECKSUM_OFFSET;
+	return commandParameters & VALID_CHECKSUM_OFFSET;
 }

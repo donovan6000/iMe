@@ -65,6 +65,7 @@ extern "C" {
 #define MOTOR_E_VREF_CHANNEL TC_CCA
 #define MOTOR_E_VREF_VOLTAGE_IDLE 0.149765258
 #define MOTOR_E_VREF_VOLTAGE_ACTIVE 0.149765258
+#define MOTOR_E_VREF_VOLTAGE_INITIAL 0.247887324
 #define MOTOR_E_STEPS_PER_MM 128.451375
 #define MOTOR_E_MAX_FEEDRATE_EXTRUSION 600
 #define MOTOR_E_MAX_FEEDRATE_RETRACTION 720
@@ -109,6 +110,7 @@ Vector calculatePlaneNormalVector(const Vector &v1, const Vector &v2, const Vect
 	vector3[0] = vector[1] * vector2[2] - vector2[1] * vector[2];
 	vector3[1] = vector[2] * vector2[0] - vector2[2] * vector[0];
 	vector3[2] = vector[0] * vector2[1] - vector2[0] * vector[1];
+	vector3[3] = 0;
 	return vector3;
 }
 
@@ -162,7 +164,8 @@ bool isPointInTriangle(const Vector &pt, const Vector &v1, const Vector &v2, con
 float Motors::getHeightAdjustmentRequired(float x, float y) {
 
 	// Initialize variables
-	Vector point(x, y);
+	Vector point;
+	point.initialize(x, y);
 	
 	// Return height adjustment
 	if(x <= frontLeftVector.x && y >= backRightVector.y)
@@ -422,26 +425,12 @@ void Motors::initialize() {
 	// Initialize accelerometer
 	accelerometer.initialize();
 	
-	// Set back right vector
-	backRightVector.x = 99;
-	backRightVector.y = 95;
-	
-	// Set back left vector
-	backLeftVector.x = 9;
-	backLeftVector.y = 95;
-	
-	// Set front left vector
-	frontLeftVector.x = 9;
-	frontLeftVector.y = 5;
-	
-	// Set front right vector
-	frontRightVector.x = 99;
-	frontRightVector.y = 5;
-	
-	// Set center vector
-	centerVector.x = 54;
-	centerVector.y = 50;
-	centerVector.z = 0;
+	// Set vectors
+	backRightVector.initialize(99, 95);
+	backLeftVector.initialize(9, 95);
+	frontLeftVector.initialize(9, 5);
+	frontRightVector.initialize(99, 5);
+	centerVector.initialize(54, 50);
 	
 	// Clear Emergency stop occured
 	emergencyStopOccured = false;
@@ -459,13 +448,13 @@ void Motors::turnOff() {
 	ioport_set_pin_level(MOTORS_ENABLE_PIN, MOTORS_OFF);
 }
 
-void Motors::move(const Gcode &command, bool applyCompensation, bool saveChanges) {
+void Motors::move(const Gcode &gcode, uint8_t tasks) {
 
-	// Check if command has an F parameter
-	if(command.commandParameters & PARAMETER_F_OFFSET)
+	// Check if G-code has an F parameter
+	if(gcode.commandParameters & PARAMETER_F_OFFSET)
 	
 		// Save F value
-		currentValues[F] = command.valueF;
+		currentValues[F] = gcode.valueF;
 	
 	// Initialize variables
 	uint32_t slowestTime = 0;
@@ -479,36 +468,35 @@ void Motors::move(const Gcode &command, bool applyCompensation, bool saveChanges
 		// Set motor's start value
 		startValues[i] = currentValues[i];
 	
-		// Get parameter offset and parameter
+		// Get parameter offset and parameter value
 		uint16_t parameterOffset;
-		const float *parameter;
+		float newValue;
 		switch(i) {
 		
 			case X:
 				parameterOffset = PARAMETER_X_OFFSET;
-				parameter = &command.valueX;
+				newValue = gcode.valueX;
 			break;
 			
 			case Y:
 				parameterOffset = PARAMETER_Y_OFFSET;
-				parameter = &command.valueY;
+				newValue = gcode.valueY;
 			break;
 			
 			case Z:
 				parameterOffset = PARAMETER_Z_OFFSET;
-				parameter = &command.valueZ;
+				newValue = gcode.valueZ;
 			break;
 			
 			default:
 				parameterOffset = PARAMETER_E_OFFSET;
-				parameter = &command.valueE;
+				newValue = gcode.valueE;
 		}
 	
-		// Check if command has parameter
-		if(command.commandParameters & parameterOffset) {
+		// Check if G-code has parameter
+		if(gcode.commandParameters & parameterOffset) {
 	
 			// Set new value
-			float newValue = *parameter;
 			if(mode == RELATIVE)
 				newValue += currentValues[i];
 			
@@ -604,7 +592,7 @@ void Motors::move(const Gcode &command, bool applyCompensation, bool saveChanges
 	
 	// Check if saving changes
 	bool validValues[3];
-	if(saveChanges) {
+	if(tasks & SAVE_CHANGES_TASK) {
 	
 		// Go through X, Y, and Z motors
 		for(uint8_t i = 0; i < 3; i++)
@@ -636,16 +624,17 @@ void Motors::move(const Gcode &command, bool applyCompensation, bool saveChanges
 			}
 	}
 	
-	// Check if compensating command
-	if(applyCompensation) {
-		
+	// Check if set to compensate for backlash and it's applicable
+	if(tasks & BACKLASH_TASK && (backlashDirectionX != NONE || backlashDirectionY != NONE))
+	
 		// Compensate for backlash
-		if(backlashDirectionX != NONE || backlashDirectionY != NONE)
-			compensateForBacklash(backlashDirectionX, backlashDirectionY);
+		compensateForBacklash(backlashDirectionX, backlashDirectionY);
+	
+	// Check if set to compensate for bed leveling
+	if(tasks & BED_LEVELING_TASK)
 		
 		// Compensate for bed leveling
 		compensateForBedLeveling(startValues);
-	}
 	
 	// Otherwise check if an emergency stop didn't happen
 	else if(!emergencyStopOccured) {
@@ -694,7 +683,7 @@ void Motors::move(const Gcode &command, bool applyCompensation, bool saveChanges
 			
 					default:
 						setMotorStepInterruptLevel = tc_set_ccd_interrupt_level;
-						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_INITIAL / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 				}
 				(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 			}
@@ -763,7 +752,7 @@ void Motors::move(const Gcode &command, bool applyCompensation, bool saveChanges
 	}
 	
 	// Check if saving changes
-	if(saveChanges) {
+	if(tasks & SAVE_CHANGES_TASK) {
 		
 		// Go through X, Y, and Z motors
 		for(uint8_t i = 0; i < 3; i++)
@@ -812,7 +801,7 @@ void Motors::moveToHeight(float height) {
 	gcode.valueZ = height;
 	gcode.valueF = 90;
 	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_F_OFFSET;
-	move(gcode, false);
+	move(gcode, SAVE_CHANGES_TASK);
 	
 	// Restore mode
 	mode = savedMode;
@@ -853,7 +842,7 @@ void Motors::compensateForBacklash(BACKLASH_DIRECTION backlashDirectionX, BACKLA
 	nvm_eeprom_read_buffer(EEPROM_BACKLASH_SPEED_OFFSET, &gcode.valueF, EEPROM_BACKLASH_SPEED_LENGTH);
 	
 	// Move by backlash amount
-	move(gcode, false, false);
+	move(gcode, NO_TASK);
 	
 	// Restore X, Y, and F values
 	currentValues[X] = savedX;
@@ -936,7 +925,7 @@ void Motors::compensateForBedLeveling(float startValues[]) {
 		gcode.valueY = segmentValues[Y];
 		gcode.valueZ = segmentValues[Z] + bedHeightOffset + getHeightAdjustmentRequired(segmentValues[X], segmentValues[Y]);
 		gcode.valueE = segmentValues[E];
-		move(gcode, false, false);
+		move(gcode, NO_TASK);
 	}
 	
 	// Restore X, Y, Z, and E values
@@ -964,7 +953,7 @@ void Motors::homeXY() {
 		gcode.valueY = 111;
 		gcode.valueF = 3000;
 		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
-		move(gcode, false);
+		move(gcode, SAVE_CHANGES_TASK);
 	
 		// Check if emergency stop hasn't occured
 		if(!emergencyStopOccured) {
@@ -972,7 +961,7 @@ void Motors::homeXY() {
 			// Move to center
 			gcode.valueX = -54;
 			gcode.valueY = -50;
-			move(gcode, false, false);
+			move(gcode, NO_TASK);
 		
 			// Set current X and Y
 			currentValues[X] = 54;
@@ -1085,7 +1074,7 @@ void Motors::homeXY() {
 			gcode.valueY = -50;
 			gcode.valueF = 3000;
 			gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
-			move(gcode, false, false);
+			move(gcode, NO_TASK);
 	
 			// Restore mode
 			mode = savedMode;
@@ -1272,7 +1261,7 @@ void Motors::calibrateBedOrientation() {
 		gcode.valueY = positionsY[i];
 		gcode.valueF = 3000;
 		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
-		move(gcode, false);
+		move(gcode, BACKLASH_TASK | SAVE_CHANGES_TASK);
 		
 		// Check if emergency stop has occured
 		if(emergencyStopOccured)

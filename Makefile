@@ -85,7 +85,7 @@ INCPATH = . \
 	src/config
 
 # Compiler flags
-FLAGS = -D BOARD=USER_BOARD -D FIRMWARE_NAME=$(FIRMWARE_NAME) -D FIRMWARE_VERSION=$(FIRMWARE_VERSION) -Os -mmcu=atxmega32c4 -Wall -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -fno-strict-aliasing  -Werror-implicit-function-declaration -Wpointer-arith -mcall-prologues -mstrict-X -maccumulate-args -fno-tree-ter
+FLAGS = -D BOARD=USER_BOARD -D FIRMWARE_NAME=$(FIRMWARE_NAME) -D FIRMWARE_VERSION=$(FIRMWARE_VERSION) -Os -mmcu=atxmega32c4 -Wall -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -fno-strict-aliasing  -Werror-implicit-function-declaration -Wpointer-arith -mcall-prologues -mstrict-X -maccumulate-args -fno-tree-ter -mrelax
 ASFLAGS = -std=c++14 -x assembler-with-cpp
 CFLAGS = -std=gnu99 -x c -Wstrict-prototypes -Wmissing-prototypes
 CPPFLAGS = -std=c++14 -x c++

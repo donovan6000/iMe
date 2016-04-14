@@ -14,6 +14,12 @@
 #define MOTORS_VREF_TIMER_PERIOD 0x27F
 #define MOTOR_E_CURRENT_SENSE_ADC ADCA
 
+// Tasks
+#define NO_TASK 0
+#define BACKLASH_TASK 1
+#define BED_LEVELING_TASK (1 << 1)
+#define SAVE_CHANGES_TASK (1 << 2)
+
 // Modes
 enum MODES {RELATIVE, ABSOLUTE};
 
@@ -40,7 +46,7 @@ class Motors {
 		void turnOff();
 		
 		// Move
-		void move(const Gcode &command, bool applyCompensation = true, bool saveChanges = true);
+		void move(const Gcode &gcode, uint8_t tasks = BACKLASH_TASK | BED_LEVELING_TASK | SAVE_CHANGES_TASK);
 		
 		// Home XY
 		void homeXY();

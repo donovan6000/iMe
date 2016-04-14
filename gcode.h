@@ -22,7 +22,7 @@ extern "C" {
 #define PARAMETER_E_OFFSET (1 << 9)
 #define PARAMETER_N_OFFSET (1 << 10)
 #define PARAMETER_HOST_COMMAND_OFFSET (1 << 11)
-#define CHECKSUM_OFFSET (1 << 12)
+#define VALID_CHECKSUM_OFFSET (1 << 12)
 
 
 // Gcode class
@@ -32,10 +32,10 @@ class Gcode {
 	public:
 	
 		// Parameterized constructor
-		Gcode(char *command = NULL);
+		Gcode();
 		
 		// Parse command
-		bool parseCommand(char *command);
+		bool parseCommand(const char *command);
 		
 		// Clear command
 		void clearCommand();

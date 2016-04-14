@@ -33,23 +33,10 @@ extern "C" {
 #define UNKNOWN_PIN_2 IOPORT_CREATE_PIN(PORTA, 5) // Connected to a resistor and capacitor in parallel to ground
 
 
-// Request class
-class Request {
-
-	// Public
-	public:
+// Request structure
+struct Request {
 	
-		// Constructor
-		Request() {
-		
-			// Clear size
-			size = 0;
-			
-			// Clear is emergency stop
-			isEmergencyStop = false;
-		}
-	
-	// Size and buffer
+	// Size, buffer, and is emergency stop
 	uint8_t size;
 	char buffer[UDI_CDC_COMM_EP_SIZE + 1];
 	bool isEmergencyStop;
@@ -93,6 +80,16 @@ int main() {
 	
 	// Initialize I/O ports
 	ioport_init();
+	
+	// Go through all requests
+	for(uint8_t i = 0; i < REQUEST_BUFFER_SIZE; i++) {
+	
+		// Clear size
+		requests[i].size = 0;
+		
+		// Clear is emergency stop
+		requests[i].isEmergencyStop = false;
+	}
 	
 	// Initialize variables
 	uint64_t currentLineNumber = 0;

@@ -4,22 +4,13 @@
 
 
 // Supporting function implementation
-Vector::Vector(float x, float y, float z, float e) {
+void Vector::initialize(float x, float y, float z, float e) {
 
-	// Initialize vector components
+	// Set vector components
 	this->x = x;
 	this->y = y;
 	this->z = z;
 	this->e = e;
-}
-
-Vector::Vector(Vector &value) {
-
-	// Copy vector components
-	x = value.x;
-	y = value.y;
-	z = value.z;
-	e = value.e;
 }
 
 float Vector::getLength() const {

@@ -9,69 +9,36 @@ class Vector {
 	// Public
 	public:
 	
-		/*
-		Name: Constructor
-		Purpose: Allows setting vector components upon creation
-		*/
-		Vector(float x = 0, float y = 0, float z = 0, float e = 0);
+		// Initialize
+		void initialize(float x = 0, float y = 0, float z = 0, float e = 0);
 		
-		/*
-		Name: Copy Constructor
-		Purpose: Initializes a copy of a vector
-		*/
-		Vector(Vector &value);
-		
-		/*
-		Name: Get Length
-		Purpose: Returns length of vector
-		*/
+		// Get Length
 		float getLength() const;
 		
-		/*
-		Name: Normalize
-		Purpose: Normalizes vector components
-		*/
+		// Normalize
 		void normalize();
 		
-		/*
-		Name: Addition operator
-		Purpose: Allows adding vectors
-		*/
+		// Addition operator
 		Vector operator+(const Vector &addend) const;
 		Vector &operator+=(const Vector &addend);
 		
-		/*
-		Name: Subtraction operator
-		Purpose: Allows subtracting vectors
-		*/
+		// Subtraction operator
 		Vector operator-(const Vector &subtrahend) const;
 		Vector &operator-=(const Vector &addend);
 		
-		/*
-		Name: Multiplication operator
-		Purpose: Allows scaling a vector
-		*/
+		// Multiplication operator
 		Vector operator*(float multiplier) const;
 		Vector &operator*=(float multiplier);
 		
-		/*
-		Name: Division operator
-		Purpose: Allows shrinking a vector
-		*/
+		// Division operator
 		Vector operator/(float divisor) const;
 		Vector &operator/=(float divisor);
 		
-		/*
-		Name: Subscript operator
-		Purpose: Allows addressing vector components
-		*/
+		// Subscript operator
 		const float& operator[](int index) const;
 		float& operator[](int index);
 		
-		/*
-		Name: Assignment operator
-		Purpose: Allows copying a vector
-		*/
+		// Assignment operator
 		Vector &operator=(const Vector &vector);
 	
 		// Vector components
