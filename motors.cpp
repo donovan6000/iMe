@@ -315,11 +315,13 @@ void Motors::initialize() {
 	// Configure motor X Vref, direction, and step
 	ioport_set_pin_dir(MOTOR_X_VREF_PIN, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_dir(MOTOR_X_DIRECTION_PIN, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, nvm_eeprom_read_byte(EEPROM_LAST_RECORDED_X_DIRECTION_OFFSET));
 	ioport_set_pin_dir(MOTOR_X_STEP_PIN, IOPORT_DIR_OUTPUT);
 	
 	// Configure motor Y Vref, direction, and step
 	ioport_set_pin_dir(MOTOR_Y_VREF_PIN, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_dir(MOTOR_Y_DIRECTION_PIN, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, nvm_eeprom_read_byte(EEPROM_LAST_RECORDED_Y_DIRECTION_OFFSET));
 	ioport_set_pin_dir(MOTOR_Y_STEP_PIN, IOPORT_DIR_OUTPUT);
 	
 	// Configure motor Z VREF, direction, and step
@@ -592,7 +594,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 	
 	// Check if saving changes
 	bool validValues[3];
-	if(tasks & SAVE_CHANGES_TASK) {
+	if(tasks & SAVE_CHANGES_TASK)
 	
 		// Go through X, Y, and Z motors
 		for(uint8_t i = 0; i < 3; i++)
@@ -622,7 +624,6 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Save that value is invalid
 				nvm_eeprom_write_byte(savedValueOffset, INVALID);
 			}
-	}
 	
 	// Check if set to compensate for backlash and it's applicable
 	if(tasks & BACKLASH_TASK && (backlashDirectionX != NONE || backlashDirectionY != NONE))
@@ -753,6 +754,18 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 	
 	// Check if saving changes
 	if(tasks & SAVE_CHANGES_TASK) {
+	
+		// Check if motor X direction changed
+		if(backlashDirectionX != NONE)
+		
+			// Save motor X direction
+			nvm_eeprom_write_byte(EEPROM_LAST_RECORDED_X_DIRECTION_OFFSET, backlashDirectionX == NEGATIVE ? DIRECTION_LEFT : DIRECTION_RIGHT);
+		
+		// Check if motor Y direction changed
+		if(backlashDirectionY != NONE)
+		
+			// Save motor Y direction
+			nvm_eeprom_write_byte(EEPROM_LAST_RECORDED_Y_DIRECTION_OFFSET, backlashDirectionY == NEGATIVE ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
 		
 		// Go through X, Y, and Z motors
 		for(uint8_t i = 0; i < 3; i++)
@@ -961,7 +974,7 @@ void Motors::homeXY() {
 			// Move to center
 			gcode.valueX = -54;
 			gcode.valueY = -50;
-			move(gcode, NO_TASK);
+			move(gcode, SAVE_CHANGES_TASK);
 		
 			// Set current X and Y
 			currentValues[X] = 54;
@@ -1074,7 +1087,7 @@ void Motors::homeXY() {
 			gcode.valueY = -50;
 			gcode.valueF = 3000;
 			gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
-			move(gcode, NO_TASK);
+			move(gcode, SAVE_CHANGES_TASK);
 	
 			// Restore mode
 			mode = savedMode;
