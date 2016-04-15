@@ -51,7 +51,8 @@ extern char serialNumber[];
 
 // CDC callbacks
 #define UDI_CDC_ENABLE_EXT(port) true
-#define UDI_CDC_DISABLE_EXT(port)
+#define UDI_CDC_DISABLE_EXT(port) cdcDisconnectCallback(port)
+extern void cdcDisconnectCallback(uint8_t port);
 #define UDI_CDC_RX_NOTIFY(port) cdcRxNotifyCallback(port)
 extern void cdcRxNotifyCallback(uint8_t port);
 #define UDI_CDC_TX_EMPTY_NOTIFY(port)

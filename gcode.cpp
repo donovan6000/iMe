@@ -74,89 +74,91 @@ bool Gcode::parseCommand(const char *command) {
 			// Check if character is a valid parameter
 			if(parameterIndex) {
 			
-				// Get parameter bit
+				// Check if parameter hasn't been obtained yet
 				uint16_t parameterBit = 1 << (parameterIndex - PARAMETER_ORDER);
+				if(!(commandParameters & parameterBit)) {
 			
-				// Save parameter value
-				char *lastParameterCharacter;
-				switch(parameterBit) {
+					// Save parameter value
+					char *lastParameterCharacter;
+					switch(parameterBit) {
 			
-					case PARAMETER_G_OFFSET:
-						valueG = strtoull(&command[++i], &lastParameterCharacter);
-					break;
+						case PARAMETER_G_OFFSET:
+							valueG = strtoull(&command[++i], &lastParameterCharacter);
+						break;
 				
-					case PARAMETER_M_OFFSET:
-						valueM = strtoull(&command[++i], &lastParameterCharacter);
-					break;
+						case PARAMETER_M_OFFSET:
+							valueM = strtoull(&command[++i], &lastParameterCharacter);
+						break;
 				
-					case PARAMETER_T_OFFSET:
-						valueT = strtoull(&command[++i], &lastParameterCharacter);
-					break;
+						case PARAMETER_T_OFFSET:
+							valueT = strtoull(&command[++i], &lastParameterCharacter);
+						break;
 				
-					case PARAMETER_S_OFFSET:
-						valueS = strtoll(&command[++i], &lastParameterCharacter);
-					break;
+						case PARAMETER_S_OFFSET:
+							valueS = strtoll(&command[++i], &lastParameterCharacter);
+						break;
 				
-					case PARAMETER_P_OFFSET:
-						valueP = strtoll(&command[++i], &lastParameterCharacter);
-					break;
+						case PARAMETER_P_OFFSET:
+							valueP = strtoll(&command[++i], &lastParameterCharacter);
+						break;
 				
-					case PARAMETER_X_OFFSET:
-						valueX = strtof(&command[++i], &lastParameterCharacter);
-					break;
+						case PARAMETER_X_OFFSET:
+							valueX = strtof(&command[++i], &lastParameterCharacter);
+						break;
 				
-					case PARAMETER_Y_OFFSET:
-						valueY = strtof(&command[++i], &lastParameterCharacter);
-					break;
+						case PARAMETER_Y_OFFSET:
+							valueY = strtof(&command[++i], &lastParameterCharacter);
+						break;
 				
-					case PARAMETER_Z_OFFSET:
-						valueZ = strtof(&command[++i], &lastParameterCharacter);
-					break;
+						case PARAMETER_Z_OFFSET:
+							valueZ = strtof(&command[++i], &lastParameterCharacter);
+						break;
 				
-					case PARAMETER_F_OFFSET:
-						valueF = strtof(&command[++i], &lastParameterCharacter);
-					break;
+						case PARAMETER_F_OFFSET:
+							valueF = strtof(&command[++i], &lastParameterCharacter);
+						break;
 				
-					case PARAMETER_E_OFFSET:
-						valueE = strtof(&command[++i], &lastParameterCharacter);
-					break;
+						case PARAMETER_E_OFFSET:
+							valueE = strtof(&command[++i], &lastParameterCharacter);
+						break;
 				
-					case PARAMETER_N_OFFSET:
-						valueN = strtoull(&command[++i], &lastParameterCharacter);
+						case PARAMETER_N_OFFSET:
+							valueN = strtoull(&command[++i], &lastParameterCharacter);
 						
-						// Check if command contains a checksum
-						const char *checksumCharacter;
-						if((checksumCharacter = strchr(command, '*'))) {
+							// Check if command contains a checksum
+							const char *checksumCharacter;
+							if((checksumCharacter = strchr(command, '*'))) {
 						
-							// Check if checksum exists
-							char *lastChecksumCharacter;
-							uint8_t providedChecksum = strtoull(++checksumCharacter, &lastChecksumCharacter);
-							if(lastChecksumCharacter != checksumCharacter) {
+								// Check if checksum exists
+								char *lastChecksumCharacter;
+								uint8_t providedChecksum = strtoull(++checksumCharacter, &lastChecksumCharacter);
+								if(lastChecksumCharacter != checksumCharacter) {
 							
-								// Calculate checksum
-								uint8_t calculatedChecksum = 0;
-								for(uint8_t i = 0; command[i] != '*'; i++)
-									calculatedChecksum ^= command[i];
+									// Calculate checksum
+									uint8_t calculatedChecksum = 0;
+									for(uint8_t i = 0; command[i] != '*'; i++)
+										calculatedChecksum ^= command[i];
 								
-								// Set valid checksum
-								if(calculatedChecksum == providedChecksum)
-									commandParameters |= VALID_CHECKSUM_OFFSET;
+									// Set valid checksum
+									if(calculatedChecksum == providedChecksum)
+										commandParameters |= VALID_CHECKSUM_OFFSET;
+								}
 							}
-						}
-				}
+					}
 				
-				// Check if parameter exists
-				if(lastParameterCharacter != &command[i]) {
+					// Check if parameter exists
+					if(lastParameterCharacter != &command[i]) {
 				
-					// Set command parameters
-					commandParameters |= parameterBit;
+						// Set command parameters
+						commandParameters |= parameterBit;
 					
-					// Set index
-					i = lastParameterCharacter - command;
-				}
+						// Set index
+						i = lastParameterCharacter - command;
+					}
 				
-				// Decrement index
-				i--;
+					// Decrement index
+					i--;
+				}
 			}
 		}
 	

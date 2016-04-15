@@ -61,6 +61,12 @@ Purpose: Callback for when USB receives data
 */
 void cdcRxNotifyCallback(uint8_t port);
 
+/*
+Name: CDC disconnect callback
+Purpose: Callback for when USB is disconnected from host
+*/
+void cdcDisconnectCallback(uint8_t port);
+
 
 // Main function
 int main() {
@@ -148,7 +154,10 @@ int main() {
 			if(emergencyStopOccured) {
 			
 				// Check if request is an emergency stop
-				if(!strcmp(requests[currentProcessingRequest].buffer, "M0")) {
+				if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM) {
+				
+					// Make sure command doesn't contain an N parameter
+					gcode.commandParameters &= ~PARAMETER_N_OFFSET;
 					
 					// Clear peripherals emergency stop occured
 					heater.emergencyStopOccured = motors.emergencyStopOccured = false;
@@ -170,7 +179,7 @@ int main() {
 			// Increment current processing request
 			currentProcessingRequest = currentProcessingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentProcessingRequest + 1;
 			
-			// Check if skipping command
+			// Skip command if set
 			if(skipCommand)
 				continue;
 			
@@ -621,25 +630,39 @@ void cdcRxNotifyCallback(uint8_t port) {
 					char *lastParameterCharacter;
 					uint16_t parameterValue = strtoull(&requests[currentReceivingRequest].buffer[++i], &lastParameterCharacter);
 					
-					// Check if parameter exists and it's an emergency stop
-					if(lastParameterCharacter != &requests[currentReceivingRequest].buffer[i] && !parameterValue) {
+					// Check if parameter exists
+					if(lastParameterCharacter != &requests[currentReceivingRequest].buffer[i]) {
+					
+						// Check if parameter is an emergency stop
+						if(!parameterValue) {
 				
-						// Set request to contain only an emergency stop
-						strcpy(requests[currentReceivingRequest].buffer, "M0");
-		
-						// Stop all peripherals
-						fan.setSpeed(0);
-						heater.emergencyStop();
-						led.setBrightness(100);
-						motors.emergencyStop();
+							// Stop all peripherals
+							fan.setSpeed(0);
+							heater.emergencyStop();
+							led.setBrightness(100);
+							motors.emergencyStop();
 				
-						// Set that an emergency stop occured
-						emergencyStopOccured = true;
+							// Set that an emergency stop occured
+							emergencyStopOccured = true;
+						}
+						
+						// Break
+						break;
 					}
+					
+					// Decrement index
+					i--;
 				}
 			
 			// Increment current receiving request
 			currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
 		}
 	}
+}
+
+void cdcDisconnectCallback(uint8_t port) {
+
+	// Prepare to reattach to the host
+	udc_detach();
+	udc_attach();
 }
