@@ -4,7 +4,7 @@
 
 
 // Header files
-#include <inttypes.h>
+#include <stdint.h>
 
 
 // Definitions
@@ -37,19 +37,19 @@ void ftoa(float value, char *buffer);
 Name: strtoull
 Purpose: Converts a string to an unsigned long long
 */
-uint64_t strtoull(const char *nptr, char **endptr = NULL);
+uint64_t strtoull(const char *nptr, char **endptr = nullptr);
 
 /*
 Name: strtoll
 Purpose: Converts a string to a long long
 */
-int64_t strtoll(const char *nptr, char **endptr = NULL);
+int64_t strtoll(const char *nptr, char **endptr = nullptr);
 
 /*
 Name: strtof
 Purpose: Converts a string to a float
 */
-float strtof(const char *nptr, char **endptr = NULL);
+float strtof(const char *nptr, char **endptr = nullptr);
 
 
 #endif

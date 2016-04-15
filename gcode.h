@@ -23,6 +23,7 @@ extern "C" {
 #define PARAMETER_N_OFFSET (1 << 10)
 #define PARAMETER_HOST_COMMAND_OFFSET (1 << 11)
 #define VALID_CHECKSUM_OFFSET (1 << 12)
+#define PARSED_OFFSET (1 << 13)
 
 
 // Gcode class
@@ -30,9 +31,6 @@ class Gcode {
 
 	// Public
 	public:
-	
-		// Parameterized constructor
-		Gcode();
 		
 		// Parse command
 		bool parseCommand(const char *command);

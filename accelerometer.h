@@ -44,7 +44,7 @@ class Accelerometer {
 		void readValue(uint8_t address, uint8_t *responseBuffer, uint8_t responseLength = 1);
 		
 		// transmit
-		void transmit(uint8_t command, uint8_t value = 0, bool sendValue = false, uint8_t *responseBuffer = NULL, uint8_t responseLength = 0);
+		void transmit(uint8_t command, uint8_t value = 0, bool sendValue = false, uint8_t *responseBuffer = nullptr, uint8_t responseLength = 0);
 };
 
 

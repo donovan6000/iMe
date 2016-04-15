@@ -811,6 +811,7 @@ void Motors::moveToHeight(float height) {
 	
 	// Move to Z value
 	Gcode gcode;
+	gcode.valueG = 0;
 	gcode.valueZ = height;
 	gcode.valueF = 90;
 	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_F_OFFSET;
@@ -835,6 +836,7 @@ void Motors::compensateForBacklash(BACKLASH_DIRECTION backlashDirectionX, BACKLA
 	
 	// Initialize G-code
 	Gcode gcode;
+	gcode.valueG = gcode.valueX = gcode.valueY = 0;
 	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
 	
 	// Set backlash X
@@ -925,6 +927,7 @@ void Motors::compensateForBedLeveling(float startValues[]) {
 	
 	// Go through all segments
 	Gcode gcode;
+	gcode.valueG = 0;
 	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET;
 	for(uint32_t numberOfSegments = max(1, ceil(horizontalDistance / SEGMENT_LENGTH)), i = 1; i <= numberOfSegments; i++) {
 	
@@ -962,6 +965,7 @@ void Motors::homeXY() {
 		
 		// Move to corner
 		Gcode gcode;
+		gcode.valueG = 0;
 		gcode.valueX = 112;
 		gcode.valueY = 111;
 		gcode.valueF = 3000;
@@ -1083,6 +1087,7 @@ void Motors::homeXY() {
 
 			// Move to center
 			Gcode gcode;
+			gcode.valueG = 0;
 			gcode.valueX = -54;
 			gcode.valueY = -50;
 			gcode.valueF = 3000;
@@ -1270,6 +1275,7 @@ void Motors::calibrateBedOrientation() {
 
 		// Move to  corner
 		Gcode gcode;
+		gcode.valueG = 0;
 		gcode.valueX = positionsX[i];
 		gcode.valueY = positionsY[i];
 		gcode.valueF = 3000;
@@ -1327,6 +1333,9 @@ void Motors::calibrateBedOrientation() {
 }
 
 void Motors::emergencyStop() {
+
+	// Stop motors step timer
+	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
 
 	// Turn off motors
 	turnOff();

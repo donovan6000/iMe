@@ -10,16 +10,13 @@
 
 
 // Supporting function implementation
-Gcode::Gcode() {
-
-	// Clear command
-	clearCommand();
-}
-
 bool Gcode::parseCommand(const char *command) {
 
 	// Clear command
 	clearCommand();
+	
+	// Set that command has been parsed
+	commandParameters |= PARSED_OFFSET;
 
 	// Remove leading whitespace
 	const char *firstValidCharacter = command;

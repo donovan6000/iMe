@@ -150,8 +150,9 @@ void Heater::setTemperature(uint16_t value, bool wait) {
 				break;
 		
 			// Set response to temperature
-			char buffer[sizeof("4294967296") + NUMBER_OF_DECIMAL_PLACES + 2];
-			ftoa(getTemperature(), buffer);
+			char buffer[sizeof("4294967296") + NUMBER_OF_DECIMAL_PLACES + 4];
+			strcpy(buffer, "T:");
+			ftoa(getTemperature(), &buffer[2]);
 			strcat(buffer, "\n");
 		
 			// Send temperature
