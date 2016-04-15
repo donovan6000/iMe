@@ -24,8 +24,8 @@ class Heater {
 		// Get temperature
 		float getTemperature() const;
 		
-		// Emergency stop
-		void emergencyStop();
+		// Reset
+		void reset();
 		
 		// Emergency stop occured
 		bool emergencyStopOccured;

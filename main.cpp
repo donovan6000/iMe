@@ -39,8 +39,8 @@ Gcode requests[REQUEST_BUFFER_SIZE];
 uint16_t waitCounter;
 bool emergencyStopOccured = false;
 Fan fan;
-Heater heater;
 Led led;
+Heater heater;
 Motors motors;
 
 
@@ -131,37 +131,13 @@ int main() {
 		delay_us(1);
 		
 		// Check if a current processing request is ready
-		if(requests[currentProcessingRequest].commandParameters & PARSED_OFFSET) {
+		if(requests[currentProcessingRequest].commandParameters) {
 		
 			// Disable send wait interrupt
 			tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_OFF);
 			
-			// Check if an emergency stop has occured
-			bool skipCommand = false;
-			if(emergencyStopOccured) {
-			
-				// Check if request is an emergency stop and it has a valid checksum if it has an N parameter
-				if(requests[currentProcessingRequest].commandParameters & PARAMETER_M_OFFSET && !requests[currentProcessingRequest].valueM && (!(requests[currentProcessingRequest].commandParameters & PARAMETER_N_OFFSET) || requests[currentProcessingRequest].hasValidChecksum())) {
-				
-					// Make sure command doesn't contain an N parameter
-					requests[currentProcessingRequest].commandParameters &= ~PARAMETER_N_OFFSET;
-					
-					// Clear peripherals emergency stop occured
-					heater.emergencyStopOccured = motors.emergencyStopOccured = false;
-				
-					// Clear emergency stop occured
-					emergencyStopOccured = false;
-				}
-				
-				// Otherwise
-				else
-				
-					// Set to skip command
-					skipCommand = true;
-			}
-			
-			// Check if not skipping command
-			if(!skipCommand) {
+			// Check if an emergency stop hasn't occured
+			if(!emergencyStopOccured) {
 			
 				// Clear response buffer
 				*responseBuffer = 0;
@@ -423,8 +399,7 @@ int main() {
 											}
 										break;
 								
-										// M0, M21, M84, or M110
-										case 0:
+										// M21, M84, or M110
 										case 21:
 										case 84:
 										case 110:
@@ -575,10 +550,33 @@ int main() {
 			}
 			
 			// Clear request
-			requests[currentProcessingRequest].commandParameters &= ~PARSED_OFFSET;
+			requests[currentProcessingRequest].commandParameters = 0;
 			
 			// Increment current processing request
 			currentProcessingRequest = currentProcessingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentProcessingRequest + 1;
+			
+			// Enable send wait interrupt
+			waitCounter = 0;
+			tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_LO);
+		}
+		
+		// Otherwise check if an emergency stop has occured
+		else if(emergencyStopOccured) {
+		
+			// Disable send wait interrupt
+			tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_OFF);
+		
+			// Reset all peripherals
+			fan.setSpeed(0);
+			heater.reset();
+			led.setBrightness(100);
+			motors.reset();
+		
+			// Clear emergency stop occured
+			emergencyStopOccured = false;
+			
+			// Send confirmation
+			udi_cdc_write_buf("ok\n", strlen("ok\n"));
 			
 			// Enable send wait interrupt
 			waitCounter = 0;
@@ -596,34 +594,31 @@ void cdcRxNotifyCallback(uint8_t port) {
 
 	// Initialize variables
 	static uint8_t currentReceivingRequest = 0;
+	
+	// Get request
+	uint8_t size = udi_cdc_multi_get_nb_received_data(port);
+	char buffer[UDI_CDC_COMM_EP_SIZE + 1];
+	udi_cdc_multi_read_buf(port, buffer, size);
+	buffer[size] = 0;
+	
+	// Check if an emergency stop isn't being processed
+	if(!emergencyStopOccured) {
+	
+		// Parse request
+		Gcode gcode;
+		gcode.parseCommand(buffer);
+	
+		// Check if request is an emergency stop and it has a valid checksum if it has an N parameter
+		if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.hasValidChecksum()))
 
-	// Check if currently receiving request is empty and an emergency stop isn't being processed
-	if(!(requests[currentReceivingRequest].commandParameters & PARSED_OFFSET) && !emergencyStopOccured) {
-		
-		// Check if request isn't empty
-		uint8_t size = udi_cdc_multi_get_nb_received_data(port);
-		if(size) {
-		
-			// Get request
-			char buffer[UDI_CDC_COMM_EP_SIZE + 1];
-			udi_cdc_multi_read_buf(port, buffer, size);
-			buffer[size] = 0;
-		
-			// Parse command
-			requests[currentReceivingRequest].parseCommand(buffer);
-			
-			// Check if request is an emergency stop and it has a valid checksum if it has an N parameter
-			if(requests[currentReceivingRequest].commandParameters & PARAMETER_M_OFFSET && !requests[currentReceivingRequest].valueM && (!(requests[currentReceivingRequest].commandParameters & PARAMETER_N_OFFSET) || requests[currentReceivingRequest].hasValidChecksum())) {
-		
-				// Stop all peripherals
-				fan.setSpeed(0);
-				heater.emergencyStop();
-				led.setBrightness(100);
-				motors.emergencyStop();
+			// Stop all peripherals
+			heater.emergencyStopOccured = motors.emergencyStopOccured = emergencyStopOccured = true;
 
-				// Set that an emergency stop occured
-				emergencyStopOccured = true;
-			}
+		// Otherwise check if currently receiving request is empty
+		else if(!requests[currentReceivingRequest].commandParameters) {
+		
+			// Set current receiving request to command
+			requests[currentReceivingRequest] = gcode;
 			
 			// Increment current receiving request
 			currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;

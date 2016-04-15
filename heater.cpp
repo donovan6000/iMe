@@ -33,8 +33,8 @@ extern "C" {
 
 // Global variables
 uint8_t temperatureIntervalCounter = 0;
-float idealTemperature = 0;
-float actualTemperature = 0;
+float idealTemperature;
+float actualTemperature;
 adc_config heaterReadAdcController;
 adc_channel_config heaterReadAdcChannel;
 
@@ -44,7 +44,6 @@ void Heater::initialize() {
 
 	// Configure heater select, enable, and read
 	ioport_set_pin_dir(HEATER_MODE_SELECT_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
 	
 	ioport_set_pin_dir(HEATER_ENABLE_PIN, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_level(HEATER_ENABLE_PIN, HEATER_ENABLE);
@@ -53,6 +52,9 @@ void Heater::initialize() {
 	ioport_set_pin_mode(HEATER_READ_POSITIVE_PIN, IOPORT_MODE_PULLDOWN);
 	ioport_set_pin_dir(HEATER_READ_NEGATIVE_PIN, IOPORT_DIR_INPUT);
 	ioport_set_pin_mode(HEATER_READ_NEGATIVE_PIN, IOPORT_MODE_PULLDOWN);
+	
+	// Reset
+	reset();
 	
 	// Set ADC controller to use signed, 12bit, Vref refrence, manual trigger, 200kHz frequency
 	adc_read_configuration(&HEATER_READ_ADC, &heaterReadAdcController);
@@ -121,9 +123,6 @@ void Heater::initialize() {
 			ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
 	});
 	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
-	
-	// Clear emergency stop occured
-	emergencyStopOccured = false;
 }
 
 void Heater::setTemperature(uint16_t value, bool wait) {
@@ -186,7 +185,7 @@ float Heater::getTemperature() const {
 	return value;
 }
 
-void Heater::emergencyStop() {
+void Heater::reset() {
 
 	// Clear ideal and actual temperature
 	idealTemperature = actualTemperature = 0;
@@ -194,6 +193,6 @@ void Heater::emergencyStop() {
 	// Turn off heater
 	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
 	
-	// Set Emergency stop occured
-	emergencyStopOccured = true;
+	// Clear mergency stop occured
+	emergencyStopOccured = false;
 }

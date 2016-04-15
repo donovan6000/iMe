@@ -60,8 +60,8 @@ class Motors {
 		// Calibrate bed center orientation
 		void calibrateBedOrientation();
 		
-		// Emergency stop
-		void emergencyStop();
+		// Reset
+		void reset();
 		
 		// Current values
 		float currentValues[5];

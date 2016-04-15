@@ -287,8 +287,8 @@ void Motors::initialize() {
 	// Configure motors enable
 	ioport_set_pin_dir(MOTORS_ENABLE_PIN, IOPORT_DIR_OUTPUT);
 	
-	// Turn motors off
-	turnOff();
+	// Reset
+	reset();
 	
 	// Set 8 microsteps per step
 	#if MICROSTEPS_PER_STEP == 8 
@@ -433,9 +433,6 @@ void Motors::initialize() {
 	frontLeftVector.initialize(9, 5);
 	frontRightVector.initialize(99, 5);
 	centerVector.initialize(54, 50);
-	
-	// Clear Emergency stop occured
-	emergencyStopOccured = false;
 }
 
 void Motors::turnOn() {
@@ -1332,7 +1329,7 @@ void Motors::calibrateBedOrientation() {
 	mode = savedMode;
 }
 
-void Motors::emergencyStop() {
+void Motors::reset() {
 
 	// Stop motors step timer
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
@@ -1343,6 +1340,6 @@ void Motors::emergencyStop() {
 	// Disable all motor step interrupts
 	MOTORS_STEP_TIMER.INTCTRLB &= ~(TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm);
 	
-	// Set emergency stop occured
-	emergencyStopOccured = true;
+	// Clear emergency stop occured
+	emergencyStopOccured = false;
 }

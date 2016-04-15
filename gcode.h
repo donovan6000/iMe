@@ -116,6 +116,9 @@ class Gcode {
 		// Has valid checksum
 		bool hasValidChecksum() const;
 		
+		// Assignment operator
+		Gcode &operator=(const Gcode &gcode);
+		
 		// Command parameters
 		uint16_t commandParameters;
 		

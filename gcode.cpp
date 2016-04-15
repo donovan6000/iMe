@@ -336,3 +336,28 @@ bool Gcode::hasValidChecksum() const {
 	// Return if checksum is valid
 	return commandParameters & VALID_CHECKSUM_OFFSET;
 }
+
+Gcode &Gcode::operator=(const Gcode &gcode) {
+
+	// Return self if calling on self
+	if(this == &gcode)
+		return *this;
+	
+	// Copy vector components
+	commandParameters = gcode.commandParameters;
+	valueG = gcode.valueG;
+	valueM = gcode.valueM;
+	valueT = gcode.valueT;
+	valueS = gcode.valueS;
+	valueP = gcode.valueP;
+	valueX = gcode.valueX;
+	valueY = gcode.valueY;
+	valueZ = gcode.valueZ;
+	valueF = gcode.valueF;
+	valueE = gcode.valueE;
+	valueN = gcode.valueN;
+	strcpy(hostCommand, gcode.hostCommand);
+	
+	// Return self
+	return *this;
+}
