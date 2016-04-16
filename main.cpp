@@ -39,8 +39,8 @@ Gcode requests[REQUEST_BUFFER_SIZE];
 uint16_t waitCounter;
 bool emergencyStopOccured = false;
 Fan fan;
-Led led;
 Heater heater;
+Led led;
 Motors motors;
 
 
@@ -419,15 +419,11 @@ int main() {
 										case 0:
 										case 1:
 								
-											// Check if command contains an X, Y, Z, E, or F parameter
-											if(requests[currentProcessingRequest].commandParameters & (PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET | PARAMETER_F_OFFSET)) {
-									
-												// Move
-												motors.move(requests[currentProcessingRequest]);
-						
-												// Set response to confirmation
-												strcpy(responseBuffer, "ok");
-											}
+											// Move
+											motors.move(requests[currentProcessingRequest]);
+					
+											// Set response to confirmation
+											strcpy(responseBuffer, "ok");
 										break;
 						
 										// G4

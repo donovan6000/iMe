@@ -10,7 +10,7 @@ extern "C" {
 
 
 // Definitions
-#define UPDATE_TEMPERATURE_INTERVAL 0.5
+#define UPDATE_TEMPERATURE_PER_SECOND 2
 
 // Heater Pins
 #define HEATER_MODE_SELECT_PIN IOPORT_CREATE_PIN(PORTE, 2)
@@ -32,7 +32,7 @@ extern "C" {
 
 
 // Global variables
-uint8_t temperatureIntervalCounter = 0;
+uint8_t temperatureIntervalCounter;
 float idealTemperature;
 float actualTemperature;
 adc_config heaterReadAdcController;
@@ -69,7 +69,7 @@ void Heater::initialize() {
 	// Configure update temperature timer
 	tc_enable(&TEMPERATURE_TIMER);
 	tc_set_wgm(&TEMPERATURE_TIMER, TC_WG_NORMAL);
-	tc_write_period(&TEMPERATURE_TIMER, sysclk_get_cpu_hz() / 1024 * UPDATE_TEMPERATURE_INTERVAL);
+	tc_write_period(&TEMPERATURE_TIMER, sysclk_get_cpu_hz() / 1024 / UPDATE_TEMPERATURE_PER_SECOND);
 	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
 	tc_set_overflow_interrupt_callback(&TEMPERATURE_TIMER, []() -> void {
 	
@@ -137,11 +137,11 @@ void Heater::setTemperature(uint16_t value, bool wait) {
 		ioport_set_pin_level(HEATER_MODE_SELECT_PIN, lowerNewValue ? HEATER_OFF : HEATER_ON);
 		
 		// Wait until temperature has been reached
-		while(wait && ioport_get_pin_level(HEATER_MODE_SELECT_PIN) == lowerNewValue ? HEATER_OFF : HEATER_ON) {
+		while(wait && ioport_get_pin_level(HEATER_MODE_SELECT_PIN) == (lowerNewValue ? HEATER_OFF : HEATER_ON)) {
 		
 			// Delay one second
 			tc_restart(&TEMPERATURE_TIMER);
-			for(temperatureIntervalCounter = 0; temperatureIntervalCounter < 1 / UPDATE_TEMPERATURE_INTERVAL && !emergencyStopOccured;)
+			for(temperatureIntervalCounter = 0; temperatureIntervalCounter < UPDATE_TEMPERATURE_PER_SECOND && !emergencyStopOccured;)
 				delay_us(1);
 			
 			// Break if an emergency stop occured
@@ -157,10 +157,6 @@ void Heater::setTemperature(uint16_t value, bool wait) {
 			// Send temperature
 			udi_cdc_write_buf(buffer, strlen(buffer));
 		}
-		
-		// Clear ideal temperature if an emergency stop occured
-		if(emergencyStopOccured)
-			idealTemperature = 0;
 	}
 	
 	// Otherwise
@@ -187,8 +183,14 @@ float Heater::getTemperature() const {
 
 void Heater::reset() {
 
+	// Prevent updating temperature
+	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
+
 	// Clear ideal and actual temperature
 	idealTemperature = actualTemperature = 0;
+	
+	// Allow updating temperature
+	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
 
 	// Turn off heater
 	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
