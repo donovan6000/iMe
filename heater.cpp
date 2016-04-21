@@ -17,12 +17,14 @@ extern "C" {
 #define HEATER_ENABLE_PIN IOPORT_CREATE_PIN(PORTA, 2)
 #define HEATER_READ_POSITIVE_PIN IOPORT_CREATE_PIN(PORTA, 3)
 #define HEATER_READ_NEGATIVE_PIN IOPORT_CREATE_PIN(PORTA, 4)
+#define RESISTANCE_READ_PIN IOPORT_CREATE_PIN(PORTA, 5)
 
 // Heater ADC
 #define HEATER_READ_ADC MOTOR_E_CURRENT_SENSE_ADC
 #define HEATER_READ_ADC_CHANNEL ADC_CH0
 #define HEATER_READ_POSITIVE_INPUT ADCCH_POS_PIN3
 #define HEATER_READ_NEGATIVE_INPUT ADCCH_NEG_PIN4
+#define RESISTANCE_READ_INPUT ADCCH_POS_PIN5
 
 // Pin states
 #define HEATER_ON IOPORT_PIN_LEVEL_HIGH
@@ -37,34 +39,50 @@ float idealTemperature;
 float actualTemperature;
 adc_config heaterReadAdcController;
 adc_channel_config heaterReadAdcChannel;
+adc_config resistanceReadAdcController;
+adc_channel_config resistanceReadAdcChannel;
 
 
 // Supporting function implementation
 void Heater::initialize() {
 
-	// Configure heater select, enable, and read
+	// Configure heater select and enable pins
 	ioport_set_pin_dir(HEATER_MODE_SELECT_PIN, IOPORT_DIR_OUTPUT);
-	
 	ioport_set_pin_dir(HEATER_ENABLE_PIN, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_level(HEATER_ENABLE_PIN, HEATER_ENABLE);
 	
+	// Configure heater read pins
 	ioport_set_pin_dir(HEATER_READ_POSITIVE_PIN, IOPORT_DIR_INPUT);
 	ioport_set_pin_mode(HEATER_READ_POSITIVE_PIN, IOPORT_MODE_PULLDOWN);
 	ioport_set_pin_dir(HEATER_READ_NEGATIVE_PIN, IOPORT_DIR_INPUT);
 	ioport_set_pin_mode(HEATER_READ_NEGATIVE_PIN, IOPORT_MODE_PULLDOWN);
 	
+	// Configure resistance read pin
+	ioport_set_pin_dir(RESISTANCE_READ_PIN, IOPORT_DIR_INPUT);
+	ioport_set_pin_mode(RESISTANCE_READ_PIN, IOPORT_MODE_PULLDOWN);
+	
 	// Reset
 	reset();
 	
-	// Set ADC controller to use signed, 12bit, Vref refrence, manual trigger, 200kHz frequency
+	// Set ADC heater controller to use signed, 12bit, bandgap refrence, manual trigger, 200kHz frequency
 	adc_read_configuration(&HEATER_READ_ADC, &heaterReadAdcController);
-	adc_set_conversion_parameters(&heaterReadAdcController, ADC_SIGN_ON, ADC_RES_12, ADC_REF_AREFA);
+	adc_set_conversion_parameters(&heaterReadAdcController, ADC_SIGN_ON, ADC_RES_12, ADC_REF_BANDGAP);
 	adc_set_conversion_trigger(&heaterReadAdcController, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
 	adc_set_clock_rate(&heaterReadAdcController, 200000);
 	
-	// Set ADC channel to use heater read pins as a differential input
+	// Set ADC heater channel to use heater read pins as a differential input
 	adcch_read_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
 	adcch_set_input(&heaterReadAdcChannel, HEATER_READ_POSITIVE_INPUT, HEATER_READ_NEGATIVE_INPUT, 1);
+	
+	// Set ADC resistance controller to use unsigned, 12bit, bandgap refrence, manual trigger, 200kHz frequency
+	adc_read_configuration(&HEATER_READ_ADC, &resistanceReadAdcController);
+	adc_set_conversion_parameters(&resistanceReadAdcController, ADC_SIGN_OFF, ADC_RES_12, ADC_REF_BANDGAP);
+	adc_set_conversion_trigger(&resistanceReadAdcController, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
+	adc_set_clock_rate(&resistanceReadAdcController, 200000);
+	
+	// Set ADC resistance channel to use resistance read pin as a single input
+	adcch_read_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &resistanceReadAdcChannel);
+	adcch_set_input(&resistanceReadAdcChannel, RESISTANCE_READ_INPUT, ADCCH_NEG_NONE, 1);
 	
 	// Configure update temperature timer
 	tc_enable(&TEMPERATURE_TIMER);
@@ -82,15 +100,29 @@ void Heater::initialize() {
 			// Turn on heater
 			ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_ON);
 	
-			// Get heater temperature
+			// Get heater value
 			adc_write_configuration(&HEATER_READ_ADC, &heaterReadAdcController);
 			adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
-			adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-			adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-			int16_t value = adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 			
-			// Get heater calibration mode
-			uint8_t heaterCalibrationMode = nvm_eeprom_read_byte(EEPROM_HEATER_CALIBRATION_MODE_OFFSET);
+			int32_t heaterValue = 0;
+			for(uint8_t i = 0; i < 100; i++) {
+				adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+				adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+				heaterValue += adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+			}
+			heaterValue /= 100;
+			
+			// Get resistance value
+			adc_write_configuration(&HEATER_READ_ADC, &resistanceReadAdcController);
+			adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &resistanceReadAdcChannel);
+			
+			uint32_t resistanceValue = 0;
+			for(uint8_t i = 0; i < 100; i++) {
+				adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+				adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+				resistanceValue += adc_get_unsigned_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL) / 2;
+			}
+			resistanceValue /= 100;
 			
 			// Get heater temperature measurement B
 			float heaterTemperatureMeasurementB;
@@ -101,16 +133,15 @@ void Heater::initialize() {
 			nvm_eeprom_read_buffer(EEPROM_HEATER_RESISTANCE_M_OFFSET, &heaterResistanceM, EEPROM_HEATER_RESISTANCE_M_LENGTH);
 			
 			// Check which heater calibration mode was used
-			switch(heaterCalibrationMode) {
+			switch(nvm_eeprom_read_byte(EEPROM_HEATER_CALIBRATION_MODE_OFFSET)) {
 			
+				// Update actual temperature
 				default:
-				
-					// TODO Update actual temperature
-					actualTemperature = value * 0;
+					actualTemperature = heaterValue * 0.54444444 / resistanceValue * heaterResistanceM + heaterTemperatureMeasurementB;
 			}
 			
 			// Check if temperature has been reached
-			if(actualTemperature > idealTemperature)
+			if(actualTemperature >= idealTemperature)
 			
 				// Turn heater off
 				ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
@@ -141,8 +172,7 @@ void Heater::setTemperature(uint16_t value, bool wait) {
 		
 			// Delay one second
 			tc_restart(&TEMPERATURE_TIMER);
-			for(temperatureIntervalCounter = 0; temperatureIntervalCounter < UPDATE_TEMPERATURE_PER_SECOND && !emergencyStopOccured;)
-				delay_us(1);
+			for(temperatureIntervalCounter = 0; temperatureIntervalCounter < UPDATE_TEMPERATURE_PER_SECOND && !emergencyStopOccured; delay_us(1));
 			
 			// Break if an emergency stop occured
 			if(emergencyStopOccured)

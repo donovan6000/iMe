@@ -3,11 +3,18 @@ FIRMWARE_NAME = iMe
 FIRMWARE_VERSION = 1900000001
 
 # Tool locations
-CC = /opt/avr-toolchain/bin/avr-gcc
-COPY = /opt/avr-toolchain/bin/avr-objcopy
-SIZE = /opt/avr-toolchain/bin/avr-size
-DUMP = /opt/avr-toolchain/bin/avr-objdump
-M3DLINUX = /usr/sbin/m3d-linux
+ifeq ($(OS), Windows_NT)
+	CC = "C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe"
+	COPY = "C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe"
+	SIZE = "C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-size.exe"
+	DUMP = "C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objdump.exe"
+else
+	CC = /opt/avr-toolchain/bin/avr-gcc
+	COPY = /opt/avr-toolchain/bin/avr-objcopy
+	SIZE = /opt/avr-toolchain/bin/avr-size
+	DUMP = /opt/avr-toolchain/bin/avr-objdump
+	M3DLINUX = /usr/sbin/m3d-linux
+endif
 
 # Assembly source files
 ASSRCS = src/ASF/xmega/drivers/cpu/ccp.s \

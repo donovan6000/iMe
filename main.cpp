@@ -28,9 +28,8 @@ extern "C" {
 	#define FIRMWARE_VERSION 1900000001
 #endif
 
-// Unknown pins
-#define UNKNOWN_PIN_1 IOPORT_CREATE_PIN(PORTA, 1) // Connected to transistors above the microcontroller
-#define UNKNOWN_PIN_2 IOPORT_CREATE_PIN(PORTA, 5) // Connected to a resistor and capacitor in parallel to ground
+// Unused pin (Connected to transistors above the microcontroller)
+#define UNUSED_PIN IOPORT_CREATE_PIN(PORTA, 1)
 
 
 // Global variables
@@ -91,11 +90,9 @@ int main() {
 	led.initialize();
 	motors.initialize();
 	
-	// Configure unknown pins
-	ioport_set_pin_dir(UNKNOWN_PIN_1, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(UNKNOWN_PIN_1, IOPORT_PIN_LEVEL_LOW);
-	ioport_set_pin_dir(UNKNOWN_PIN_2, IOPORT_DIR_INPUT);
-	ioport_set_pin_mode(UNKNOWN_PIN_2, IOPORT_MODE_PULLDOWN);
+	// Configure unused pin
+	ioport_set_pin_dir(UNUSED_PIN, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_level(UNUSED_PIN, IOPORT_PIN_LEVEL_LOW);
 	
 	// Configure send wait interrupt
 	tc_set_overflow_interrupt_callback(&WAIT_TIMER, []() -> void {
