@@ -24,6 +24,9 @@ class Heater {
 		// Get temperature
 		float getTemperature() const;
 		
+		// Is working
+		bool isWorking();
+		
 		// Reset
 		void reset();
 		

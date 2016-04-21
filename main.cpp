@@ -141,382 +141,401 @@ int main() {
 		
 				// Check if accelerometer is working
 				if(motors.accelerometer.isWorking) {
+				
+					// Check if heater is working
+					if(heater.isWorking()) {
 	
-					// Check if command contains valid G-code
-					if(requests[currentProcessingRequest].commandParameters & ~(VALID_CHECKSUM_OFFSET | PARSED_OFFSET)) {
+						// Check if command contains valid G-code
+						if(requests[currentProcessingRequest].commandParameters & ~(VALID_CHECKSUM_OFFSET | PARSED_OFFSET)) {
 		
-						// Check if command has host command
-						if(requests[currentProcessingRequest].commandParameters & PARAMETER_HOST_COMMAND_OFFSET)
+							// Check if command has host command
+							if(requests[currentProcessingRequest].commandParameters & PARAMETER_HOST_COMMAND_OFFSET)
 				
-							// Set response to error
-							strcpy(responseBuffer, "Error: Unknown host command");
+								// Set response to error
+								strcpy(responseBuffer, "Error: Unknown host command");
 			
-						// Otherwise
-						else {
+							// Otherwise
+							else {
 		
-							// Check if command has an N parameter
-							if(requests[currentProcessingRequest].commandParameters & PARAMETER_N_OFFSET) {
+								// Check if command has an N parameter
+								if(requests[currentProcessingRequest].commandParameters & PARAMETER_N_OFFSET) {
 					
-								// Check if command is a starting line number
-								if(requests[currentProcessingRequest].valueN == 0 && requests[currentProcessingRequest].valueM == 110)
+									// Check if command is a starting line number
+									if(requests[currentProcessingRequest].valueN == 0 && requests[currentProcessingRequest].valueM == 110)
 			
-									// Reset current line number
-									currentLineNumber = 0;
+										// Reset current line number
+										currentLineNumber = 0;
 					
-								// Check if command doesn't have a valid checksum
-								if(!requests[currentProcessingRequest].hasValidChecksum())
+									// Check if command doesn't have a valid checksum
+									if(!requests[currentProcessingRequest].hasValidChecksum())
 			
-									// Set response to resend
-									strcpy(responseBuffer, "rs");
-						
-								// Otherwise
-								else {
-				
-									// Check if line number is correct
-									if(requests[currentProcessingRequest].valueN == currentLineNumber)
-				
-										// Increment current line number
-										currentLineNumber++;
-					
-									// Otherwise check if command has already been processed
-									else if(requests[currentProcessingRequest].valueN < currentLineNumber)
-					
-										// Set response to skip
-										strcpy(responseBuffer, "skip");
-				
-									// Otherwise
-									else
-				
 										// Set response to resend
 										strcpy(responseBuffer, "rs");
+						
+									// Otherwise
+									else {
+				
+										// Check if line number is correct
+										if(requests[currentProcessingRequest].valueN == currentLineNumber)
+				
+											// Increment current line number
+											currentLineNumber++;
+					
+										// Otherwise check if command has already been processed
+										else if(requests[currentProcessingRequest].valueN < currentLineNumber)
+					
+											// Set response to skip
+											strcpy(responseBuffer, "skip");
+				
+										// Otherwise
+										else
+				
+											// Set response to resend
+											strcpy(responseBuffer, "rs");
+									}
 								}
-							}
 			
-							// Check if response wasn't set
-							if(!*responseBuffer) {
+								// Check if response wasn't set
+								if(!*responseBuffer) {
 					
-								// Check if command has an M parameter
-								if(requests[currentProcessingRequest].commandParameters & PARAMETER_M_OFFSET) {
+									// Check if command has an M parameter
+									if(requests[currentProcessingRequest].commandParameters & PARAMETER_M_OFFSET) {
 			
-									switch(requests[currentProcessingRequest].valueM) {
+										switch(requests[currentProcessingRequest].valueM) {
 							
-										// M17
-										case 17:
+											// M17
+											case 17:
 								
-											// Turn on motors
-											motors.turnOn();
-									
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
-										break;
-							
-										// M18
-										case 18:
-								
-											// Turn off motors
-											motors.turnOff();
-									
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
-										break;
-								
-										// M104 or M109
-										case 104:
-										case 109:
-								
-											// Check if temperature is valid
-											int32_t temperature;
-											temperature = requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET ? requests[currentProcessingRequest].valueS : 0;
-											if(!temperature || (temperature >= MIN_TEMPERATURE && temperature <= MAX_TEMPERATURE)) {
-									
-												// Set temperature
-												heater.setTemperature(temperature, temperature && requests[currentProcessingRequest].valueM == 109);
-								
-												// Set response to confirmation
-												strcpy(responseBuffer, "ok");
-											}
-									
-											// Otherwise
-											else
-									
-												// Set response to temperature range
-												strcpy(responseBuffer, "Error: Temperature must be between " TOSTRING(MIN_TEMPERATURE) " and " TOSTRING(MAX_TEMPERATURE) " degrees Celsius");
-										break;
-								
-										// M105
-										case 105:
-					
-											// Set response to temperature
-											strcpy(responseBuffer, "ok\nT:");
-											ftoa(heater.getTemperature(), numberBuffer);
-											strcat(responseBuffer, numberBuffer);
-										break;
-								
-										// M106 or M107
-										case 106:
-										case 107:
-								
-											// Check if speed is valid
-											int32_t speed;
-											speed = requests[currentProcessingRequest].valueM == 107 || !(requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET) ? 0 : requests[currentProcessingRequest].valueS;
-											if(speed >= 0) {
-							
-												// Set fan's speed
-												fan.setSpeed(min(255, speed));
+												// Turn on motors
+												motors.turnOn();
 									
 												// Set response to confirmation
 												strcpy(responseBuffer, "ok");
-											}
-										break;
+											break;
+							
+											// M18
+											case 18:
 								
-										// M114
-										case 114:
-								
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
+												// Turn off motors
+												motors.turnOff();
 									
-											// Append motors current X to response
-											strcat(responseBuffer, " X:");
-											ftoa(motors.currentValues[X], numberBuffer);
-											strcat(responseBuffer, numberBuffer);
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
+											break;
 								
-											// Append motors current Y to response
-											strcat(responseBuffer, " Y:");
-											ftoa(motors.currentValues[Y], numberBuffer);
-											strcat(responseBuffer, numberBuffer);
+											// M104 or M109
+											case 104:
+											case 109:
+								
+												// Check if temperature is valid
+												int32_t temperature;
+												temperature = requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET ? requests[currentProcessingRequest].valueS : 0;
+												if(!temperature || (temperature >= MIN_TEMPERATURE && temperature <= MAX_TEMPERATURE)) {
 									
-											// Append motors current Z to response
-											strcat(responseBuffer, " Z:");
-											ftoa(motors.currentValues[Z], numberBuffer);
-											strcat(responseBuffer, numberBuffer);
+													// Set temperature
+													heater.setTemperature(temperature, temperature && requests[currentProcessingRequest].valueM == 109);
 								
-											// Append motors current E to response
-											strcat(responseBuffer, " E:");
-											ftoa(motors.currentValues[E], numberBuffer);
-											strcat(responseBuffer, numberBuffer);
-										break;
-						
-										// M115
-										case 115:
-						
-											// Check if command is to reset
-											if(requests[currentProcessingRequest].valueS == 628)
-						
-												// Perform software reset
-												reset_do_soft_reset();
-						
-											// Otherwise
-											else {
-						
-												// Put device details into response
-												strcpy(responseBuffer, "ok REPRAP_PROTOCOL:0 FIRMWARE_NAME:" TOSTRING(FIRMWARE_NAME) " FIRMWARE_VERSION:" TOSTRING(FIRMWARE_VERSION) " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
-												strncat(responseBuffer, serialNumber, EEPROM_SERIAL_NUMBER_LENGTH);
-											}
-										break;
-								
-										// M117
-										case 117:
-								
-											// Set response to valid values
-											strcpy(responseBuffer, "ok XV:");
-											strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_X_STATE_OFFSET) ? "1" : "0");
-											strcat(responseBuffer, " YV:");
-											strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_Y_STATE_OFFSET) ? "1" : "0");
-											strcat(responseBuffer, " ZV:");
-											strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET) ? "1" : "0");
-										break;
-								
-										// M420
-										case 420:
-								
-											// Check if duty cycle is provided
-											if(requests[currentProcessingRequest].commandParameters & PARAMETER_T_OFFSET) {
+													// Check if heater isn't working
+													if(!heater.isWorking())
+													
+														// Set response to error
+														strcpy(responseBuffer, "Error: Heater isn't working");
+													
+													// Otherwise
+													else
+													
+														// Set response to confirmation
+														strcpy(responseBuffer, "ok");
+												}
 									
-												// Check if brightness is valid
-												uint8_t brightness = requests[currentProcessingRequest].valueT;
-										
-												if(brightness <= 100) {
-										
-													// Set LED's brightness
-													led.setBrightness(brightness);
-											
+												// Otherwise
+												else
+									
+													// Set response to temperature range
+													strcpy(responseBuffer, "Error: Temperature must be between " TOSTRING(MIN_TEMPERATURE) " and " TOSTRING(MAX_TEMPERATURE) " degrees Celsius");
+											break;
+								
+											// M105
+											case 105:
+					
+												// Set response to temperature
+												strcpy(responseBuffer, "ok\nT:");
+												ftoa(heater.getTemperature(), numberBuffer);
+												strcat(responseBuffer, numberBuffer);
+											break;
+								
+											// M106 or M107
+											case 106:
+											case 107:
+								
+												// Check if speed is valid
+												int32_t speed;
+												speed = requests[currentProcessingRequest].valueM == 107 || !(requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET) ? 0 : requests[currentProcessingRequest].valueS;
+												if(speed >= 0) {
+							
+													// Set fan's speed
+													fan.setSpeed(min(255, speed));
+									
 													// Set response to confirmation
 													strcpy(responseBuffer, "ok");
 												}
-											}
-										break;
-							
-										// M618 or M619
-										case 618:
-										case 619:
-							
-											// Check if EEPROM offset and length are provided
-											if(requests[currentProcessingRequest].commandParameters & (PARAMETER_S_OFFSET | PARAMETER_T_OFFSET)) {
+											break;
 								
-												// Check if offset and length are valid
-												int32_t offset = requests[currentProcessingRequest].valueS;
-												uint8_t length = requests[currentProcessingRequest].valueT;
+											// M114
+											case 114:
+								
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
 									
-												if(offset >= 0 && length && length <= 4 && offset + length < EEPROM_SIZE) {
-										
-													// Set response to offset
-													strcpy(responseBuffer, "ok PT:");
-													ulltoa(offset, numberBuffer);
-													strcat(responseBuffer, numberBuffer);
-											
-													// Check if reading an EEPROM value
-													if(requests[currentProcessingRequest].valueM == 619) {
-											
-														// Get value from EEPROM
-														uint32_t value = 0;
-														nvm_eeprom_read_buffer(offset, &value, length);
-										
-														// Append value to response
-														strcat(responseBuffer, " DT:");
-														ulltoa(value, numberBuffer);
-														strcat(responseBuffer, numberBuffer);
-													}
-											
-													// Otherwise check if EEPROM value is provided
-													else if(requests[currentProcessingRequest].commandParameters & PARAMETER_P_OFFSET) {
+												// Append motors current X to response
+												strcat(responseBuffer, " X:");
+												ftoa(motors.currentValues[X], numberBuffer);
+												strcat(responseBuffer, numberBuffer);
+								
+												// Append motors current Y to response
+												strcat(responseBuffer, " Y:");
+												ftoa(motors.currentValues[Y], numberBuffer);
+												strcat(responseBuffer, numberBuffer);
 									
-														// Get value
-														int32_t value = requests[currentProcessingRequest].valueP;
-									
-														// Write value to EEPROM
-														nvm_eeprom_erase_and_write_buffer(offset, &value, length);
-													}
-											
-													// Otherwise
-													else
-											
-														// Clear response buffer
-														*responseBuffer = 0;
+												// Append motors current Z to response
+												strcat(responseBuffer, " Z:");
+												ftoa(motors.currentValues[Z], numberBuffer);
+												strcat(responseBuffer, numberBuffer);
+								
+												// Append motors current E to response
+												strcat(responseBuffer, " E:");
+												ftoa(motors.currentValues[E], numberBuffer);
+												strcat(responseBuffer, numberBuffer);
+											break;
+						
+											// M115
+											case 115:
+						
+												// Check if command is to reset
+												if(requests[currentProcessingRequest].valueS == 628)
+						
+													// Perform software reset
+													reset_do_soft_reset();
+						
+												// Otherwise
+												else {
+						
+													// Put device details into response
+													strcpy(responseBuffer, "ok REPRAP_PROTOCOL:0 FIRMWARE_NAME:" TOSTRING(FIRMWARE_NAME) " FIRMWARE_VERSION:" TOSTRING(FIRMWARE_VERSION) " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
+													strncat(responseBuffer, serialNumber, EEPROM_SERIAL_NUMBER_LENGTH);
 												}
-											}
-										break;
+											break;
 								
-										// M21, M84, or M110
-										case 21:
-										case 84:
-										case 110:
-						
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
-										break;
-									}
-								}
-					
-								// Otherwise check if command has a G parameter
-								else if(requests[currentProcessingRequest].commandParameters & PARAMETER_G_OFFSET) {
-			
-									switch(requests[currentProcessingRequest].valueG) {
-				
-										// G0 or G1
-										case 0:
-										case 1:
+											// M117
+											case 117:
 								
-											// Move
-											motors.move(requests[currentProcessingRequest]);
-					
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
-										break;
-						
-										// G4
-										case 4:
-						
-											// Delay specified time
-											uint32_t delayTime;
-											if((delayTime = requests[currentProcessingRequest].valueP + requests[currentProcessingRequest].valueS * 1000))
-												delay_ms(delayTime);
+												// Set response to valid values
+												strcpy(responseBuffer, "ok XV:");
+												strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_X_STATE_OFFSET) ? "1" : "0");
+												strcat(responseBuffer, " YV:");
+												strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_Y_STATE_OFFSET) ? "1" : "0");
+												strcat(responseBuffer, " ZV:");
+												strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET) ? "1" : "0");
+											break;
+								
+											// M420
+											case 420:
+								
+												// Check if duty cycle is provided
+												if(requests[currentProcessingRequest].commandParameters & PARAMETER_T_OFFSET) {
+									
+													// Check if brightness is valid
+													uint8_t brightness = requests[currentProcessingRequest].valueT;
+										
+													if(brightness <= 100) {
+										
+														// Set LED's brightness
+														led.setBrightness(brightness);
+											
+														// Set response to confirmation
+														strcpy(responseBuffer, "ok");
+													}
+												}
+											break;
 							
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
-										break;
+											// M618 or M619
+											case 618:
+											case 619:
+							
+												// Check if EEPROM offset and length are provided
+												if(requests[currentProcessingRequest].commandParameters & (PARAMETER_S_OFFSET | PARAMETER_T_OFFSET)) {
 								
-										// G28
-										case 28:
-								
-											// Home XY
-											motors.homeXY();
+													// Check if offset and length are valid
+													int32_t offset = requests[currentProcessingRequest].valueS;
+													uint8_t length = requests[currentProcessingRequest].valueT;
 									
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
-										break;
-								
-										// G30
-										case 30:
-								
-											// Calibrate bed center Z0
-											motors.calibrateBedCenterZ0();
+													if(offset >= 0 && length && length <= 4 && offset + length < EEPROM_SIZE) {
+										
+														// Set response to offset
+														strcpy(responseBuffer, "ok PT:");
+														ulltoa(offset, numberBuffer);
+														strcat(responseBuffer, numberBuffer);
+											
+														// Check if reading an EEPROM value
+														if(requests[currentProcessingRequest].valueM == 619) {
+											
+															// Get value from EEPROM
+															uint32_t value = 0;
+															nvm_eeprom_read_buffer(offset, &value, length);
+										
+															// Append value to response
+															strcat(responseBuffer, " DT:");
+															ulltoa(value, numberBuffer);
+															strcat(responseBuffer, numberBuffer);
+														}
+											
+														// Otherwise check if EEPROM value is provided
+														else if(requests[currentProcessingRequest].commandParameters & PARAMETER_P_OFFSET) {
 									
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
-										break;
-								
-										// G32
-										case 32:
-								
-											// Calibrate bed orientation
-											motors.calibrateBedOrientation();
+															// Get value
+															int32_t value = requests[currentProcessingRequest].valueP;
 									
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
-										break;
+															// Write value to EEPROM
+															nvm_eeprom_erase_and_write_buffer(offset, &value, length);
+														}
+											
+														// Otherwise
+														else
+											
+															// Clear response buffer
+															*responseBuffer = 0;
+													}
+												}
+											break;
 								
-										// G33
-										case 33:
-								
-											// Save Z as bed center Z0
-											motors.saveZAsBedCenterZ0();
-									
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
-										break;
-								
-										// G90 or G91
-										case 90:
-										case 91:
-								
-											// Set mode to absolute
-											motors.mode = requests[currentProcessingRequest].valueG == 90 ? ABSOLUTE : RELATIVE;
-									
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
-										break;
-								
-										// G92
-										case 92:
-								
-											// Set motors current E
-											motors.currentValues[E] = requests[currentProcessingRequest].commandParameters & PARAMETER_E_OFFSET ? requests[currentProcessingRequest].valueE : 0;
+											// M21, M84, or M110
+											case 21:
+											case 84:
+											case 110:
 						
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
-										break;
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
+											break;
+										}
 									}
-								}
-						
-								// Otherwise check if command has parameter T
-								else if(requests[currentProcessingRequest].commandParameters & PARAMETER_T_OFFSET)
-						
-									// Set response to confirmation
-									strcpy(responseBuffer, "ok");
-							}
+					
+									// Otherwise check if command has a G parameter
+									else if(requests[currentProcessingRequest].commandParameters & PARAMETER_G_OFFSET) {
+			
+										switch(requests[currentProcessingRequest].valueG) {
 				
-							// Check if command has an N parameter and it was processed
-							if(requests[currentProcessingRequest].commandParameters & PARAMETER_N_OFFSET && (!strncmp(responseBuffer, "ok", 2) || !strncmp(responseBuffer, "rs", 2) || !strncmp(responseBuffer, "skip", 4))) {
+											// G0 or G1
+											case 0:
+											case 1:
+								
+												// Move
+												motors.move(requests[currentProcessingRequest]);
+					
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
+											break;
+						
+											// G4
+											case 4:
+						
+												// Delay specified time
+												uint32_t delayTime;
+												if((delayTime = requests[currentProcessingRequest].valueP + requests[currentProcessingRequest].valueS * 1000))
+													delay_ms(delayTime);
+							
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
+											break;
+								
+											// G28
+											case 28:
+								
+												// Home XY
+												motors.homeXY();
+									
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
+											break;
+								
+											// G30
+											case 30:
+								
+												// Calibrate bed center Z0
+												motors.calibrateBedCenterZ0();
+									
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
+											break;
+								
+											// G32
+											case 32:
+								
+												// Calibrate bed orientation
+												motors.calibrateBedOrientation();
+									
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
+											break;
+								
+											// G33
+											case 33:
+								
+												// Save Z as bed center Z0
+												motors.saveZAsBedCenterZ0();
+									
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
+											break;
+								
+											// G90 or G91
+											case 90:
+											case 91:
+								
+												// Set mode to absolute
+												motors.mode = requests[currentProcessingRequest].valueG == 90 ? ABSOLUTE : RELATIVE;
+									
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
+											break;
+								
+											// G92
+											case 92:
+								
+												// Set motors current E
+												motors.currentValues[E] = requests[currentProcessingRequest].commandParameters & PARAMETER_E_OFFSET ? requests[currentProcessingRequest].valueE : 0;
+						
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
+											break;
+										}
+									}
+						
+									// Otherwise check if command has parameter T
+									else if(requests[currentProcessingRequest].commandParameters & PARAMETER_T_OFFSET)
+						
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+								}
+				
+								// Check if command has an N parameter and it was processed
+								if(requests[currentProcessingRequest].commandParameters & PARAMETER_N_OFFSET && (!strncmp(responseBuffer, "ok", 2) || !strncmp(responseBuffer, "rs", 2) || !strncmp(responseBuffer, "skip", 4))) {
 		
-								// Append line number to response
-								uint8_t endOfResponse = responseBuffer[0] == 's' ? 4 : 2;
-								ulltoa(responseBuffer[0] == 'r' ? currentLineNumber : requests[currentProcessingRequest].valueN, numberBuffer);
-								memmove(&responseBuffer[endOfResponse + 1 + strlen(numberBuffer)], &responseBuffer[endOfResponse], strlen(responseBuffer) - 1);
-								responseBuffer[endOfResponse] = ' ';
-								memcpy(&responseBuffer[endOfResponse + 1], numberBuffer, strlen(numberBuffer));
+									// Append line number to response
+									uint8_t endOfResponse = responseBuffer[0] == 's' ? 4 : 2;
+									ulltoa(responseBuffer[0] == 'r' ? currentLineNumber : requests[currentProcessingRequest].valueN, numberBuffer);
+									memmove(&responseBuffer[endOfResponse + 1 + strlen(numberBuffer)], &responseBuffer[endOfResponse], strlen(responseBuffer) - 1);
+									responseBuffer[endOfResponse] = ' ';
+									memcpy(&responseBuffer[endOfResponse + 1], numberBuffer, strlen(numberBuffer));
+								}
 							}
 						}
 					}
+					
+					// Otherwise
+					else
+		
+						// Set response to error
+						strcpy(responseBuffer, "Error: Heater isn't working");
 				}
 		
 				// Otherwise
