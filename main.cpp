@@ -104,7 +104,7 @@ int main() {
 			waitCounter = 0;
 			
 			// Send wait
-			udi_cdc_write_buf("wait\n", strlen("wait\n"));
+			sendDataToUsb("wait\n");
 		}
 	});
 	
@@ -558,7 +558,7 @@ int main() {
 		
 				// Send response if an emergency stop didn't happen
 				if(!emergencyStopOccured)
-					udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+					sendDataToUsb(responseBuffer);
 			}
 			
 			// Clear request
@@ -588,7 +588,7 @@ int main() {
 			emergencyStopOccured = false;
 			
 			// Send confirmation
-			udi_cdc_write_buf("ok\n", strlen("ok\n"));
+			sendDataToUsb("ok\n");
 			
 			// Enable send wait interrupt
 			waitCounter = 0;

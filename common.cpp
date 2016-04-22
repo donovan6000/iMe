@@ -1,4 +1,7 @@
 // Header files
+extern "C" {
+	#include <asf.h>
+}
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
@@ -152,4 +155,14 @@ float strtof(const char *nptr, char **endptr) {
 	
 	// Return value
 	return negative ? value * -1 : value;
+}
+
+void sendDataToUsb(const char *data) {
+
+	// Check if data can be sent
+	uint8_t length = strlen(data);
+	if(udi_cdc_get_free_tx_buffer() >= length)
+	
+		// Send data
+		udi_cdc_write_buf(data, length);
 }

@@ -417,7 +417,7 @@ void Motors::initialize() {
 	adc_set_conversion_trigger(&currentSenseAdcController, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
 	adc_set_clock_rate(&currentSenseAdcController, 200000);
 	
-	// Set ADC channel to use motor E current sense pin as single ended input
+	// Set ADC channel to use motor E current sense pin as single ended input with no gain
 	adcch_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
 	adcch_set_input(&currentSenseAdcChannel, MOTOR_E_CURRENT_SENSE_ADC_PIN, ADCCH_NEG_NONE, 1);
 	
@@ -711,13 +711,14 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
 		
 				// Read actual motor E voltages
-				uint32_t value = 0;
 				adc_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &currentSenseAdcController);
 				adcch_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
-				for(uint8_t i = 0; MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm && i < 100; i++) {
+				
+				uint32_t value = 0;
+				for(uint8_t i = 0; MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm && i < 50; i++) {
 					adc_start_conversion(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 					adc_wait_for_interrupt_flag(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
-					value += adc_get_result(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
+					value += adc_get_unsigned_result(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 				}
 				
 				// Allow updating temperature
@@ -727,7 +728,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm) {
 			
 					// Set average actual motor E voltage
-					value /= 100;
+					value /= 50;
 					float actualVoltage = ADC_VREF / (pow(2, 12) - 1) * value;
 			
 					// Get ideal motor E voltage

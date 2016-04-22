@@ -51,5 +51,11 @@ Purpose: Converts a string to a float
 */
 float strtof(const char *nptr, char **endptr = nullptr);
 
+/*
+Name: Send data to USB
+Purpose: Sends data to the USB host
+*/
+void sendDataToUsb(const char *data);
+
 
 #endif

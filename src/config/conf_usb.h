@@ -33,6 +33,10 @@ extern char serialNumber[];
 #endif
 
 
+// Don't user sleep manager
+#define UDD_NO_SLEEP_MGR
+
+
 // USB interrupt priority
 #define UDD_USB_INT_LEVEL USB_INTLVL_LO_gc
 

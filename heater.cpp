@@ -72,9 +72,9 @@ void Heater::initialize() {
 	adc_set_conversion_trigger(&heaterReadAdcController, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
 	adc_set_clock_rate(&heaterReadAdcController, 200000);
 	
-	// Set ADC heater channel to use heater read pins as a differential input
+	// Set ADC heater channel to use heater read pins as a differential input with 1/2x gain
 	adcch_read_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
-	adcch_set_input(&heaterReadAdcChannel, HEATER_READ_POSITIVE_INPUT, HEATER_READ_NEGATIVE_INPUT, 1);
+	adcch_set_input(&heaterReadAdcChannel, HEATER_READ_POSITIVE_INPUT, HEATER_READ_NEGATIVE_INPUT, 0);
 	
 	// Set ADC resistance controller to use unsigned, 12bit, bandgap refrence, manual trigger, 200kHz frequency
 	adc_read_configuration(&HEATER_READ_ADC, &resistanceReadAdcController);
@@ -82,7 +82,7 @@ void Heater::initialize() {
 	adc_set_conversion_trigger(&resistanceReadAdcController, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
 	adc_set_clock_rate(&resistanceReadAdcController, 200000);
 	
-	// Set ADC resistance channel to use resistance read pin as a single input
+	// Set ADC resistance channel to use resistance read pin as a single input with no gain
 	adcch_read_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &resistanceReadAdcChannel);
 	adcch_set_input(&resistanceReadAdcChannel, RESISTANCE_READ_INPUT, ADCCH_NEG_NONE, 1);
 	
@@ -107,15 +107,15 @@ void Heater::initialize() {
 			adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
 			
 			int32_t heaterValue = 0;
-			for(uint8_t i = 0; i < 100; i++) {
+			for(uint8_t i = 0; i < 50; i++) {
 				adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 				adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 				heaterValue += adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 			}
-			heaterValue /= 100;
+			heaterValue /= 50;
 			
 			// Check if heater isn't working
-			if(heaterValue == pow(2, 12) / 2 - 1) {
+			if(heaterValue >= (pow(2, 12) / 2 - 1) / 2) {
 			
 				// Clear heater working
 				heaterWorking = false;
@@ -132,12 +132,12 @@ void Heater::initialize() {
 				adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &resistanceReadAdcChannel);
 			
 				uint32_t resistanceValue = 0;
-				for(uint8_t i = 0; i < 100; i++) {
+				for(uint8_t i = 0; i < 50; i++) {
 					adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 					adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-					resistanceValue += adc_get_unsigned_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL) / 2;
+					resistanceValue += adc_get_unsigned_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 				}
-				resistanceValue /= 100;
+				resistanceValue /= 50;
 			
 				// Get heater temperature measurement B
 				float heaterTemperatureMeasurementB;
@@ -152,7 +152,7 @@ void Heater::initialize() {
 			
 					// Update actual temperature
 					default:
-						actualTemperature = heaterValue * 0.54444444 / resistanceValue * heaterResistanceM + heaterTemperatureMeasurementB;
+						actualTemperature = 2.177778 * heaterValue / resistanceValue * heaterResistanceM + heaterTemperatureMeasurementB;
 				}
 			}
 			
@@ -164,10 +164,14 @@ void Heater::initialize() {
 		}
 		
 		// Otherwise
-		else
+		else {
+		
+			// Clear actual temperature
+			actualTemperature = 0;
 		
 			// Turn heater off
 			ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
+		}
 	});
 	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
 }
@@ -201,7 +205,7 @@ void Heater::setTemperature(uint16_t value, bool wait) {
 			strcat(buffer, "\n");
 		
 			// Send temperature
-			udi_cdc_write_buf(buffer, strlen(buffer));
+			sendDataToUsb(buffer);
 		}
 	}
 	
