@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 	
 	// Set output
 	string output = argv[1];
-	for(int i = 0; i < output.length(); i++)
+	for(unsigned int i = 0; i < output.length(); i++)
 		if(output[i] == '.' || output[i] == '-')
 			output[i] = '_';
 	for(int i = output.length() - 1; i >= 0; i--)

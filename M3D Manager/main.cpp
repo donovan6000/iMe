@@ -8,19 +8,14 @@
 
 // Packed files
 #include "iMe 1900000001_hex.h"
-#ifdef WINDOWS
-	#include "M3D_cat.h"
-	#include "M3D_inf.h"
-#endif
-#ifdef LINUX
-	#include "_90_m3d_local_rules.h"
-#endif
+#include "M3D_cat.h"
+#include "M3D_inf.h"
+#include "_90_m3d_local_rules.h"
 
 using namespace std;
 
 
 // Global variables
-string workingFolderLocation;
 string serialPort;
 
 
@@ -32,15 +27,13 @@ bool installFirmware(const string &firmwareLocation);
 // Main function
 int main(int argc, char *argv[]) {
 	
-	// Get temp directory
+	// Get temp location
 	char* tempPath = getenv("TEMP");
 	if(!tempPath)
 		 tempPath = getenv("TMP");
 	if(!tempPath)
 		 tempPath = getenv("TMPDIR");
-	
-	// Create temporary folder
-	workingFolderLocation = mkdtemp(const_cast<char *>((static_cast<string>(tempPath ? tempPath : P_tmpdir) + "/m3d-XXXXXX").c_str()));
+	string tempLocation = tempPath ? tempPath : P_tmpdir;
 	
 	// Attach break handler
 	signal(SIGINT, breakHandler);
@@ -60,7 +53,7 @@ int main(int argc, char *argv[]) {
 			cout << "-s | --start: Switches printer into firmware mode" << endl;
 			cout << "-i | --ime: Installs iMe firmware" << endl;
 			cout << "-r | --rom: Installs the provided firmware" << endl;
-			cout << "serialport: The printer's serial port or it will automatically find printer is not specified" << endl << endl;
+			cout << "serialport: The printer's serial port or it will automatically find printer if not specified" << endl << endl;
 			
 			// Break
 			break;
@@ -76,18 +69,26 @@ int main(int argc, char *argv[]) {
 				#ifdef WINDOWS
 				
 					// Unpack drivers
-					ofstream fout(workingFolderLocation + "/M3D.cat", ios::binary);
+					ofstream fout(tempLocation + "/M3D.cat", ios::binary);
 					for(uint64_t i = 0; i < m3D_catSize; i++)
 						fout.put(m3D_catData[i]);
 					fout.close();
 	
-					fout.open(workingFolderLocation + "/M3D.inf", ios::binary);
+					fout.open(tempLocation + "/M3D.inf", ios::binary);
 					for(uint64_t i = 0; i < m3D_infSize; i++)
 						fout.put(m3D_infData[i]);
 					fout.close();
 					
 					// Check if installing drivers failed
-					if(system("PnPUtil -i -a \"" + workingFolderLocation + "/M3D.inf\"")) {
+					char buffer[MAX_PATH];
+					GetWindowsDirectory(buffer, MAX_PATH);
+					
+					string executablePath;
+					ifstream file(static_cast<string>(buffer) + "\\sysnative\\pnputil.exe");
+					executablePath = file.good() ? "sysnative" : "System32";
+					file.close();
+					
+					if(system((static_cast<string>(buffer) + "\\" + executablePath + "\\pnputil.exe -i -a \"" + tempLocation + "\\M3D.inf\"").c_str())) {
 						
 						// Display error
 						cout << "Failed to install drivers" << endl;
@@ -109,31 +110,29 @@ int main(int argc, char *argv[]) {
 				#ifdef LINUX
 			
 					// Check if user is not root
-					if(getuid())
+					if(getuid()) {
 				
 						// Display error
 						cout << "Elevated privileges required" << endl;
-				
-					// Otherwise
-					else {
-				
-						// Unpack udev rule
-						ofstream fout("/etc/udev/rules.d/90-m3d-local.rules", ios::binary);
-						for(uint64_t i = 0; i < _90_m3d_local_rulesSize; i++)
-							fout.put(_90_m3d_local_rulesData[i]);
-						fout.close();
-					
-						// Check if applying udev rule failed
-						if(system("/etc/init.d/udev restart")) {
-						
-							// Display error
-							cout << "Failed to install drivers" << endl;
-							break;
-						}
-						
-						// Display message
-						cout << "Drivers successfully installed" << endl;
+						break;
 					}
+				
+					// Unpack udev rule
+					ofstream fout("/etc/udev/rules.d/90-m3d-local.rules", ios::binary);
+					for(uint64_t i = 0; i < _90_m3d_local_rulesSize; i++)
+						fout.put(_90_m3d_local_rulesData[i]);
+					fout.close();
+				
+					// Check if applying udev rule failed
+					if(system("/etc/init.d/udev restart")) {
+					
+						// Display error
+						cout << "Failed to install drivers" << endl;
+						break;
+					}
+					
+					// Display message
+					cout << "Drivers successfully installed" << endl;
 				#endif
 				
 				// Break;
@@ -173,7 +172,7 @@ int main(int argc, char *argv[]) {
 			else if(!strcmp(argv[i], "-i") || !strcmp(argv[i], "--ime")) {
 			
 				// Set firmware location
-				string firmwareLocation = workingFolderLocation + "/iMe 1900000001.hex";
+				string firmwareLocation = tempLocation + "/iMe 1900000001.hex";
 			
 				// Unpack iMe ROM
 				ofstream fout(firmwareLocation, ios::binary);
@@ -186,12 +185,10 @@ int main(int argc, char *argv[]) {
 					serialPort = argv[argc - 1];
 			
 				// Install firmware
-				if(!installFirmware(firmwareLocation)) {
+				if(!installFirmware(firmwareLocation))
 						
-					// Display error
-					cout << "Failed to install iMe" << endl;
+					// Break
 					break;
-				}
 				
 				// Display message
 				cout << "iMe successfully installed" << endl;
@@ -219,12 +216,10 @@ int main(int argc, char *argv[]) {
 					serialPort = argv[argc - 1];
 			
 				// Install firmware
-				if(!installFirmware(firmwareLocation)) {
+				if(!installFirmware(firmwareLocation))
 						
-					// Display error
-					cout << "Failed to install firmware" << endl;
+					// Break
 					break;
-				}
 				
 				// Display message
 				cout << "Firmware successfully installed" << endl;
@@ -235,9 +230,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	
-	// Delete temporary folder
-	rmdir(workingFolderLocation.c_str());
-	
 	// Return 0
 	return 0;
 }
@@ -245,9 +237,6 @@ int main(int argc, char *argv[]) {
 
 // Supporting function implementation
 void breakHandler(int signal) {
-
-	// Delete temporary folder
-	rmdir(workingFolderLocation.c_str());
 
 	// Exit so that destructor is called on printer
 	exit(0);

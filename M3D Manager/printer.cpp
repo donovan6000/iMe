@@ -4,8 +4,10 @@
 #include <cstring>
 #include <unistd.h>
 #include <fcntl.h>
-#include <termios.h>
 #include <dirent.h>
+#ifndef WINDOWS
+	#include <termios.h>
+#endif
 #include "printer.h"
 
 
@@ -33,38 +35,33 @@ const uint32_t crc32Table[] = {0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA, 0
 Printer::Printer() {
 
 	// Clear file descriptor
-	fd = -1;
+	fd = 0;
 }
 
 Printer::~Printer() {
 
 	// Close file descriptor if open
-	if(fd != -1)
-		close(fd);
+	if(fd)
+		#ifdef WINDOWS
+			CloseHandle(fd);
+		#else
+			close(fd);
+		#endif
 }
 
 bool Printer::connect(const string &serialPort) {
 	
 	// Close file descriptor if open
-        if(fd != -1)
-        	close(fd);
+        if(fd)
+        	#ifdef WINDOWS
+			CloseHandle(fd);
+		#else
+			close(fd);
+		#endif
         
-        // Check if port is specified
-        if(serialPort.length()) {
-        
-        	// Save current port if it's specified
-        	currentSerialPort = serialPort;
-        	
-        	// Save serial ports
-        	saveSerialPorts();
-        }
-        
-        // Otherwise
-        else
-        
-        	// Update current serial port
-        	currentSerialPort = getSerialPort();
-        
+	// Get current serial port
+	currentSerialPort = serialPort.length() ? serialPort : getSerialPort();
+
         // Check if no serial ports were found
         if(!currentSerialPort.length())
         
@@ -73,43 +70,144 @@ bool Printer::connect(const string &serialPort) {
         
         // Attempt to connect for 2 seconds
         for(uint8_t i = 0; i < 8; i++) {
-        
-		// Wait 250 milliseconds
-		usleep(250000);
 		
-		// Check if opening device was successful
-		if((fd = open(currentSerialPort.c_str(), O_RDWR | O_NONBLOCK)) != -1) {
+		// Check if using Windows
+		#ifdef WINDOWS
 		
-			// Create file lock
-			struct flock lock;
-			lock.l_type = F_WRLCK;
-			lock.l_start = 0;
-			lock.l_whence = SEEK_SET;
-			lock.l_len = 0;
+			// Wait 250 milliseconds
+			Sleep(250);
+		
+			// Check if opening device was successful
+			fd = CreateFile(currentSerialPort.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+			if(fd != INVALID_HANDLE_VALUE) {
 			
-			// Check if file is already locked by another process
-			if(fcntl(fd, F_SETLK, &lock) == -1)
-				return false;
-	      
-			// Set serial protocol to 8n1 with 115200 baud rate
-			termios settings;
-			memset(&settings, 0, sizeof(settings));
-			settings.c_iflag = 0;
-			settings.c_oflag = 0;
-			settings.c_cflag= CS8 | CREAD | CLOCAL;
-			settings.c_lflag = 0;
-			settings.c_cc[VMIN] = 1;
-			settings.c_cc[VTIME] = 5;
-			cfsetospeed(&settings, B115200);
-			cfsetispeed(&settings, B115200);
+				// Check if getting port settings was successful
+				DCB serialPortSettings = {};
+				serialPortSettings.DCBlength = sizeof(serialPortSettings);
+				if(GetCommState(fd, &serialPortSettings)) {
+	
+					// Configure port settings
+					serialPortSettings.BaudRate = CBR_115200;
+					serialPortSettings.ByteSize = 8;
+					serialPortSettings.StopBits = ONESTOPBIT;
+					serialPortSettings.Parity = NOPARITY;
+					
+					// Check if setting port settings was successful
+					if(SetCommState(fd, &serialPortSettings)) {
+	
+						// Configure port timeouts
+						COMMTIMEOUTS serialPortTimeouts = {};
+						serialPortTimeouts.ReadIntervalTimeout = 50;
+						serialPortTimeouts.ReadTotalTimeoutConstant = 50;
+						serialPortTimeouts.ReadTotalTimeoutMultiplier = 10;
+						serialPortTimeouts.WriteTotalTimeoutConstant = 50;
+						serialPortTimeouts.WriteTotalTimeoutMultiplier = 10;
+						
+						// Check if setting port timeouts was successful
+						if(SetCommTimeouts(fd, &serialPortTimeouts)) {
+						
+							// Check if setting port event was successful
+							if(SetCommMask(fd, EV_RXCHAR))
+								
+								// Return true
+								return true;
+							
+							// Otherwise
+							else {
+			
+								// Close file descriptor
+								CloseHandle(fd);
+	
+								// Clear file descriptor
+								fd = 0;
+							}
+						}
+		
+						// Otherwise
+						else {
+				
+							// Close file descriptor
+							CloseHandle(fd);
+		
+							// Clear file descriptor
+							fd = 0;
+						}
+					}
+		
+					// Otherwise
+					else {
+				
+						// Close file descriptor
+						CloseHandle(fd);
+		
+						// Clear file descriptor
+						fd = 0;
+					}
+				}
+		
+				// Otherwise
+				else {
+				
+					// Close file descriptor
+					CloseHandle(fd);
+		
+					// Clear file descriptor
+					fd = 0;
+				}
+			}
+		
+			// Otherwise
+			else
+		
+				// Clear file descriptor
+				fd = 0;
+		
+		// Otherwise
+		#else
+		
+			// Wait 250 milliseconds
+			usleep(250000);
+		
+			// Check if opening device was successful
+			if((fd = open(currentSerialPort.c_str(), O_RDWR | O_NONBLOCK)) != -1) {
+		
+				// Create file lock
+				struct flock lock;
+				lock.l_type = F_WRLCK;
+				lock.l_start = 0;
+				lock.l_whence = SEEK_SET;
+				lock.l_len = 0;
+			
+				// Check if file is already locked by another process
+				if(fcntl(fd, F_SETLK, &lock) == -1)
+					return false;
+		      
+				// Set serial protocol to 8n1 with 115200 baud rate
+				termios settings;
+				memset(&settings, 0, sizeof(settings));
+				settings.c_iflag = 0;
+				settings.c_oflag = 0;
+				settings.c_cflag= CS8 | CREAD | CLOCAL;
+				settings.c_lflag = 0;
+				settings.c_cc[VMIN] = 1;
+				settings.c_cc[VTIME] = 5;
+				cfsetospeed(&settings, B115200);
+				cfsetispeed(&settings, B115200);
 
-			// Apply settings
-			tcsetattr(fd, TCSAFLUSH, &settings);
-			tcdrain(fd);
+				// Apply settings
+				tcsetattr(fd, TCSAFLUSH, &settings);
+				tcdrain(fd);
 
-			// Return true
-			return true;
-		}
+				// Return true
+				return true;
+			}
+		
+			// Otherwise
+			else
+		
+				// Clear file descriptor
+				fd = 0;
+		#endif
 	}
 	
 	// Return false
@@ -119,7 +217,7 @@ bool Printer::connect(const string &serialPort) {
 bool Printer::isBootloaderMode() {
 
 	// Check if printer is connected and receiving commands
-	if(fd != -1 && sendRequestAscii("M115"))
+	if(fd && sendRequestAscii("M115"))
 	
 		// Return if in bootloader mode
 		return receiveResponseAscii()[0] == 'B';
@@ -131,10 +229,13 @@ bool Printer::isBootloaderMode() {
 bool Printer::updateFirmware(const string &file) {
 
 	// Check if printer is connected
-	if(fd != -1) {
+	if(fd) {
 	
 		// Check if printer isn't in bootloader mode
 		if(!isBootloaderMode()) {
+		
+			// Save serial ports
+			saveSerialPorts();
 
 			// Switch pritner into bootloader mode
 			sendRequestAscii("M115 S628");
@@ -326,9 +427,14 @@ bool Printer::updateFirmware(const string &file) {
 bool Printer::sendRequestAscii(char data) {
 
 	// Send data to the device
-	tcflush(fd, TCIOFLUSH);
-	bool returnValue = write(fd, &data, 1) != -1;
-	tcdrain(fd);
+	#ifdef WINDOWS
+		DWORD bytesSent = 0;
+		bool returnValue = WriteFile(fd, &data, 1, &bytesSent, NULL) && bytesSent;
+	#else
+		tcflush(fd, TCIOFLUSH);
+		bool returnValue = write(fd, &data, 1) != -1;
+		tcdrain(fd);
+	#endif
 	
 	// Return value
 	return returnValue;
@@ -337,9 +443,14 @@ bool Printer::sendRequestAscii(char data) {
 bool Printer::sendRequestAscii(const char *data) {
 
 	// Send data to the device
-	tcflush(fd, TCIOFLUSH);
-	bool returnValue = write(fd, data, strlen(data)) != -1;
-	tcdrain(fd);
+	#ifdef WINDOWS
+		DWORD bytesSent = 0;
+		bool returnValue = WriteFile(fd, data, strlen(data), &bytesSent, NULL) && bytesSent;
+	#else
+		tcflush(fd, TCIOFLUSH);
+		bool returnValue = write(fd, data, strlen(data)) != -1;
+		tcdrain(fd);
+	#endif
 	
 	// Reconnect if switching into bootloader mode
 	if(!strcmp(data, "M115 S628"))
@@ -351,11 +462,18 @@ bool Printer::sendRequestAscii(const char *data) {
 
 bool Printer::sendRequestAscii(const Gcode &data) {
 
-	// Send data to the device
-	tcflush(fd, TCIOFLUSH);
+	// Get request
 	string request = data.getAscii();
-	bool returnValue = write(fd, request.c_str(), request.size()) != -1;
-	tcdrain(fd);
+
+	// Send data to the device
+	#ifdef WINDOWS
+		DWORD bytesSent = 0;
+		bool returnValue = WriteFile(fd, request.c_str(), request.size(), &bytesSent, NULL) && bytesSent;
+	#else
+		tcflush(fd, TCIOFLUSH);
+		bool returnValue = write(fd, request.c_str(), request.size()) != -1;
+		tcdrain(fd);
+	#endif
 	
 	// Reconnect if switching into bootloader mode
 	if(data.getValue('M') == "115" && data.getValue('S') == "628")
@@ -376,9 +494,14 @@ bool Printer::sendRequestBinary(const char *data) {
 		request = gcode.getBinary();
 	
 		// Send binary request to the device
-		tcflush(fd, TCIOFLUSH);
-		bool returnValue = write(fd, request.data(), request.size()) != -1;
-		tcdrain(fd);
+		#ifdef WINDOWS
+			DWORD bytesSent = 0;
+			bool returnValue = WriteFile(fd, request.data(), request.size(), &bytesSent, NULL) && bytesSent;
+		#else
+			tcflush(fd, TCIOFLUSH);
+			bool returnValue = write(fd, request.data(), request.size()) != -1;
+			tcdrain(fd);
+		#endif
 		
 		// Reconnect if switching into bootloader mode
 		if(gcode.getValue('M') == "115" && gcode.getValue('S') == "628")
@@ -398,9 +521,14 @@ bool Printer::sendRequestBinary(const Gcode &data) {
 	vector<uint8_t> request = data.getBinary();
 	
 	// Send binary request to the device
-	tcflush(fd, TCIOFLUSH);
-	bool returnValue = write(fd, request.data(), request.size()) != -1;
-	tcdrain(fd);
+	#ifdef WINDOWS
+		DWORD bytesSent = 0;
+		bool returnValue = WriteFile(fd, request.data(), request.size(), &bytesSent, NULL) && bytesSent;
+	#else
+		tcflush(fd, TCIOFLUSH);
+		bool returnValue = write(fd, request.data(), request.size()) != -1;
+		tcdrain(fd);
+	#endif
 	
 	// Reconnect if switching into bootloader mode
 	if(data.getValue('M') == "115" && data.getValue('S') == "628")
@@ -415,21 +543,38 @@ string Printer::receiveResponseAscii() {
 	// Initialize variables
 	string response;
 	char character;
-	uint8_t i;
 	
-	// Wait 200 milliseconds for a response
-	for(i = 0; i < 200 && read(fd, &character, 1) == -1; i++)
-		usleep(1000);
+	#ifdef WINDOWS
 	
-	// Return an empty string if no response is received
-	if(i == 200)
-		return response;
+		// Return empty string is waiting for event failed
+		DWORD eventMask;
+		if(!WaitCommEvent(fd, &eventMask, NULL))
+			return response;
+		
+		// Get response
+		DWORD bytesReceived = 0;
+		do {
+			ReadFile(fd, &character, sizeof(character), &bytesReceived, NULL);
+			if(bytesReceived)
+				response.push_back(character);
+		} while(bytesReceived);
+	#else
 	
-	// Get response
-	do {
-		response.push_back(character);
-		usleep(50);
-	} while(read(fd, &character, 1) != -1);
+		// Wait 200 milliseconds for a response
+		uint8_t i;
+		for(i = 0; i < 200 && read(fd, &character, 1) == -1; i++)
+			usleep(1000);
+	
+		// Return an empty string if no response is received
+		if(i == 200)
+			return response;
+	
+		// Get response
+		do {
+			response.push_back(character);
+			usleep(50);
+		} while(read(fd, &character, 1) != -1);
+	#endif
 	
 	// Return response
 	return response;
@@ -440,21 +585,38 @@ string Printer::receiveResponseBinary() {
 	// Initialize variables
 	string response;
 	char character;
-	uint8_t i;
 	
-	// Wait 200 ms for a response
-	for(i = 0; i < 200 && read(fd, &character, 1) == -1; i++)
-		usleep(1000);
+	#ifdef WINDOWS
 	
-	// Return an empty string if no response is received
-	if(i == 200)
-		return response;
+		// Return empty string is waiting for event failed
+		DWORD eventMask;
+		if(!WaitCommEvent(fd, &eventMask, NULL))
+			return response;
+		
+		// Get response
+		DWORD bytesReceived = 0;
+		do {
+			ReadFile(fd, &character, sizeof(character), &bytesReceived, NULL);
+			if(bytesReceived)
+				response.push_back(character);
+		} while(bytesReceived);
+	#else
 	
-	// Get response
-	while(character != '\n') {
-		response.push_back(character);
-		while(read(fd, &character, 1) == -1);
-	}
+		// Wait 200 ms for a response
+		uint8_t i;
+		for(i = 0; i < 200 && read(fd, &character, 1) == -1; i++)
+			usleep(1000);
+	
+		// Return an empty string if no response is received
+		if(i == 200)
+			return response;
+	
+		// Get response
+		while(character != '\n') {
+			response.push_back(character);
+			while(read(fd, &character, 1) == -1);
+		}
+	#endif
 	
 	// Return response
 	return response;
@@ -506,11 +668,38 @@ void Printer::saveSerialPorts() {
 	// Clear serial ports
 	serialPorts.clear();
 	
-	// Check if using OS X
+	// Check if using Windows
+	#ifdef WINDOWS
+	
+		// Get ports
+		FILE* ports = popen("wmic PATH Win32_SerialPort WHERE \"PNPDeviceID LIKE 'USB\\\\VID_03EB&PID_2404%'\" GET DeviceID", "r");
+	
+		int character;
+		string allPorts;
+		while((character = fgetc(ports)) != EOF)
+			allPorts.push_back(character);
+	
+		pclose(ports);
+	
+		// Go through all ports
+		size_t offset = 0;
+		while((offset = allPorts.find("COM", offset)) != string::npos) {
+		
+			// Set current port
+			string currentPort;
+			while(!isspace(allPorts[offset]))
+				currentPort.push_back(allPorts[offset++]);
+		
+			// Append serial port to list
+			serialPorts.push_back(currentPort);	
+		}
+	#endif
+	
+	// Otherwise check if using OS X
 	#ifdef OSX
 	
 		// Get ports
-		FILE * ports = popen("python -c \"import serial.tools.list_ports;print list(serial.tools.list_ports.comports())\"", "r");
+		FILE* ports = popen("python -c \"import serial.tools.list_ports;print list(serial.tools.list_ports.comports())\"", "r");
 		
 		int character;
 		string allPorts;
@@ -536,8 +725,6 @@ void Printer::saveSerialPorts() {
 			// Increment offset
 			offset++;	
 		}
-			
-	
 	#endif
 	
 	// Otherwise check if using Linux

@@ -5,6 +5,9 @@
 
 // Header files
 #include <string>
+#ifdef WINDOWS
+	#include <windows.h>
+#endif
 #include "gcode.h"
 
 using namespace std;
@@ -64,7 +67,7 @@ class Printer {
 		string receiveResponseBinary();
 	
 	// Private
-	//private:
+	private:
 	
 		// Write to eeprom
 		bool writeToEeprom(uint16_t address, const uint8_t *data, uint16_t length);
@@ -80,7 +83,11 @@ class Printer {
 		string getSerialPort();
 		
 		// File descriptor
-		int fd;
+		#ifdef WINDOWS
+			HANDLE fd;
+		#else
+			int fd;
+		#endif
 		
 		// Serial ports
 		vector<string> serialPorts;
