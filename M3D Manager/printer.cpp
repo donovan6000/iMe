@@ -32,6 +32,27 @@ const uint32_t crc32Table[] = {0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA, 0
 
 
 // Supporting function implementation
+void sleepUs(uint64_t microSeconds) {
+
+	// Check if using Windows
+	#ifdef WINDOWS
+	
+		// Sleep
+		LARGE_INTEGER totalTime;
+		totalTime.QuadPart = -10 * microSeconds;
+		HANDLE timer = CreateWaitableTimer(NULL, TRUE, NULL);
+		SetWaitableTimer(timer, &totalTime, 0, NULL, NULL, 0);
+		WaitForSingleObject(timer, INFINITE);
+		CloseHandle(timer);
+	
+	// Otherwise
+	#else
+	
+		// Sleep
+		usleep(microSeconds);
+	#endif
+}
+
 Printer::Printer() {
 
 	// Clear file descriptor
@@ -70,12 +91,12 @@ bool Printer::connect(const string &serialPort) {
         
         // Attempt to connect for 2 seconds
         for(uint8_t i = 0; i < 8; i++) {
+        
+        	// Wait 250 milliseconds
+		sleepUs(250000);
 		
 		// Check if using Windows
 		#ifdef WINDOWS
-		
-			// Wait 250 milliseconds
-			Sleep(250);
 		
 			// Check if opening device was successful
 			fd = CreateFile(currentSerialPort.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
@@ -104,24 +125,10 @@ bool Printer::connect(const string &serialPort) {
 						serialPortTimeouts.WriteTotalTimeoutMultiplier = 10;
 						
 						// Check if setting port timeouts was successful
-						if(SetCommTimeouts(fd, &serialPortTimeouts)) {
+						if(SetCommTimeouts(fd, &serialPortTimeouts))
 						
-							// Check if setting port event was successful
-							if(SetCommMask(fd, EV_RXCHAR))
-								
-								// Return true
-								return true;
-							
-							// Otherwise
-							else {
-			
-								// Close file descriptor
-								CloseHandle(fd);
-	
-								// Clear file descriptor
-								fd = 0;
-							}
-						}
+							// Return true
+							return true;
 		
 						// Otherwise
 						else {
@@ -164,9 +171,6 @@ bool Printer::connect(const string &serialPort) {
 		
 		// Otherwise
 		#else
-		
-			// Wait 250 milliseconds
-			usleep(250000);
 		
 			// Check if opening device was successful
 			if((fd = open(currentSerialPort.c_str(), O_RDWR | O_NONBLOCK)) != -1) {
@@ -214,7 +218,7 @@ bool Printer::connect(const string &serialPort) {
 	return false;
 }
 
-bool Printer::isBootloaderMode() {
+bool Printer::inBootloaderMode() {
 
 	// Check if printer is connected and receiving commands
 	if(fd && sendRequestAscii("M115"))
@@ -232,10 +236,7 @@ bool Printer::updateFirmware(const string &file) {
 	if(fd) {
 	
 		// Check if printer isn't in bootloader mode
-		if(!isBootloaderMode()) {
-		
-			// Save serial ports
-			saveSerialPorts();
+		if(!inBootloaderMode()) {
 
 			// Switch pritner into bootloader mode
 			sendRequestAscii("M115 S628");
@@ -274,7 +275,7 @@ bool Printer::updateFirmware(const string &file) {
 		
 		// Request that chip be erased
 		sendRequestAscii('E');
-
+		
 		// Check if chip failed to be erased
 		string response;
 		do {
@@ -289,7 +290,7 @@ bool Printer::updateFirmware(const string &file) {
 		sendRequestAscii('A');
 		sendRequestAscii('\x00');
 		sendRequestAscii('\x00');
-
+		
 		// Check if address wasn't acknowledged
 		if(receiveResponseAscii() != "\r")
 
@@ -306,8 +307,8 @@ bool Printer::updateFirmware(const string &file) {
 
 			// Send write to page request
 			sendRequestAscii('B');
-			sendRequestAscii(CHIP_PAGE_SIZE * 2 >> 8);
-			sendRequestAscii(static_cast<char>(CHIP_PAGE_SIZE * 2));
+			sendRequestAscii(CHIP_PAGE_SIZE * 2 >> 8, false);
+			sendRequestAscii(static_cast<char>(CHIP_PAGE_SIZE * 2), false);
 
 			// Go through all values for the page
 			for(int j = 0; j < CHIP_PAGE_SIZE * 2; j++) {
@@ -317,13 +318,13 @@ bool Printer::updateFirmware(const string &file) {
 				if(position < romBuffer.length())
 
 					// Send value
-					sendRequestAscii(romBuffer[position + (position % 2 ? -1 : 1)]);
+					sendRequestAscii(romBuffer[position + (position % 2 ? -1 : 1)], false);
 
 				// Otherwise
 				else
 
 					// Send padding
-					sendRequestAscii(romEncryptionTable[0xFF]);
+					sendRequestAscii(romEncryptionTable[0xFF], false);
 			}
 
 			// Check if chip failed to be flashed
@@ -332,7 +333,7 @@ bool Printer::updateFirmware(const string &file) {
 				// Return false
 				return false;
 		}
-
+		
 		// Send address zero
 		sendRequestAscii('A');
 		sendRequestAscii('\x00');
@@ -347,7 +348,7 @@ bool Printer::updateFirmware(const string &file) {
 		// Request crc from chip
 		sendRequestAscii('C');
 		sendRequestAscii('A');
-
+		
 		// Get response
 		response = receiveResponseAscii();
 
@@ -424,23 +425,11 @@ bool Printer::updateFirmware(const string &file) {
 	return false;
 }
 
-bool Printer::sendRequestAscii(char data) {
+bool Printer::sendRequestAscii(const char *data, bool checkForModeSwitching) {
 
-	// Send data to the device
-	#ifdef WINDOWS
-		DWORD bytesSent = 0;
-		bool returnValue = WriteFile(fd, &data, 1, &bytesSent, NULL) && bytesSent;
-	#else
-		tcflush(fd, TCIOFLUSH);
-		bool returnValue = write(fd, &data, 1) != -1;
-		tcdrain(fd);
-	#endif
-	
-	// Return value
-	return returnValue;
-}
-
-bool Printer::sendRequestAscii(const char *data) {
+	// Save serial ports if switching into bootloader or firmware mode
+	if(checkForModeSwitching && (!strcmp(data, "M115 S628") || !strcmp(data, "Q")))
+		saveSerialPorts();
 
 	// Send data to the device
 	#ifdef WINDOWS
@@ -453,69 +442,54 @@ bool Printer::sendRequestAscii(const char *data) {
 	#endif
 	
 	// Reconnect if switching into bootloader mode
-	if(!strcmp(data, "M115 S628"))
+	if(checkForModeSwitching && (!strcmp(data, "M115 S628") || !strcmp(data, "Q")))
 		while(!connect());
 	
 	// Return value
 	return returnValue;
 }
 
-bool Printer::sendRequestAscii(const Gcode &data) {
+bool Printer::sendRequestAscii(char data, bool checkForModeSwitching) {
 
-	// Get request
-	string request = data.getAscii();
+	// Save serial ports if switching into firmware mode
+	if(checkForModeSwitching && data == 'Q')
+		saveSerialPorts();
 
 	// Send data to the device
 	#ifdef WINDOWS
 		DWORD bytesSent = 0;
-		bool returnValue = WriteFile(fd, request.c_str(), request.size(), &bytesSent, NULL) && bytesSent;
+		bool returnValue = WriteFile(fd, &data, 1, &bytesSent, NULL) && bytesSent;
 	#else
 		tcflush(fd, TCIOFLUSH);
-		bool returnValue = write(fd, request.c_str(), request.size()) != -1;
+		bool returnValue = write(fd, &data, 1) != -1;
 		tcdrain(fd);
 	#endif
 	
 	// Reconnect if switching into bootloader mode
-	if(data.getValue('M') == "115" && data.getValue('S') == "628")
+	if(checkForModeSwitching && data == 'Q')
 		while(!connect());
 	
 	// Return value
 	return returnValue;
 }
 
-bool Printer::sendRequestBinary(const char *data) {
-	
-	// Check if line was successfully parsed
-	Gcode gcode;
-	if(gcode.parseLine(data)) {
-	
-		// Get binary data
-		vector<uint8_t> request;
-		request = gcode.getBinary();
-	
-		// Send binary request to the device
-		#ifdef WINDOWS
-			DWORD bytesSent = 0;
-			bool returnValue = WriteFile(fd, request.data(), request.size(), &bytesSent, NULL) && bytesSent;
-		#else
-			tcflush(fd, TCIOFLUSH);
-			bool returnValue = write(fd, request.data(), request.size()) != -1;
-			tcdrain(fd);
-		#endif
-		
-		// Reconnect if switching into bootloader mode
-		if(gcode.getValue('M') == "115" && gcode.getValue('S') == "628")
-			while(!connect());
-		
-		// Return value
-		return returnValue;
-	}
-	
-	// Return false
-	return false;
+bool Printer::sendRequestAscii(const string &data, bool checkForModeSwitching) {
+
+	// Send request
+	return sendRequestAscii(data.c_str(), checkForModeSwitching);
+}
+
+bool Printer::sendRequestAscii(const Gcode &data) {
+
+	// Send request
+	return sendRequestAscii(data.getAscii(), true);
 }
 
 bool Printer::sendRequestBinary(const Gcode &data) {
+
+	// Save serial ports if switching into bootloader mode
+	if(data.getValue('M') == "115" && data.getValue('S') == "628")
+		saveSerialPorts();
 
 	// Get binary data
 	vector<uint8_t> request = data.getBinary();
@@ -538,41 +512,71 @@ bool Printer::sendRequestBinary(const Gcode &data) {
 	return returnValue;
 }
 
+bool Printer::sendRequestBinary(const char *data) {
+	
+	// Check if line was successfully parsed
+	Gcode gcode;
+	if(gcode.parseLine(data))
+	
+		// Send request
+		return sendRequestBinary(gcode);
+	
+	// Return false
+	return false;
+}
+
+bool Printer::sendRequestBinary(const string &data) {
+
+	// Send request
+	return sendRequestBinary(data.c_str());
+}
+
 string Printer::receiveResponseAscii() {
 
 	// Initialize variables
 	string response;
 	char character;
+	uint8_t i = 0;
 	
+	// Check if using Windows
 	#ifdef WINDOWS
 	
-		// Return empty string is waiting for event failed
-		DWORD eventMask;
-		if(!WaitCommEvent(fd, &eventMask, NULL))
-			return response;
+		// Wait 200 milliseconds for a response
+		DWORD bytesReceived = 0;
+		for(; i < 200 && !bytesReceived; i++) {
+			if(!ReadFile(fd, &character, sizeof(character), &bytesReceived, NULL))
+				return "";
+			if(!bytesReceived)
+				sleepUs(1000);
+		}
+		
+		// Return an empty string if no response is received
+		if(i == 200)
+			return "";
 		
 		// Get response
-		DWORD bytesReceived = 0;
 		do {
-			ReadFile(fd, &character, sizeof(character), &bytesReceived, NULL);
-			if(bytesReceived)
-				response.push_back(character);
+			response.push_back(character);
+			sleepUs(50);
+			if(!ReadFile(fd, &character, sizeof(character), &bytesReceived, NULL))
+				return "";
 		} while(bytesReceived);
+	
+	// Otherwise
 	#else
 	
 		// Wait 200 milliseconds for a response
-		uint8_t i;
-		for(i = 0; i < 200 && read(fd, &character, 1) == -1; i++)
-			usleep(1000);
+		for(; i < 200 && read(fd, &character, 1) == -1; i++)
+			sleepUs(1000);
 	
 		// Return an empty string if no response is received
 		if(i == 200)
-			return response;
+			return "";
 	
 		// Get response
 		do {
 			response.push_back(character);
-			usleep(50);
+			sleepUs(50);
 		} while(read(fd, &character, 1) != -1);
 	#endif
 	
@@ -585,27 +589,39 @@ string Printer::receiveResponseBinary() {
 	// Initialize variables
 	string response;
 	char character;
+	uint8_t i = 0;
 	
+	// Check if using Windows
 	#ifdef WINDOWS
 	
-		// Return empty string is waiting for event failed
-		DWORD eventMask;
-		if(!WaitCommEvent(fd, &eventMask, NULL))
-			return response;
+		// Wait 200 milliseconds for a response
+		DWORD bytesReceived = 0;
+		for(; i < 200 && !bytesReceived; i++) {
+			if(!ReadFile(fd, &character, sizeof(character), &bytesReceived, NULL))
+				return "";
+			if(!bytesReceived)
+				sleepUs(1000);
+		}
+		
+		// Return an empty string if no response is received
+		if(i == 200)
+			return "";
 		
 		// Get response
-		DWORD bytesReceived = 0;
-		do {
-			ReadFile(fd, &character, sizeof(character), &bytesReceived, NULL);
-			if(bytesReceived)
-				response.push_back(character);
-		} while(bytesReceived);
+		while(character != '\n') {
+			response.push_back(character);
+			do {
+				if(!ReadFile(fd, &character, sizeof(character), &bytesReceived, NULL))
+					return "";
+			} while(!bytesReceived);
+		}
+	
+	// Otherwise
 	#else
 	
-		// Wait 200 ms for a response
-		uint8_t i;
-		for(i = 0; i < 200 && read(fd, &character, 1) == -1; i++)
-			usleep(1000);
+		// Wait 200 milliseconds for a response
+		for(; i < 200 && read(fd, &character, 1) == -1; i++)
+			sleepUs(1000);
 	
 		// Return an empty string if no response is received
 		if(i == 200)
@@ -626,14 +642,14 @@ bool Printer::writeToEeprom(uint16_t address, const uint8_t *data, uint16_t leng
 
 	// Send write to eeprom request
 	sendRequestAscii('U');
-	sendRequestAscii(address >> 8);
-	sendRequestAscii(address);
-	sendRequestAscii(length >> 8);
-	sendRequestAscii(length);
+	sendRequestAscii(address >> 8, false);
+	sendRequestAscii(address, false);
+	sendRequestAscii(length >> 8, false);
+	sendRequestAscii(length, false);
 	
 	// Send data
 	for(uint16_t i = 0; i < length; i++)
-		sendRequestAscii(data[i]);
+		sendRequestAscii(data[i], false);
 	
 	// Return if write was successful
 	return receiveResponseAscii() == "\r";
@@ -742,7 +758,7 @@ void Printer::saveSerialPorts() {
 		                if(strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && !strncmp("ttyACM", entry->d_name, 6)) {
 		                
 		                	// Check if uevent file exists for the device
-		                	ifstream device(static_cast<string>("/sys/class/tty/") + entry->d_name + "/device/uevent");
+		                	ifstream device(static_cast<string>("/sys/class/tty/") + entry->d_name + "/device/modalias");
 		                	if(device.good()) {
 		                	
 				        	// Read in file
@@ -752,7 +768,7 @@ void Printer::saveSerialPorts() {
 						device.close();
 					
 						// Check if device has the printer's pid and vid
-						if(info.find(static_cast<string>("MODALIAS=usb:v03EBp2404")) != string::npos)
+						if(info.find(static_cast<string>("usb:v03EBp2404")) == 0)
 					
 							// Append serial port to list
 							serialPorts.push_back(static_cast<string>("/dev/") + entry->d_name);
@@ -811,4 +827,10 @@ string Printer::getSerialPort() {
 	
 	// Return nothing
 	return "";		
+}
+
+string Printer::getCurrentSerialPort() {
+
+	// Return current serial port
+	return currentSerialPort;
 }

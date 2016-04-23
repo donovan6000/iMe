@@ -38,10 +38,10 @@ class Printer {
 		bool connect(const string &serialPort = "");
 		
 		/*
-		Name: Is Bootloader Mode
+		Name: In Bootloader Mode
 		Purpose: Return is the printer is in bootloader mode
 		*/
-		bool isBootloaderMode();
+		bool inBootloaderMode();
 		
 		/*
 		Name: Update Firmware
@@ -53,11 +53,13 @@ class Printer {
 		Name: Send Request
 		Purpose: Sends data to the printer
 		*/
-		bool sendRequestAscii(char data);
-		bool sendRequestAscii(const char *data);
+		bool sendRequestAscii(const char *data, bool checkForModeSwitching = true);
+		bool sendRequestAscii(char data, bool checkForModeSwitching = true);
+		bool sendRequestAscii(const string &data, bool checkForModeSwitching = true);
 		bool sendRequestAscii(const Gcode &data);
-		bool sendRequestBinary(const char *data);
 		bool sendRequestBinary(const Gcode &data);
+		bool sendRequestBinary(const char *data);
+		bool sendRequestBinary(const string &data);
 		
 		/*
 		Name: Receive Response
@@ -65,6 +67,12 @@ class Printer {
 		*/
 		string receiveResponseAscii();
 		string receiveResponseBinary();
+		
+		/*
+		Name: Get Current Serial Port
+		Purpose: Returns printer's currentserial port
+		*/
+		string getCurrentSerialPort();
 	
 	// Private
 	private:

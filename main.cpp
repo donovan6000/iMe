@@ -104,7 +104,7 @@ int main() {
 			waitCounter = 0;
 			
 			// Send wait
-			sendDataToUsb("wait\n");
+			sendDataToUsb("wait\n", true);
 		}
 	});
 	
@@ -259,9 +259,10 @@ int main() {
 											case 105:
 					
 												// Set response to temperature
-												strcpy(responseBuffer, "ok\nT:");
+												strcpy(responseBuffer, "T:");
 												ftoa(heater.getTemperature(), numberBuffer);
 												strcat(responseBuffer, numberBuffer);
+												strcat(responseBuffer, "\nok");
 											break;
 								
 											// M106 or M107

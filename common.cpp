@@ -157,11 +157,11 @@ float strtof(const char *nptr, char **endptr) {
 	return negative ? value * -1 : value;
 }
 
-void sendDataToUsb(const char *data) {
+void sendDataToUsb(const char *data, bool checkBufferSize) {
 
 	// Check if data can be sent
 	uint8_t length = strlen(data);
-	if(udi_cdc_get_free_tx_buffer() >= length)
+	if(!checkBufferSize || udi_cdc_get_free_tx_buffer() >= length)
 	
 		// Send data
 		udi_cdc_write_buf(data, length);

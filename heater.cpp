@@ -205,7 +205,7 @@ void Heater::setTemperature(uint16_t value, bool wait) {
 			strcat(buffer, "\n");
 		
 			// Send temperature
-			sendDataToUsb(buffer);
+			sendDataToUsb(buffer, true);
 		}
 	}
 	
