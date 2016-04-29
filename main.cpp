@@ -428,12 +428,22 @@ int main() {
 											// G0 or G1
 											case 0:
 											case 1:
+											
+												// Check if command doesn't contain an E value or the heater is on
+												if(!(requests[currentProcessingRequest].commandParameters & PARAMETER_E_OFFSET) || heater.getTemperature()) {
 								
-												// Move
-												motors.move(requests[currentProcessingRequest]);
+													// Move
+													motors.move(requests[currentProcessingRequest]);
 					
-												// Set response to confirmation
-												strcpy(responseBuffer, "ok");
+													// Set response to confirmation
+													strcpy(responseBuffer, "ok");
+												}
+												
+												// Otherwise
+												else
+												
+													// Set response to error
+													strcpy(responseBuffer, "Error: Can't use the extruder motor when the heater is off");
 											break;
 						
 											// G4

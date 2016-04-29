@@ -5,6 +5,8 @@
 
 // Header files
 #include <string>
+#include <thread>
+#include <mutex>
 #ifdef WINDOWS
 	#include <windows.h>
 #endif
@@ -38,16 +40,36 @@ class Printer {
 		bool connect(const string &serialPort = "");
 		
 		/*
-		Name: In Bootloader Mode
-		Purpose: Return is the printer is in bootloader mode
+		Name: Disconnect
+		Purpose: Disconnects from the printer
 		*/
-		bool inBootloaderMode();
+		void disconnect();
 		
 		/*
-		Name: Update Firmware
-		Purpose: Updates the printer's firmware to the provided file
+		Name: Is Connected
+		Purpose: Returns if printer is connected
 		*/
-		bool updateFirmware(const string &file);
+		bool isConnected();
+		
+		/*
+		Name: In Mode
+		Purpose: Return is the printer is in either bootloader or firmware mode
+		*/
+		bool inBootloaderMode();
+		bool inFirmwareMode();
+		
+		/*
+		Name: Switch To Mode
+		Purpose: Switches printer into either bootloader or firmware mode
+		*/
+		void switchToBootloaderMode();
+		void switchToFirmwareMode();
+		
+		/*
+		Name: Install Firmware
+		Purpose: Flashes the printer's firmware to the provided file
+		*/
+		bool installFirmware(const string &file);
 		
 		/*
 		Name: Send Request
@@ -69,37 +91,89 @@ class Printer {
 		string receiveResponseBinary();
 		
 		/*
+		Name: Get Available Serial Ports
+		Purpose: Returns all available serial ports
+		*/
+		vector<string> getAvailableSerialPorts();
+		
+		/*
 		Name: Get Current Serial Port
-		Purpose: Returns printer's currentserial port
+		Purpose: Returns printer's current serial port
 		*/
 		string getCurrentSerialPort();
+		
+		/*
+		Name: Get Status
+		Purpose: Returns the printer's status
+		*/
+		string getStatus();
+		
+		/*
+		Name: Update Status
+		Purpose: Thread that updates the printer's status in real time
+		*/
+		#ifdef WINDOWS
+			DWORD
+		#else
+			void
+		#endif
+		updateStatus();
 	
 	// Private
 	private:
 	
-		// Write to eeprom
+		// Acquire lock
+		void acquireLock();
+		
+		// Release lock
+		void releaseLock();
+	
+		// Write to EEPROM
 		bool writeToEeprom(uint16_t address, const uint8_t *data, uint16_t length);
 		bool writeToEeprom(uint16_t address, uint8_t data);
 		
 		// CRC32
 		uint32_t crc32(int32_t offset, const uint8_t *data, int32_t count);
 		
-		// Save serial ports
-		void saveSerialPorts();
+		// Get new serial port
+		string getNewSerialPort();
 		
-		// Get serial port
-		string getSerialPort();
+		// update available serial ports
+		void updateAvailableSerialPorts();
 		
 		// File descriptor
 		#ifdef WINDOWS
-			HANDLE fd;
+			HANDLE
 		#else
-			int fd;
+			int
 		#endif
+		fd;
 		
-		// Serial ports
-		vector<string> serialPorts;
+		// Available serial ports
+		vector<string> availableSerialPorts;
+		
+		// Current serial port
 		string currentSerialPort;
+		
+		// Status
+		string status;
+		
+		// Lock
+		#ifdef WINDOWS
+			HANDLE
+		#else
+			recursive_mutex
+		#endif
+		mutex;
+		
+		// Thread
+		#ifdef WINDOWS
+			HANDLE
+		#else
+			thread
+		#endif
+		updateStatusThread;
+		bool stopThread;
 };
 
 

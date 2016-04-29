@@ -212,8 +212,8 @@ void Heater::setTemperature(uint16_t value, bool wait) {
 	// Otherwise
 	else
 	
-		// Turn off heater
-		ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
+		// Clear temperature
+		clearTemperature();
 }
 
 float Heater::getTemperature() const {
@@ -237,7 +237,7 @@ bool Heater::isWorking() {
 	return heaterWorking;
 }
 
-void Heater::reset() {
+void Heater::clearTemperature() {
 
 	// Prevent updating temperature
 	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
@@ -250,6 +250,12 @@ void Heater::reset() {
 
 	// Turn off heater
 	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
+}
+
+void Heater::reset() {
+
+	// Clear temperature
+	clearTemperature();
 	
 	// Clear mergency stop occured
 	emergencyStopOccured = false;

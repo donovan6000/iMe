@@ -32,6 +32,12 @@ class Heater {
 		
 		// Emergency stop occured
 		bool emergencyStopOccured;
+	
+	// Private
+	private:
+	
+		// Clear temperature
+		void clearTemperature();
 };
 
 

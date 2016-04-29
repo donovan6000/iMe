@@ -1117,7 +1117,7 @@ void Motors::homeXY() {
 void Motors::saveZAsBedCenterZ0() {
 
 	// Set current Z
-	currentValues[Z] = 0;
+	currentValues[Z] = 0.0999;
 
 	// Save current Z
 	nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
