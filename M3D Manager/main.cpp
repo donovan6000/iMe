@@ -36,6 +36,7 @@ using namespace std;
 
 // Global variables
 Printer printer;
+string tempLocation;
 
 
 // Check if using GUI
@@ -103,33 +104,42 @@ Printer printer;
 				
 				// Create refresh serial ports button
 				refreshSerialPortsButton = new wxBitmapButton(panel, wxID_ANY, wxArtProvider::GetBitmap(wxART_FIND), wxPoint(403, 10), wxSize(30, 30));
-				Connect(refreshSerialPortsButton->GetId(), wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MyFrame::onRefreshSerialPortsButtonClick));
+				refreshSerialPortsButton->Bind(wxEVT_BUTTON, &MyFrame::onRefreshSerialPortsButtonClick, this);
 				
 				// Create connect button
 				connectButton = new wxButton(panel, wxID_ANY, "Connect", wxPoint(438, 10));
-				Connect(connectButton->GetId(), wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MyFrame::connectToPrinter));
+				connectButton->Bind(wxEVT_BUTTON, &MyFrame::connectToPrinter, this);
 				
 				// Create switch to firmware mode button
-				wxButton *switchToFirmwareModeButton = new wxButton(panel, wxID_ANY, "Switch to firmware mode", wxPoint(9, 50));
+				switchToFirmwareModeButton = new wxButton(panel, wxID_ANY, "Switch to firmware mode", wxPoint(9, 50));
 				switchToFirmwareModeButton->Enable(false);
+				switchToFirmwareModeButton->Bind(wxEVT_BUTTON, &MyFrame::onSwitchToFirmwareModeButtonClick, this);
 				
 				// Create install iMe firmware button
-				wxButton *installImeFirmwareButton = new wxButton(panel, wxID_ANY, "Install iMe firmware", wxPoint(195, 50));
+				installImeFirmwareButton = new wxButton(panel, wxID_ANY, "Install iMe firmware", wxPoint(195, 50));
 				installImeFirmwareButton->Enable(false);
+				installImeFirmwareButton->Bind(wxEVT_BUTTON, &MyFrame::onInstallImeFirmwareButtonClick, this);
 				
 				// Create install firmware with file button
-				wxButton *installFirmwareFromFileButton = new wxButton(panel, wxID_ANY, "Install firmware from file", wxPoint(345, 50));
+				installFirmwareFromFileButton = new wxButton(panel, wxID_ANY, "Install firmware from file", wxPoint(345, 50));
 				installFirmwareFromFileButton->Enable(false);
-				//Connect(connectButton->GetId(), wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MyFrame::onInstallFirmwareFromFileButtonClick));
+				installFirmwareFromFileButton->Bind(wxEVT_BUTTON, &MyFrame::onInstallFirmwareFromFileButtonClick, this);
+				
+				// Check if not using OS X
+				#ifndef OSX
+				
+					// Create install drivers button
+					wxButton *installDriversButton = new wxButton(panel, wxID_ANY, "Install drivers", wxPoint(420, 89));
+					installDriversButton->Bind(wxEVT_BUTTON, &MyFrame::onInstallDriversButtonClick, this);
+				#endif
 				
 				// Create connection text
 				connectionText = new wxStaticText(panel, wxID_ANY, "Connection: Not connected", wxPoint(10, 94), wxSize(300, -1));
-				wxTimer *connectionTimer = new wxTimer(this, wxID_ANY);
-				connectionTimer->Start(100);
-				Connect(connectionTimer->GetId(), wxEVT_TIMER, wxTimerEventHandler(MyFrame::onConnectionTimer));
 				
-				// Create install drivers button
-				wxButton *installDriversButton = new wxButton(panel, wxID_ANY, "Install drivers", wxPoint(420, 89));
+				// Create status timer
+				statusTimer = new wxTimer(this, wxID_ANY);
+				Bind(wxEVT_TIMER, &MyFrame::onStatusTimer, this, statusTimer->GetId());
+				statusTimer->Start(100);
 				
 				// Check if using Windows
 				#ifdef WINDOWS
@@ -146,21 +156,354 @@ Printer printer;
 			// Connect to printer
 			void connectToPrinter(wxCommandEvent& event) {
 			
+				// Stop status timer
+				statusTimer->Stop();
+			
+				// Disable connection controls
+				serialPortChoice->Enable(false);
+				refreshSerialPortsButton->Enable(false);
 				connectButton->Enable(false);
+				
+				// Disable printer controls
+				installFirmwareFromFileButton->Enable(false);
+				installImeFirmwareButton->Enable(false);
+				switchToFirmwareModeButton->Enable(false);
+				
+				// Set connection text
 				connectionText->SetLabel(static_cast<string>("Connection: ") + (printer.getStatus() == "Connected" ? "Reconnecting" : "Connecting"));
 				
-				// Update window
-				Refresh(); 
+				// Update display
+				Refresh();
 				Update();
-			
-				wxString currentChoice = serialPortChoice->GetString(serialPortChoice->GetSelection());
-				printer.connect(currentChoice != "Auto" ? static_cast<string>(currentChoice) : "");
 				
-				connectButton->Enable(true);
+				wxTimer *delayTimer = new wxTimer(this, wxID_ANY);
+            			Bind(wxEVT_TIMER, [=](wxTimerEvent& event) {
+            			
+            				// Connect to printer
+					wxString currentChoice = serialPortChoice->GetString(serialPortChoice->GetSelection());
+					printer.connect(currentChoice != "Auto" ? static_cast<string>(currentChoice) : "");
+            			
+            				// Enable connection controls
+            				wxSafeYield();
+					serialPortChoice->Enable(true);
+					refreshSerialPortsButton->Enable(true);
+					connectButton->Enable(true);
+				
+					// Check if connected to printer
+					if(printer.isConnected()) {
+				
+						// Enable printer controls
+						installFirmwareFromFileButton->Enable(true);
+						installImeFirmwareButton->Enable(true);
+						switchToFirmwareModeButton->Enable(true);
+					}
+					
+					// Start status timer
+					statusTimer->Start(100);
+				
+            			}, delayTimer->GetId());
+            			delayTimer->StartOnce(100);
 			}
 			
-			// Update connection
-			void onConnectionTimer(wxTimerEvent& event) {
+			// Switch to firmware mode
+			void onSwitchToFirmwareModeButtonClick(wxCommandEvent& event) {
+			
+				// Check if printer is already in firmware mode
+				if(printer.inFirmwareMode())
+				
+					// Display message
+					wxMessageBox("Printer is already in firmware mode", "M3D Manager", wxOK | wxICON_EXCLAMATION | wxCENTRE);
+				
+				// Otherwise
+				else {
+				
+					// Put printer into firmware mode
+					printer.switchToFirmwareMode();
+				
+					// Check if printer isn't connected
+					if(!printer.isConnected())
+		
+						// Display error
+						wxMessageBox("Failed to switch printer into firmware mode", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+					
+					// Otherwise
+					else
+				
+						// Display message
+						wxMessageBox("Printer has been successfully switched into firmware mode", "M3D Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
+				}
+			}
+			
+			// Install iMe
+			void onInstallImeFirmwareButtonClick(wxCommandEvent& event) {
+			
+				// Stop status timer
+				statusTimer->Stop();
+				
+				// Disable connection controls
+				serialPortChoice->Enable(false);
+				refreshSerialPortsButton->Enable(false);
+				connectButton->Enable(false);
+				
+				// Disable printer controls
+				installFirmwareFromFileButton->Enable(false);
+				installImeFirmwareButton->Enable(false);
+				switchToFirmwareModeButton->Enable(false);
+				
+				// Set connection text
+				connectionText->SetLabel(static_cast<string>("Connection: ") + "Installing iMe firmware");
+				
+				// Update display
+				Refresh();
+				Update();
+				
+				wxTimer *delayTimer = new wxTimer(this, wxID_ANY);
+            			Bind(wxEVT_TIMER, [=](wxTimerEvent& event) {
+            			
+            				// Set firmware location
+					string firmwareLocation = tempLocation + "/iMe 1900000001.hex";
+		
+					// Check if creating iMe ROM failed
+					ofstream fout(firmwareLocation, ios::binary);
+					if(fout.fail())
+					
+						// Display error
+						wxMessageBox("Failed to unpack iMe firmware", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+					
+					// Otherwise
+					else {
+					
+						// Unpack iMe ROM
+						for(uint64_t i = 0; i < iMe1900000001_hexSize; i++)
+							fout.put(iMe1900000001_hexData[i]);
+						fout.close();
+		
+						// Check if firmware ROM doesn't exists
+						ifstream file(firmwareLocation, ios::binary);
+						if(!file.good())
+
+							// Display error
+							wxMessageBox("Firmware ROM doesn't exist", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+					
+						// Otherwise
+						else {
+
+							// Check if firmware ROM name is valid
+							uint8_t endOfNumbers = 0;
+							if(firmwareLocation.find_last_of('.') != string::npos)
+								endOfNumbers = firmwareLocation.find_last_of('.') - 1;
+							else
+								endOfNumbers = firmwareLocation.length() - 1;
+
+							uint8_t beginningOfNumbers = endOfNumbers - 10;
+							for(; beginningOfNumbers && endOfNumbers > beginningOfNumbers && isdigit(firmwareLocation[endOfNumbers]); endOfNumbers--);
+
+							if(endOfNumbers != beginningOfNumbers)
+
+								// Display error
+								wxMessageBox("Invalid firmware name", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+						
+							// Otherwise
+							else {
+
+								// Check if installing printer's firmware failed
+								if(!printer.installFirmware(firmwareLocation.c_str()))
+
+									// Display error
+									wxMessageBox("Failed to update firmware", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+							
+								// Otherwise
+								else {
+
+									// Put printer into firmware mode
+									printer.switchToFirmwareMode();
+	
+									// Check if printer isn't connected
+									if(!printer.isConnected())
+
+										// Display error
+										wxMessageBox("Failed to update firmware", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+								
+									// Otherwise
+									else
+								
+										// Display message
+										wxMessageBox("iMe successfully installed", "M3D Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
+								}
+							}
+						}
+					}
+            			
+            				// Enable connection controls
+            				wxSafeYield();
+					serialPortChoice->Enable(true);
+					refreshSerialPortsButton->Enable(true);
+					connectButton->Enable(true);
+				
+					// Check if connected to printer
+					if(printer.isConnected()) {
+				
+						// Enable printer controls
+						installFirmwareFromFileButton->Enable(true);
+						installImeFirmwareButton->Enable(true);
+						switchToFirmwareModeButton->Enable(true);
+					}
+					
+					// Start status timer
+					statusTimer->Start(100);
+				
+            			}, delayTimer->GetId());
+            			delayTimer->StartOnce(100);
+			}
+			
+			// Install drivers
+			void onInstallDriversButtonClick(wxCommandEvent& event) {
+			
+				// Check if using Windows
+				#ifdef WINDOWS
+			
+					// Check if creating drivers file failed
+					ofstream fout(tempLocation + "/M3D.cat", ios::binary);
+					if(fout.fail())
+						
+						// Display error
+						wxMessageBox("Failed to unpack drivers", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+					
+					// Otherwise
+					else {
+					
+						// Unpack drivers
+						for(uint64_t i = 0; i < m3D_catSize; i++)
+							fout.put(m3D_catData[i]);
+						fout.close();
+
+						// Check if creating drivers file failed
+						fout.open(tempLocation + "/M3D.inf", ios::binary);
+						if(fout.fail())
+						
+							// Display error
+							wxMessageBox("Failed to unpack drivers", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+						
+						// Otherwise
+						else {
+						
+							// Unpack drivers
+							for(uint64_t i = 0; i < m3D_infSize; i++)
+								fout.put(m3D_infData[i]);
+							fout.close();
+				
+							// Check if creating process failed
+							TCHAR buffer[MAX_PATH];
+							GetWindowsDirectory(buffer, MAX_PATH);
+							wstring path = buffer;
+			
+							string executablePath;
+							ifstream file(path + "\\sysnative\\pnputil.exe", ios::binary);
+							executablePath = file.good() ? "sysnative" : "System32";
+							file.close();
+	
+							STARTUPINFO startupInfo;
+							SecureZeroMemory(&startupInfo, sizeof(startupInfo));
+							startupInfo.cb = sizeof(startupInfo);
+					
+							PROCESS_INFORMATION processInfo;
+							SecureZeroMemory(&processInfo, sizeof(processInfo));
+					
+							TCHAR command[MAX_PATH];
+							_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + tempLocation + "\\M3D.inf\"").c_str());
+					
+							if(!CreateProcess(NULL, command, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &startupInfo, &processInfo)) {
+
+								// Display error
+								wxMessageBox("Failed to install drivers", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+							}
+					
+							// Otherwise
+							else {
+
+								// Wait until process finishes
+								WaitForSingleObject(processInfo.hProcess, INFINITE);
+						
+								// Check if installing drivers failed
+								DWORD exitCode;
+								GetExitCodeProcess(processInfo.hProcess, &exitCode);
+						
+								// Close process and thread handles. 
+								CloseHandle(processInfo.hProcess);
+								CloseHandle(processInfo.hThread);
+						
+								if(!exitCode)
+			
+									// Display error
+									wxMessageBox("Failed to install drivers", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+					
+								// Otherwise
+								else
+			
+									// Display error
+									wxMessageBox("Drivers successfully installed. You might need to reconnect the printer to the computer for the drivers to take effect.", "M3D Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
+							}
+						}
+					}
+				#endif
+			
+				// Otherwise check if using Linux
+				#ifdef LINUX
+		
+					// Check if user is not root
+					if(getuid())
+			
+						// Display error
+						wxMessageBox("Elevated privileges required", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+					
+					// Otherwise
+					else {
+			
+						// Check if creating udev rule failed
+						ofstream fout("/etc/udev/rules.d/90-m3d-local.rules", ios::binary);
+						if(fout.fail())
+						
+							// Display error
+							wxMessageBox("Failed to unpack udev rule", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+						
+						// Otherwise
+						else {
+						
+							// Unpack udev rule
+							for(uint64_t i = 0; i < _90_m3d_local_rulesSize; i++)
+								fout.put(_90_m3d_local_rulesData[i]);
+							fout.close();
+			
+							// Check if applying udev rule failed
+							if(system("/etc/init.d/udev restart"))
+				
+								// Display error
+								wxMessageBox("Failed to apply udev rule", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+							
+							// Otherwise
+							else
+							
+								// Display error
+								wxMessageBox("Drivers successfully installed. You might need to reconnect the printer to the computer for the drivers to take effect.", "M3D Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
+						}
+					}
+				#endif
+			}
+			
+			// On status timer
+			void onStatusTimer(wxTimerEvent& event) {
+			
+				// Get printer status
+				string status = printer.getStatus();
+				
+				// Check if printer was disconnected
+				if(status == "Disconnected" && connectionText->GetLabel() != status) {
+				
+					// Disable printer controls
+					installFirmwareFromFileButton->Enable(false);
+					installImeFirmwareButton->Enable(false);
+					switchToFirmwareModeButton->Enable(false);
+				}
 			
 				// Update connection text
 				connectionText->SetLabel("Connection: " + printer.getStatus());
@@ -169,11 +512,113 @@ Printer printer;
 			// On install firmware from file button click
 			void onInstallFirmwareFromFileButtonClick(wxCommandEvent& event) {
 				
+				// Display file dialog
 				wxFileDialog *openFileDialog = new wxFileDialog(this, "Open firmware file", wxEmptyString, wxEmptyString, "Firmware files|*.hex;*.bin;*.rom|All files|*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+				
+				// Check if a file was selected
+				if(openFileDialog->ShowModal() == wxID_OK) {
+				
+					// Stop status timer
+					statusTimer->Stop();
+				
+					// Disable connection controls
+					serialPortChoice->Enable(false);
+					refreshSerialPortsButton->Enable(false);
+					connectButton->Enable(false);
+				
+					// Disable printer controls
+					installFirmwareFromFileButton->Enable(false);
+					installImeFirmwareButton->Enable(false);
+					switchToFirmwareModeButton->Enable(false);
+				
+					// Set connection text
+					connectionText->SetLabel(static_cast<string>("Connection: ") + "Installing firmware");
+					
+					// Update display
+					Refresh();
+					Update();
+				
+					wxTimer *delayTimer = new wxTimer(this, wxID_ANY);
+		    			Bind(wxEVT_TIMER, [=](wxTimerEvent& event) {
+		    			
+		    				// Set firmware location
+						string firmwareLocation = static_cast<string>(openFileDialog->GetPath());
+		
+						// Check if firmware ROM doesn't exists
+						ifstream file(firmwareLocation, ios::binary);
+						if(!file.good())
 
-				if(openFileDialog->ShowModal() == wxID_OK){
-					wxString fileName = openFileDialog->GetPath();
-					versionText->SetLabel(fileName);     
+							// Display error
+							wxMessageBox("Firmware ROM doesn't exist", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+				
+						// Otherwise
+						else {
+
+							// Check if firmware ROM name is valid
+							uint8_t endOfNumbers = 0;
+							if(firmwareLocation.find_last_of('.') != string::npos)
+								endOfNumbers = firmwareLocation.find_last_of('.') - 1;
+							else
+								endOfNumbers = firmwareLocation.length() - 1;
+
+							uint8_t beginningOfNumbers = endOfNumbers - 10;
+							for(; beginningOfNumbers && endOfNumbers > beginningOfNumbers && isdigit(firmwareLocation[endOfNumbers]); endOfNumbers--);
+
+							if(endOfNumbers != beginningOfNumbers)
+
+								// Display error
+								wxMessageBox("Invalid firmware name", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+					
+							// Otherwise
+							else {
+
+								// Check if installing printer's firmware failed
+								if(!printer.installFirmware(firmwareLocation.c_str()))
+
+									// Display error
+									wxMessageBox("Failed to update firmware", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+						
+								// Otherwise
+								else {
+
+									// Put printer into firmware mode
+									printer.switchToFirmwareMode();
+
+									// Check if printer isn't connected
+									if(!printer.isConnected())
+
+										// Display error
+										wxMessageBox("Failed to update firmware", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+							
+									// Otherwise
+									else
+							
+										// Display message
+										wxMessageBox("Firmware successfully installed", "M3D Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
+								}
+							}
+						}
+		    			
+		    				// Enable connection controls
+		    				wxSafeYield();
+						serialPortChoice->Enable(true);
+						refreshSerialPortsButton->Enable(true);
+						connectButton->Enable(true);
+				
+						// Check if connected to printer
+						if(printer.isConnected()) {
+				
+							// Enable printer controls
+							installFirmwareFromFileButton->Enable(true);
+							installImeFirmwareButton->Enable(true);
+							switchToFirmwareModeButton->Enable(true);
+						}
+					
+						// Start status timer
+						statusTimer->Start(100);
+				
+		    			}, delayTimer->GetId());
+		    			delayTimer->StartOnce(100);
 				}
 			}
 			
@@ -195,35 +640,41 @@ Printer printer;
 			
 			// On refresh serial ports button click
 			void onRefreshSerialPortsButtonClick(wxCommandEvent& event) {
-			
-				// Disable widgets
+				
+				// Disable connection controls
 				serialPortChoice->Enable(false);
 				refreshSerialPortsButton->Enable(false);
 				connectButton->Enable(false);
 				
-				// Update windows
-				Refresh(); 
+				// Update display
+				Refresh();
 				Update();
-				usleep(2000000);
 				
-				// Save current choice
-				wxString currentChoice = serialPortChoice->GetString(serialPortChoice->GetSelection());
+				wxTimer *delayTimer = new wxTimer(this, wxID_ANY);
+            			Bind(wxEVT_TIMER, [=](wxTimerEvent& event) {
+            			
+            				// Save current choice
+					wxString currentChoice = serialPortChoice->GetString(serialPortChoice->GetSelection());
 			
-				// Refresh choices
-				serialPortChoice->Clear();
-				serialPortChoice->Append(getAvailableSerialPorts());
+					// Refresh choices
+					serialPortChoice->Clear();
+					serialPortChoice->Append(getAvailableSerialPorts());
 				
-				// Set choice to auto if previous choice doesn't exist anymore
-				if(serialPortChoice->FindString(currentChoice) == wxNOT_FOUND)
-					currentChoice = "Auto";
+					// Set choice to auto if previous choice doesn't exist anymore
+					if(serialPortChoice->FindString(currentChoice) == wxNOT_FOUND)
+						currentChoice = "Auto";
 				
-				// Select choice
-				serialPortChoice->SetSelection(serialPortChoice->FindString(currentChoice));
+					// Select choice
+					serialPortChoice->SetSelection(serialPortChoice->FindString(currentChoice));
+					
+					// Enable connection controls
+					wxSafeYield();
+					serialPortChoice->Enable(true);
+					refreshSerialPortsButton->Enable(true);
+					connectButton->Enable(true);
 				
-				// Enable widgets
-				serialPortChoice->Enable(true);
-				refreshSerialPortsButton->Enable(true);
-				connectButton->Enable(true);
+            			}, delayTimer->GetId());
+            			delayTimer->StartOnce(300);
 			}
 			
 			// Check if using Windows
@@ -305,12 +756,16 @@ Printer printer;
 		// Private
 		private:
 		
-			// Widgets
+			// Controls
 			wxChoice *serialPortChoice;
 			wxButton *refreshSerialPortsButton;
 			wxButton *connectButton;
 			wxStaticText *versionText;
 			wxStaticText *connectionText;
+			wxButton *installFirmwareFromFileButton;
+			wxButton *installImeFirmwareButton;
+			wxButton *switchToFirmwareModeButton;
+			wxTimer *statusTimer;
 	};
 
 	// Implement application
@@ -346,7 +801,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		 tempPath = getenv("TMP");
 	if(!tempPath)
 		 tempPath = getenv("TMPDIR");
-	string tempLocation = tempPath ? tempPath : P_tmpdir;
+	tempLocation = tempPath ? tempPath : P_tmpdir;
 	
 	// Attach break handler
 	signal(SIGINT, breakHandler);
@@ -376,102 +831,213 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		
 				// Display help
 				cout << "Usage: m3d-manager -d -s -i -m protocol -r firmware.rom serialport" << endl;
-				cout << "-d | --drivers: Install device drivers" << endl;
+				#ifndef OSX
+					cout << "-d | --drivers: Install device drivers" << endl;
+				#endif
 				cout << "-s | --start: Switches printer into firmware mode" << endl;
 				cout << "-i | --ime: Installs iMe firmware" << endl;
 				cout << "-r | --rom: Installs the provided firmware" << endl;
 				cout << "-m | --manual: Allows manually sending commands to the printer using the protocol Repetier or RepRap" << endl;
 				cout << "serialport: The printer's serial port or it will automatically find the printer if not specified" << endl << endl;
 			
-				// Exit
-				return false;
+				// Return
+				return
+				#ifdef USE_GUI
+					false;
+				#else
+					EXIT_SUCCESS;
+				#endif
 			}
-		
-			// Otherwise check if installing drivers
-			else if(!strcmp(argv[i], "-d") || !strcmp(argv[i], "--drivers")) {
 			
-				// Display message
-				cout << "Installing drivers" << endl;
+			// Check if not using OS X
+			#ifndef OSX
 		
-				// Check if using Windows
-				#ifdef WINDOWS
+				// Otherwise check if installing drivers
+				else if(!strcmp(argv[i], "-d") || !strcmp(argv[i], "--drivers")) {
 			
-					// Unpack drivers
-					ofstream fout(tempLocation + "/M3D.cat", ios::binary);
-					for(uint64_t i = 0; i < m3D_catSize; i++)
-						fout.put(m3D_catData[i]);
-					fout.close();
-
-					fout.open(tempLocation + "/M3D.inf", ios::binary);
-					for(uint64_t i = 0; i < m3D_infSize; i++)
-						fout.put(m3D_infData[i]);
-					fout.close();
-				
-					// Check if installing drivers failed
-					TCHAR buffer[MAX_PATH];
-					GetWindowsDirectory(buffer, MAX_PATH);
-					#ifdef USE_GUI
-						wstring
-					#else
-						string
-					#endif
-					path = buffer;
-				
-					string executablePath;
-					ifstream file(path + "\\sysnative\\pnputil.exe");
-					executablePath = file.good() ? "sysnative" : "System32";
-					file.close();
-				
-					if(system((path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + tempLocation + "\\M3D.inf\"").c_str())) {
+					// Display message
+					cout << "Installing drivers" << endl;
+		
+					// Check if using Windows
+					#ifdef WINDOWS
+			
+						// Check if creating drivers file failed
+						ofstream fout(tempLocation + "/M3D.cat", ios::binary);
+						if(fout.fail()) {
 					
-						// Display error
-						cout << "Failed to install drivers" << endl;
-						return false;
-					}
+							// Display error
+							cout << "Failed to unpack drivers" << endl;
+						
+							// Return
+							return
+							#ifdef USE_GUI
+								false;
+							#else
+								EXIT_FAILURE;
+							#endif
+						}
+					
+						// Unpack drivers
+						for(uint64_t i = 0; i < m3D_catSize; i++)
+							fout.put(m3D_catData[i]);
+						fout.close();
+					
+						// Check if creating drivers file failed
+						fout.open(tempLocation + "/M3D.inf", ios::binary);
+						if(fout.fail()) {
+					
+							// Display error
+							cout << "Failed to unpack drivers" << endl;
+						
+							// Return
+							return
+							#ifdef USE_GUI
+								false;
+							#else
+								EXIT_FAILURE;
+							#endif
+						}
+					
+						// Unpack drivers
+						for(uint64_t i = 0; i < m3D_infSize; i++)
+							fout.put(m3D_infData[i]);
+						fout.close();
 				
-					// Display message
-					cout << "Drivers successfully installed" << endl;
-				#endif
-			
-				// Otherwise check if using OS X
-				#ifdef OSX
-			
-					// Display message
-					cout << "Drivers successfully installed" << endl;
-				#endif
-			
-				// Otherwise check if using Linux
-				#ifdef LINUX
+						// Check if creating process failed
+						TCHAR buffer[MAX_PATH];
+						GetWindowsDirectory(buffer, MAX_PATH);
+						#ifdef USE_GUI
+							wstring
+						#else
+							string
+						#endif
+						path = buffer;
+				
+						string executablePath;
+						ifstream file(path + "\\sysnative\\pnputil.exe", ios::binary);
+						executablePath = file.good() ? "sysnative" : "System32";
+						file.close();
 		
-					// Check if user is not root
-					if(getuid()) {
+						STARTUPINFO startupInfo;
+						SecureZeroMemory(&startupInfo, sizeof(startupInfo));
+						startupInfo.cb = sizeof(startupInfo);
+						
+						PROCESS_INFORMATION processInfo;
+						SecureZeroMemory(&processInfo, sizeof(processInfo));
+						
+						TCHAR command[MAX_PATH];
+						_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + tempLocation + "\\M3D.inf\"").c_str());
+						
+						if(!CreateProcess(NULL, command, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &startupInfo, &processInfo)) {
+
+							// Display error
+							cout << "Failed to install drivers" << endl;
+							
+							// Return
+							return
+							#ifdef USE_GUI
+								false;
+							#else
+								EXIT_FAILURE;
+							#endif
+						}
+						
+						// Wait until process finishes
+						WaitForSingleObject(processInfo.hProcess, INFINITE);
+						
+						// Check if installing drivers failed
+						DWORD exitCode;
+						GetExitCodeProcess(processInfo.hProcess, &exitCode);
+						
+						// Close process and thread handles. 
+						CloseHandle(processInfo.hProcess);
+						CloseHandle(processInfo.hThread);
+						
+						if(!exitCode) {
 			
-						// Display error
-						cout << "Elevated privileges required" << endl;
-						return false;
-					}
+							// Display error
+							cout << "Failed to install drivers" << endl;
+					
+							// Return
+							return
+							#ifdef USE_GUI
+								false;
+							#else
+								EXIT_FAILURE;
+							#endif
+						}
 			
-					// Unpack udev rule
-					ofstream fout("/etc/udev/rules.d/90-m3d-local.rules", ios::binary);
-					for(uint64_t i = 0; i < _90_m3d_local_rulesSize; i++)
-						fout.put(_90_m3d_local_rulesData[i]);
-					fout.close();
+						// Display message
+						cout << "Drivers successfully installed" << endl;
+					#endif
 			
-					// Check if applying udev rule failed
-					if(system("/etc/init.d/udev restart")) {
+					// Otherwise check if using Linux
+					#ifdef LINUX
+		
+						// Check if user is not root
+						if(getuid()) {
+			
+							// Display error
+							cout << "Elevated privileges required" << endl;
+						
+							// Return
+							return
+							#ifdef USE_GUI
+								false;
+							#else
+								EXIT_FAILURE;
+							#endif
+						}
+			
+						// Check if creating udev rule file failed
+						ofstream fout("/etc/udev/rules.d/90-m3d-local.rules", ios::binary);
+						if(fout.fail()) {
+					
+							// Display error
+							cout << "Failed to unpack udev rule" << endl;
+						
+							// Return
+							return
+							#ifdef USE_GUI
+								false;
+							#else
+								EXIT_FAILURE;
+							#endif
+						}
+					
+						// Unpack udev rule
+						for(uint64_t i = 0; i < _90_m3d_local_rulesSize; i++)
+							fout.put(_90_m3d_local_rulesData[i]);
+						fout.close();
+			
+						// Check if applying udev rule failed
+						if(system("/etc/init.d/udev restart")) {
 				
-						// Display error
-						cout << "Failed to install drivers" << endl;
-						return false;
-					}
+							// Display error
+							cout << "Failed to install drivers" << endl;
+						
+							// Return
+							return
+							#ifdef USE_GUI
+								false;
+							#else
+								EXIT_FAILURE;
+							#endif
+						}
 				
-					// Display message
-					cout << "Drivers successfully installed" << endl;
-				#endif
+						// Display message
+						cout << "Drivers successfully installed" << endl;
+					#endif
 			
-				// Exit
-				return false;
-			}
+					// Return
+					return
+					#ifdef USE_GUI
+						false;
+					#else
+						EXIT_SUCCESS;
+					#endif
+				}
+			#endif
 	
 			// Otherwise check if a switching printer into firmware mode
 			else if(!strcmp(argv[i], "-s") || !strcmp(argv[i], "--start")) {
@@ -489,7 +1055,14 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		
 					// Display error
 					cout << printer.getStatus() << endl;
-					return false;
+					
+					// Return
+					return
+					#ifdef USE_GUI
+						false;
+					#else
+						EXIT_FAILURE;
+					#endif
 				}
 				
 				// Check if printer is already in firmware mode
@@ -509,7 +1082,14 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		
 						// Display error
 						cout << printer.getStatus() << endl;
-						return false;
+						
+						// Return
+						return
+						#ifdef USE_GUI
+							false;
+						#else
+							EXIT_FAILURE;
+						#endif
 					}
 				
 					// Display message
@@ -519,8 +1099,13 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 				// Display current serial port
 				cout << "Current serial port: " << printer.getCurrentSerialPort() << endl;
 			
-				// Exit
-				return false;
+				// Return
+				return
+				#ifdef USE_GUI
+					false;
+				#else
+					EXIT_SUCCESS;
+				#endif
 			}
 		
 			// Otherwise check installing iMe firmware
@@ -532,8 +1117,23 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 				// Set firmware location
 				string firmwareLocation = tempLocation + "/iMe 1900000001.hex";
 		
-				// Unpack iMe ROM
+				// Check if creating iMe firmware ROM failed
 				ofstream fout(firmwareLocation, ios::binary);
+				if(fout.fail()) {
+					
+					// Display error
+					cout << "Failed to unpack iMe firmware" << endl;
+					
+					// Return
+					return
+					#ifdef USE_GUI
+						false;
+					#else
+						EXIT_FAILURE;
+					#endif
+				}
+				
+				// Unpack iMe ROM
 				for(uint64_t i = 0; i < iMe1900000001_hexSize; i++)
 					fout.put(iMe1900000001_hexData[i]);
 				fout.close();
@@ -546,11 +1146,21 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 				// Install firmware
 				if(!installFirmware(firmwareLocation, serialPort))
 					
-					// Exit
-					return false;
+					// Return
+					return
+					#ifdef USE_GUI
+						false;
+					#else
+						EXIT_FAILURE;
+					#endif
 			
-				// Exit
-				return false;
+				// Return
+				return
+				#ifdef USE_GUI
+					false;
+				#else
+					EXIT_SUCCESS;
+				#endif
 			}
 		
 			// Otherwise check if a firmware ROM is provided
@@ -564,7 +1174,14 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		
 					// Display error
 					cout << "No firmware ROM provided" << endl;
-					return false;
+					
+					// Return
+					return
+					#ifdef USE_GUI
+						false;
+					#else
+						EXIT_FAILURE;
+					#endif
 				}
 
 				// Set firmware location
@@ -578,11 +1195,21 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 				// Install firmware
 				if(!installFirmware(firmwareLocation, serialPort))
 					
-					// Exit
-					return false;
+					// Return
+					return
+					#ifdef USE_GUI
+						false;
+					#else
+						EXIT_FAILURE;
+					#endif
 			
-				// Exit
-				return false;
+				// Return
+				return
+				#ifdef USE_GUI
+					false;
+				#else
+					EXIT_SUCCESS;
+				#endif
 			}
 		
 			// Otherwise check if using manual mode
@@ -596,7 +1223,14 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		
 					// Display error
 					cout << "No protocol provided" << endl;
-					return false;
+					
+					// Return
+					return
+					#ifdef USE_GUI
+						false;
+					#else
+						EXIT_FAILURE;
+					#endif
 				}
 			
 				// Set protocol
@@ -607,7 +1241,14 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		
 					// Display error
 					cout << "Invalid protocol" << endl;
-					return false;
+					
+					// Return
+					return
+					#ifdef USE_GUI
+						false;
+					#else
+						EXIT_FAILURE;
+					#endif
 				}
 		
 				// Set serial port
@@ -620,7 +1261,14 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		
 					// Display error
 					cout << printer.getStatus() << endl;
-					return false;
+					
+					// Return
+					return
+					#ifdef USE_GUI
+						false;
+					#else
+						EXIT_FAILURE;
+					#endif
 				}
 			
 				// Put printer into firmware mode
@@ -631,7 +1279,14 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		
 					// Display error
 					cout << printer.getStatus() << endl;
-					return false;
+					
+					// Return
+					return
+					#ifdef USE_GUI
+						false;
+					#else
+						EXIT_FAILURE;
+					#endif
 				}
 			
 				// Display message
@@ -645,16 +1300,25 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 					string line;
 					getline(cin, line);
 					
-					// Exit if requested
+					// Check if quit is requested
 					if(line == "quit")
-						return false;
+					
+						// Break;
+						break;
 				
 					// Check if failed to send command to the printer
 					if(protocol == "Repetier" ? !printer.sendRequestBinary(line) : !printer.sendRequestAscii(line)) {
 	
 						// Display error
 						cout << (printer.isConnected() ? "Sending command failed" : "Printer disconnected") << endl << endl;
-						return false;
+						
+						// Return
+						return
+						#ifdef USE_GUI
+							false;
+						#else
+							EXIT_FAILURE;
+						#endif
 					}
 				
 					// Display command
@@ -673,7 +1337,14 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 						
 							// Display error
 							cout << "Printer disconnected" << endl << endl;
-							return false;
+							
+							// Return
+							return
+							#ifdef USE_GUI
+								false;
+							#else
+								EXIT_FAILURE;
+							#endif
 						}
 				
 						// Display response
@@ -683,14 +1354,26 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 					cout << endl;
 				}
 				
-				// Exit
-				return false;
+				// Return
+				return
+				#ifdef USE_GUI
+					false;
+				#else
+					EXIT_SUCCESS;
+				#endif
 			}
 		}
 		
 		// Display error
 		cout << "Invalid parameters" << endl;
-		return false;
+		
+		// Return
+		return
+		#ifdef USE_GUI
+			false;
+		#else
+			EXIT_FAILURE;
+		#endif
 	}
 	
 	// Otherwise
@@ -716,30 +1399,39 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		
 			// Display error
 			cout << "Invalid parameters" << endl;
-			return false;
+			
+			// Return
+			return EXIT_FAILURE;
 		#endif
 	}
 	
-	// Return true
-	return true;
+	// Return
+	return
+	#ifdef USE_GUI
+		true;
+	#else
+		EXIT_SUCCESS;
+	#endif
 }
 
 
 // Supporting function implementation
 void breakHandler(int signal) {
 
-	// Exit so that destructor is called on printer
-	exit(0);
+	// Terminates the process normally
+	exit(EXIT_FAILURE);
 }
 
 bool installFirmware(const string &firmwareLocation, const string &serialPort) {
 
 	// Check if firmware ROM doesn't exists
-	ifstream file(firmwareLocation);
+	ifstream file(firmwareLocation, ios::binary);
 	if(!file.good()) {
 
 		// Display error
 		cout << "Firmware ROM doesn't exist" << endl;
+		
+		// Return false
 		return false;
 	}
 
@@ -757,6 +1449,8 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort) {
 
 		// Display error
 		cout << "Invalid firmware ROM name" << endl;
+		
+		// Return false
 		return false;
 	}
 
@@ -765,6 +1459,8 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort) {
 
 		// Display error
 		cout << printer.getStatus() << endl;
+		
+		// Return false
 		return false;
 	}
 
@@ -773,6 +1469,8 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort) {
 
 		// Display error
 		cout << "Failed to update firmware" << endl;
+		
+		// Return false
 		return false;
 	}
 
@@ -784,6 +1482,8 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort) {
 
 		// Display error
 		cout << printer.getStatus() << endl;
+		
+		// Return false
 		return false;
 	}
 	

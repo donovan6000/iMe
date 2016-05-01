@@ -218,15 +218,6 @@ bool Printer::connect(const string &serialPort) {
 	
 	// Disconnect if already connected
 	disconnect();
-	
-	// Release lock
-	releaseLock();
-	
-	// Sleep
-	usleep(100000);
-	
-	// Acquire lock
-	acquireLock();
         
         // Attempt to connect for 2 seconds
         for(uint8_t i = 0; i < 2000000 / 250000; i++) {
@@ -540,8 +531,14 @@ bool Printer::installFirmware(const string &file) {
 	// Switch to bootloader mode
 	switchToBootloaderMode();
 	
+	// Check if ROM doesn't exist
+	ifstream romInput(file, ios::binary);
+	if(!romInput.good())
+	
+		// Return false
+		return false;
+	
 	// Read in the encrypted ROM
-	ifstream romInput(file, ios::in | ios::binary);
 	string romBuffer;
 	while(romInput.peek() != EOF)
 		romBuffer.push_back(romInput.get());
@@ -726,6 +723,9 @@ bool Printer::sendRequestAscii(const char *data, bool checkForModeSwitching) {
 	// Update available serial ports if switching into bootloader or firmware mode
 	if(checkForModeSwitching && (!strcmp(data, "M115 S628") || !strcmp(data, "Q")))
 		updateAvailableSerialPorts();
+	
+	// Acquire lock
+	acquireLock();
 
 	// Send data to the device
 	#ifdef WINDOWS
@@ -734,6 +734,9 @@ bool Printer::sendRequestAscii(const char *data, bool checkForModeSwitching) {
 	#else
 		bool returnValue = write(fd, data, strlen(data)) == static_cast<signed int>(strlen(data));
 	#endif
+	
+	// Release lock
+	releaseLock();
 	
 	// Reconnect if data was successfully sent and switching into bootloader mode
 	if(returnValue && checkForModeSwitching && (!strcmp(data, "M115 S628") || !strcmp(data, "Q")))
@@ -756,6 +759,9 @@ bool Printer::sendRequestAscii(char data, bool checkForModeSwitching) {
 	// Update available serial ports if switching into firmware mode
 	if(checkForModeSwitching && data == 'Q')
 		updateAvailableSerialPorts();
+	
+	// Acquire lock
+	acquireLock();
 
 	// Send data to the device
 	#ifdef WINDOWS
@@ -764,6 +770,9 @@ bool Printer::sendRequestAscii(char data, bool checkForModeSwitching) {
 	#else
 		bool returnValue = write(fd, &data, 1) == 1;
 	#endif
+	
+	// Release lock
+	releaseLock();
 	
 	// Reconnect if data was successfully sent and switching into bootloader mode
 	if(returnValue && checkForModeSwitching && data == 'Q')
@@ -802,6 +811,9 @@ bool Printer::sendRequestBinary(const Gcode &data) {
 	// Get binary data
 	vector<uint8_t> request = data.getBinary();
 	
+	// Acquire lock
+	acquireLock();
+	
 	// Send binary request to the device
 	#ifdef WINDOWS
 		DWORD bytesSent = 0;
@@ -809,6 +821,9 @@ bool Printer::sendRequestBinary(const Gcode &data) {
 	#else
 		bool returnValue = write(fd, request.data(), request.size()) == static_cast<signed int>(request.size());		
 	#endif
+	
+	// Release lock
+	releaseLock();
 	
 	// Reconnect if data was successfully sent and switching into bootloader mode
 	if(returnValue && data.getValue('M') == "115" && data.getValue('S') == "628")
@@ -860,11 +875,22 @@ string Printer::receiveResponseAscii() {
 		DWORD bytesReceived = 0;
 		for(; i < 1000 && !bytesReceived; i++) {
 		
-			// Disconnect and return an empty string if failed to receive a response
+			// Acquire lock
+			acquireLock();
+		
+			// Check if failed to receive a response
 			if(!ReadFile(fd, &character, sizeof(character), &bytesReceived, nullptr)) {
+			
+				// Release lock
+				releaseLock();
+				
+				// Disconnect and return an empty string
 				disconnect();
 				return "";
 			}
+			
+			// Release lock
+			releaseLock();
 			
 			if(!bytesReceived)
 				sleepUs(1000);
@@ -879,11 +905,22 @@ string Printer::receiveResponseAscii() {
 			response.push_back(character);
 			sleepUs(50);
 			
-			// Disconnect and return an empty string if failed to receive a response
+			// Acquire lock
+			acquireLock();
+			
+			// Check if failed to receive a response
 			if(!ReadFile(fd, &character, sizeof(character), &bytesReceived, nullptr)) {
+			
+				// Release lock
+				releaseLock();
+				
+				// Disconnect and return an empty string
 				disconnect();
 				return "";
 			}
+			
+			// Release lock
+			releaseLock();
 		} while(bytesReceived);
 	
 	// Otherwise
@@ -893,11 +930,22 @@ string Printer::receiveResponseAscii() {
 		int bytesReceived = 0;
 		for(; i < 1000 && !bytesReceived; i++) {
 		
-			// Disconnect and return an empty string if failed to receive a response
+			// Acquire lock
+			acquireLock();
+		
+			// Check if failed to receive a response
 			if((bytesReceived = read(fd, &character, sizeof(character))) == -1) {
+			
+				// Release lock
+				releaseLock();
+				
+				// Disconnect and return an empty string
 				disconnect();
 				return "";
 			}
+			
+			// Release lock
+			releaseLock();
 			
 			if(!bytesReceived)
 				sleepUs(1000);
@@ -912,11 +960,22 @@ string Printer::receiveResponseAscii() {
 			response.push_back(character);
 			sleepUs(50);
 			
-			// Disconnect and return an empty string if failed to receive a response
+			// Acquire lock
+			acquireLock();
+			
+			// Check if failed to receive a response
 			if((bytesReceived = read(fd, &character, sizeof(character))) == -1) {
+			
+				// Release lock
+				releaseLock();
+				
+				// Disconnect and return an empty string
 				disconnect();
 				return "";
 			}
+			
+			// Release lock
+			releaseLock();
 		} while(bytesReceived);
 	#endif
 	
@@ -942,11 +1001,22 @@ string Printer::receiveResponseBinary() {
 		DWORD bytesReceived = 0;
 		for(; i < 1000 && !bytesReceived; i++) {
 		
-			// Disconnect and return an empty string if failed to receive a response
+			// Acquire lock
+			acquireLock();
+		
+			// Check if failed to receive a response
 			if(!ReadFile(fd, &character, sizeof(character), &bytesReceived, nullptr)) {
+			
+				// Release lock
+				releaseLock();
+				
+				// Disconnect and return an empty string
 				disconnect();
 				return "";
 			}
+			
+			// Release lock
+			releaseLock();
 			
 			if(!bytesReceived)
 				sleepUs(1000);
@@ -961,11 +1031,22 @@ string Printer::receiveResponseBinary() {
 			response.push_back(character);
 			do {
 			
-				// Disconnect and return an empty string if failed to receive a response
+				// Acquire lock
+				acquireLock();
+			
+				// Check if failed to receive a response
 				if(!ReadFile(fd, &character, sizeof(character), &bytesReceived, nullptr)) {
+				
+					// Release lock
+					releaseLock();
+					
+					// Disconnect and return an empty string
 					disconnect();
 					return "";
 				}
+				
+				// Release lock
+				releaseLock();
 			} while(!bytesReceived);
 		}
 	
@@ -976,11 +1057,22 @@ string Printer::receiveResponseBinary() {
 		int bytesReceived = 0;
 		for(; i < 1000 && !bytesReceived; i++) {
 		
-			// Disconnect and return an empty string if failed to receive a response
+			// Acquire lock
+			acquireLock();
+		
+			// Check if failed to receive a response
 			if((bytesReceived = read(fd, &character, sizeof(character))) == -1) {
+			
+				// Release lock
+				releaseLock();
+				
+				// Disconnect and return an empty string
 				disconnect();
 				return "";
 			}
+			
+			// Release lock
+			releaseLock();
 			
 			if(!bytesReceived)
 				sleepUs(1000);
@@ -995,11 +1087,22 @@ string Printer::receiveResponseBinary() {
 			response.push_back(character);
 			do {
 			
-				// Disconnect and return an empty string if failed to receive a response
+				// Acquire lock
+				acquireLock();
+			
+				// Check if failed to receive a response
 				if((bytesReceived = read(fd, &character, sizeof(character))) == -1) {
+				
+					// Release lock
+					releaseLock();
+					
+					// Disconnect and return an empty string
 					disconnect();
 					return "";
 				}
+				
+				// Release lock
+				releaseLock();
 			} while(!bytesReceived);
 		}
 	#endif
@@ -1163,7 +1266,7 @@ void Printer::updateAvailableSerialPorts() {
 		                if(strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && !strncmp("ttyACM", entry->d_name, 6)) {
 		                
 		                	// Check if uevent file exists for the device
-		                	ifstream device(static_cast<string>("/sys/class/tty/") + entry->d_name + "/device/modalias");
+		                	ifstream device(static_cast<string>("/sys/class/tty/") + entry->d_name + "/device/modalias", ios::binary);
 		                	if(device.good()) {
 		                	
 				        	// Read in file
