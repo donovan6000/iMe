@@ -8,9 +8,6 @@ extern "C" {
 #include "eeprom.h"
 #include "heater.h"
 
-#include <string.h>
-#include "common.h"
-
 
 // Definitions
 #define MICROCONTROLLER_VOLTAGE 3.3
@@ -1027,23 +1024,18 @@ void Motors::homeXY() {
 		// Go through X and Y motors
 		for(int8_t i = 1; i >= 0 && !emergencyStopOccured; i--) {
 		
-			// Delay
-			delay_ms(100);
-		
 			// Set up motors to move all the way to the back as a fallback
 			motorsDelaySkips[i] = 0;
 			motorsStepDelay[i]  = 1;
 			int16_t *accelerometerValue;
-			int8_t jerkValue;
 			void (*setMotorStepInterruptLevel)(volatile void *tc, TC_INT_LEVEL_t level);
 			if(i) {
 				motorsNumberOfSteps[i] = round(111 * MOTOR_Y_STEPS_PER_MM * MICROSTEPS_PER_STEP);
 				ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
 				setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
 				
-				// Set accelerometer and jerk values
+				// Set accelerometer value
 				accelerometerValue = &accelerometer.yAcceleration;
-				jerkValue = 80;
 				
 				// Set motor Y Vref to active
 				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
@@ -1053,9 +1045,8 @@ void Motors::homeXY() {
 				ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
 				setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
 				
-				// Set accelerometer and jerk values
+				// Set accelerometer value
 				accelerometerValue = &accelerometer.xAcceleration;
-				jerkValue = 65;
 				
 				// Set motor X Vref to active
 				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
@@ -1078,20 +1069,22 @@ void Motors::homeXY() {
 	
 				// Get accelerometer values
 				accelerometer.readAccelerationValues();
+				
+				// Check if not first run
 				if(!firstRun) {
-	
-					// Check if at the edge
-					if(abs(lastValue - *accelerometerValue) >= jerkValue) {
-						if(++counter >= 3)
-			
+				
+					// Check if extruder hit the edge
+					if(abs(lastValue - *accelerometerValue) >= 50) {
+						if(++counter >= 2)
+		
 							// Stop motor interrupt
 							(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
 					}
 					else
 						counter = 0;
 				}
-	
-				// Save accelerometer values
+				
+				// Save value
 				lastValue = *accelerometerValue;
 			}
 
@@ -1182,46 +1175,29 @@ void Motors::moveToZ0() {
 		// Turn on motors
 		turnOn();
 		
+		// Get still value
+		accelerometer.readAccelerationValues();
+		int16_t stillValue = accelerometer.yAcceleration;
+		
 		// Start motors step timer
 		tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
 		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
 	
-		// TODO Wait until all motors step interrupts have stopped or an emergency stop occurs
-		int16_t lastZ;
-		uint8_t counterZ = 0;
-		for(bool firstRun = true; MOTORS_STEP_TIMER.INTCTRLB & TC0_CCCINTLVL_gm && !emergencyStopOccured; firstRun = false) {
+		// Wait until Z motor step interrupts have stopped or an emergency stop occurs
+		for(uint8_t counter = 0; MOTORS_STEP_TIMER.INTCTRLB & TC0_CCCINTLVL_gm && !emergencyStopOccured;) {
 		
 			// Get accelerometer values
 			accelerometer.readAccelerationValues();
-			if(!firstRun) {
+	
+			// Check if extruder has hit the bed
+			if(abs(stillValue - accelerometer.yAcceleration) >= 10) {
+				if(++counter >= 3)
 			
-				/*char responseBuffer[255];
-				char numberBuffer[sizeof("18446744073709551615")];
-				strcpy(responseBuffer, "ok\t");
-				lltoa(accelerometer.xAcceleration, numberBuffer);
-				strcat(responseBuffer, numberBuffer);
-				strcat(responseBuffer, "\t");
-				lltoa(accelerometer.yAcceleration, numberBuffer);
-				strcat(responseBuffer, numberBuffer);
-				strcat(responseBuffer, "\t");
-				lltoa(accelerometer.zAcceleration, numberBuffer);
-				strcat(responseBuffer, numberBuffer);
-				strcat(responseBuffer, "\r\n");
-				sendDataToUsb(responseBuffer);*/
-		
-				// Check if motor Z has hit the bed
-				if(abs(lastZ - accelerometer.zAcceleration) >= 3) {
-					if(++counterZ >= 1)
-				
-						// Stop motor Z interrupt
-						tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
-				}
-				else
-					counterZ = 0;
+					// Stop motor Z interrupt
+					tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
 			}
-		
-			// Save accelerometer values
-			lastZ = accelerometer.zAcceleration;
+			else
+				counter = 0;
 		}
 	
 		// Stop motors step timer
@@ -1238,7 +1214,6 @@ void Motors::moveToZ0() {
 		
 		// Check if at the real Z0
 		if(fabs(lastZ0 - currentValues[Z]) <= 1) {
-		
 			if(++matchCounter >= 2)
 			
 				// Break

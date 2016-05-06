@@ -160,8 +160,8 @@ int main() {
 							// Check if command has an N parameter
 							if(requests[currentProcessingRequest].commandParameters & PARAMETER_N_OFFSET) {
 			
-								// Check if command is a starting line number
-								if(requests[currentProcessingRequest].valueN == 0 && requests[currentProcessingRequest].valueM == 110)
+								// Check if command is has a valid checksum and a starting line number
+								if(requests[currentProcessingRequest].hasValidChecksum() && requests[currentProcessingRequest].valueM == 110 && requests[currentProcessingRequest].valueN == 0)
 	
 									// Reset current line number
 									currentLineNumber = 0;
@@ -331,21 +331,12 @@ int main() {
 						
 										// M420
 										case 420:
-						
-											// Check if duty cycle is provided
-											if(requests[currentProcessingRequest].commandParameters & PARAMETER_T_OFFSET) {
+										
+											// Set LED's brightness
+											led.setBrightness(min(LED_MAX_BRIGHTNESS, requests[currentProcessingRequest].commandParameters & PARAMETER_T_OFFSET ? requests[currentProcessingRequest].valueT : LED_MAX_BRIGHTNESS));
 							
-												// Check if brightness is valid
-												uint8_t brightness = requests[currentProcessingRequest].valueT;
-												if(brightness >= 0) {
-								
-													// Set LED's brightness
-													led.setBrightness(min(LED_MAX_BRIGHTNESS, brightness));
-									
-													// Set response to confirmation
-													strcpy(responseBuffer, "ok");
-												}
-											}
+											// Set response to confirmation
+											strcpy(responseBuffer, "ok");
 										break;
 					
 										// M618 or M619
