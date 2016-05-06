@@ -37,5 +37,5 @@ void Fan::setSpeed(uint8_t speed) {
 	nvm_eeprom_read_buffer(EEPROM_FAN_SCALE_OFFSET, &fanScale, EEPROM_FAN_SCALE_LENGTH);
 	
 	// Set speed
-	tc_write_cc(&FAN_TIMER, FAN_CHANNEL, !speed ? 0 : (speed * fanScale + fanOffset) * FAN_TIMER_PERIOD / 255);
+	tc_write_cc(&FAN_TIMER, FAN_CHANNEL, !speed ? 0 : (speed * fanScale + fanOffset) * FAN_TIMER_PERIOD / FAN_MAX_SPEED);
 }

@@ -21,9 +21,6 @@ extern "C" {
 #define ACCELEROMETER_ADDRESS 0x1D
 #define BUS_SPEED 400000
 #define DEVICE_ID 0x4A
-#define SENSITIVITY_2G (2048 / 2)
-#define SENSITIVITY_4G (2048 / 4)
-#define SENSITIVITY_8G (2048 / 8)
 
 // Registers
 #define STATUS 0x00
@@ -119,7 +116,7 @@ void Accelerometer::readAccelerationValues() {
 
 	// Get average acceleration
 	int32_t averageX = 0, averageY = 0, averageZ = 0;
-	for(uint8_t i = 0; i < 100; i++) {
+	for(uint8_t i = 0; i < 25; i++) {
 		
 		// Wait until data is available
 		while(!dataAvailable());
@@ -132,19 +129,14 @@ void Accelerometer::readAccelerationValues() {
 		averageY += ((values[2] << 8) | values[3]) >> 4;
 		averageZ += ((values[0] << 8) | values[1]) >> 4;
 	}
-	averageX /= 100;
-	averageY /= 100;
-	averageZ /= 100;
+	averageX /= 25;
+	averageY /= 25;
+	averageZ /= 25;
 	
-	// Set values
-	xValue = averageX;
-	yValue = averageY;
-	zValue = averageZ;
-	
-	// Calculate acceleration values and account for chips orientation
-	xAcceleration = static_cast<float>(xValue) * 1000 / SENSITIVITY_2G;
-	yAcceleration = static_cast<float>(yValue) * 1000 / SENSITIVITY_2G;
-	zAcceleration = static_cast<float>(zValue) * 1000 / SENSITIVITY_2G;
+	// Set acceleration values
+	xAcceleration = averageX;
+	yAcceleration = averageY;
+	zAcceleration = averageZ;
 }
 
 bool Accelerometer::dataAvailable() {

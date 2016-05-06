@@ -20,11 +20,11 @@ void Led::initialize() {
 	ioport_set_pin_dir(LED_ENABLE_PIN, IOPORT_DIR_OUTPUT);
 	
 	// Turn on LED
-	setBrightness(100);
+	setBrightness(LED_MAX_BRIGHTNESS);
 }
 
 void Led::setBrightness(uint8_t brightness) {
 
 	// Set brightness
-	tc_write_cc(&LED_TIMER, LED_CHANNEL, static_cast<float>(brightness) * LED_TIMER_PERIOD / 100);
+	tc_write_cc(&LED_TIMER, LED_CHANNEL, static_cast<float>(brightness) * LED_TIMER_PERIOD / LED_MAX_BRIGHTNESS);
 }

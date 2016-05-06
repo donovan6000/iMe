@@ -6,6 +6,7 @@
 // Definitions
 #define FAN_TIMER TCE0
 #define FAN_TIMER_PERIOD 0x208D
+#define FAN_MAX_SPEED 255
 
 
 // Fan class

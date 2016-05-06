@@ -8,12 +8,13 @@ ifeq ($(OS), Windows_NT)
 	COPY = "C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe"
 	SIZE = "C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-size.exe"
 	DUMP = "C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objdump.exe"
+	M3DMANAGER = "M3D Manager/M3D Manager.exe"
 else
 	CC = /opt/avr-toolchain/bin/avr-gcc
 	COPY = /opt/avr-toolchain/bin/avr-objcopy
 	SIZE = /opt/avr-toolchain/bin/avr-size
 	DUMP = /opt/avr-toolchain/bin/avr-objdump
-	M3DLINUX = /usr/sbin/m3d-linux
+	M3DMANAGER = "M3D Manager/M3D Manager"
 endif
 
 # Assembly source files
@@ -115,7 +116,7 @@ clean:
 
 # Make run - Flashes and runs compiled firmware
 run:
-	@$(M3DLINUX) -a -x -r "$(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex"
+	@$(M3DMANAGER) -r "$(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex"
 
 # Make production debug - Adds debug information to a production elf named production.elf
 productionDebug:

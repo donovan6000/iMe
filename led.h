@@ -3,6 +3,10 @@
 #define LED_H
 
 
+// Definitions
+#define LED_MAX_BRIGHTNESS 100
+
+
 // Led class
 class Led {
 

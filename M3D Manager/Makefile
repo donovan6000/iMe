@@ -4,7 +4,7 @@ VERSION = 0.01
 TARGET_PLATFORM = LINUX64
 USE_GUI = TRUE
 
-SRCS = main.cpp printer.cpp gcode.cpp
+SRCS = main.cpp printer.cpp gcode.cpp common.cpp
 CFLAGS = -Wall -std=c++11 -O3 -D VERSION=$(VERSION)
 
 ifeq ($(TARGET_PLATFORM), WINDOWS32)
@@ -15,6 +15,7 @@ ifeq ($(TARGET_PLATFORM), WINDOWS32)
 	ARCHIVE = "M3D Manager Windows.zip"
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
+		SRCS += gui.cpp
 		CFLAGS += -D USE_GUI `/usr/i686-w64-mingw32/bin/wx-config --cxxflags --libs --static`
 	endif
 	SRCS += resource.o
@@ -29,6 +30,7 @@ ifeq ($(TARGET_PLATFORM), WINDOWS64)
 	ARCHIVE = "M3D Manager Windows.zip"
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
+		SRCS += gui.cpp
 		CFLAGS += -D USE_GUI `/usr/x86_64-w64-mingw32/bin/wx-config --cxxflags --libs --static`
 	endif
 	SRCS += resource.o
@@ -43,6 +45,7 @@ ifeq ($(TARGET_PLATFORM), OSX32)
 	ARCHIVE = "M3D Manager OS X.zip"
 	BUNDLE = "M3D Manager.app"
 	ifeq ($(USE_GUI), TRUE)
+		SRCS += gui.cpp
 		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --static`
 	endif
 endif
@@ -55,6 +58,7 @@ ifeq ($(TARGET_PLATFORM), OSX64)
 	ARCHIVE = "M3D Manager OS X.zip"
 	BUNDLE = "M3D Manager.app"
 	ifeq ($(USE_GUI), TRUE)
+		SRCS += gui.cpp
 		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --static`
 	endif
 endif
@@ -67,6 +71,7 @@ ifeq ($(TARGET_PLATFORM), LINUX32)
 	ARCHIVE = "M3D Manager Linux.zip"
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
+		SRCS += gui.cpp
 		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --static`
 	endif
 endif
@@ -79,6 +84,7 @@ ifeq ($(TARGET_PLATFORM), LINUX64)
 	ARCHIVE = "M3D Manager Linux.zip"
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
+		SRCS += gui.cpp
 		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --static`
 	endif
 endif

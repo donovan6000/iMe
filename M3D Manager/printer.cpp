@@ -194,7 +194,7 @@ Printer::updateStatus() {
 		releaseLock();
 		
 		// Sleep
-		usleep(100000);
+		sleepUs(100000);
 	}
 	
 	// Check if using Windows
@@ -574,7 +574,7 @@ bool Printer::installFirmware(const string &file) {
 		return false;
 	
 	// Delay
-	usleep(1000000);
+	sleepUs(1000000);
 	
 	// Check if chip failed to be erased
 	if(receiveResponseAscii() != "\r")

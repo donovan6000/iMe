@@ -21,7 +21,6 @@ extern "C" {
 #define RESISTANCE_READ_PIN IOPORT_CREATE_PIN(PORTA, 5)
 
 // Heater ADC
-#define HEATER_READ_ADC MOTOR_E_CURRENT_SENSE_ADC
 #define HEATER_READ_ADC_CHANNEL ADC_CH0
 #define HEATER_READ_POSITIVE_INPUT ADCCH_POS_PIN3
 #define HEATER_READ_NEGATIVE_INPUT ADCCH_NEG_PIN4
@@ -35,7 +34,6 @@ extern "C" {
 
 
 // Global variables
-bool heaterWorking = true;
 uint8_t temperatureIntervalCounter;
 float idealTemperature;
 float actualTemperature;
@@ -44,8 +42,29 @@ adc_channel_config heaterReadAdcChannel;
 adc_config resistanceReadAdcController;
 adc_channel_config resistanceReadAdcChannel;
 
+uint8_t heaterCalibrationMode;
+float heaterTemperatureMeasurementB;
+float heaterResistanceM;
+
 
 // Supporting function implementation
+int16_t getHeaterValue() {
+
+	// Get heater value
+	adc_write_configuration(&HEATER_READ_ADC, &heaterReadAdcController);
+	adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
+	
+	int32_t heaterValue = 0;
+	for(uint8_t i = 0; i < 50; i++) {
+		adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+		adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+		heaterValue += adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+	}
+	
+	// Return heater value
+	return heaterValue / 50;
+}
+
 void Heater::initialize() {
 
 	// Configure heater select and enable pins
@@ -86,6 +105,12 @@ void Heater::initialize() {
 	adcch_read_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &resistanceReadAdcChannel);
 	adcch_set_input(&resistanceReadAdcChannel, RESISTANCE_READ_INPUT, ADCCH_NEG_NONE, 1);
 	
+	// Enable ADC controller
+	adc_enable(&HEATER_READ_ADC);
+	
+	// Set if heater is working
+	isWorking = getHeaterValue() < (pow(2, 12) / 2 - 1) / 2;
+	
 	// Configure update temperature timer
 	tc_enable(&TEMPERATURE_TIMER);
 	tc_set_wgm(&TEMPERATURE_TIMER, TC_WG_NORMAL);
@@ -102,58 +127,24 @@ void Heater::initialize() {
 			// Turn on heater
 			ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_ON);
 	
-			// Get heater value
-			adc_write_configuration(&HEATER_READ_ADC, &heaterReadAdcController);
-			adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
-			
-			int32_t heaterValue = 0;
+			// Get resistance value
+			adc_write_configuration(&HEATER_READ_ADC, &resistanceReadAdcController);
+			adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &resistanceReadAdcChannel);
+		
+			uint32_t resistanceValue = 0;
 			for(uint8_t i = 0; i < 50; i++) {
 				adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 				adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-				heaterValue += adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
+				resistanceValue += adc_get_unsigned_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 			}
-			heaterValue /= 50;
-			
-			// Check if heater isn't working
-			if(heaterValue >= (pow(2, 12) / 2 - 1) / 2) {
-			
-				// Clear heater working
-				heaterWorking = false;
-				
-				// Clear ideal and actual temperature
-				idealTemperature = actualTemperature = 0;
-			}
-			
-			// Otherwise
-			else {
-			
-				// Get resistance value
-				adc_write_configuration(&HEATER_READ_ADC, &resistanceReadAdcController);
-				adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &resistanceReadAdcChannel);
-			
-				uint32_t resistanceValue = 0;
-				for(uint8_t i = 0; i < 50; i++) {
-					adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-					adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-					resistanceValue += adc_get_unsigned_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
-				}
-				resistanceValue /= 50;
-			
-				// Get heater temperature measurement B
-				float heaterTemperatureMeasurementB;
-				nvm_eeprom_read_buffer(EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_OFFSET, &heaterTemperatureMeasurementB, EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_LENGTH);
-			
-				// Get heater resistance M
-				float heaterResistanceM;
-				nvm_eeprom_read_buffer(EEPROM_HEATER_RESISTANCE_M_OFFSET, &heaterResistanceM, EEPROM_HEATER_RESISTANCE_M_LENGTH);
-			
-				// Check which heater calibration mode was used
-				switch(nvm_eeprom_read_byte(EEPROM_HEATER_CALIBRATION_MODE_OFFSET)) {
-			
-					// Update actual temperature
-					default:
-						actualTemperature = 2.177778 * heaterValue / resistanceValue * heaterResistanceM + heaterTemperatureMeasurementB;
-				}
+			resistanceValue /= 50;
+		
+			// Check which heater calibration mode was used
+			switch(heaterCalibrationMode) {
+		
+				// Update actual temperature
+				default:
+					actualTemperature = 2.177778 * getHeaterValue() / resistanceValue * heaterResistanceM + heaterTemperatureMeasurementB;
 			}
 			
 			// Check if temperature has been reached
@@ -177,6 +168,18 @@ void Heater::initialize() {
 }
 
 void Heater::setTemperature(uint16_t value, bool wait) {
+
+	// Prevent updating temperature
+	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
+	
+	// Get heater calibration mode
+	heaterCalibrationMode = nvm_eeprom_read_byte(EEPROM_HEATER_CALIBRATION_MODE_OFFSET);
+	
+	// Get heater temperature measurement B
+	nvm_eeprom_read_buffer(EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_OFFSET, &heaterTemperatureMeasurementB, EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_LENGTH);
+
+	// Get heater resistance M
+	nvm_eeprom_read_buffer(EEPROM_HEATER_RESISTANCE_M_OFFSET, &heaterResistanceM, EEPROM_HEATER_RESISTANCE_M_LENGTH);
 	
 	// Check if heating
 	if((idealTemperature = value)) {
@@ -192,10 +195,10 @@ void Heater::setTemperature(uint16_t value, bool wait) {
 		
 			// Delay one second
 			tc_restart(&TEMPERATURE_TIMER);
-			for(temperatureIntervalCounter = 0; temperatureIntervalCounter < UPDATE_TEMPERATURE_PER_SECOND && !emergencyStopOccured && heaterWorking; delay_us(1));
+			for(temperatureIntervalCounter = 0; temperatureIntervalCounter < UPDATE_TEMPERATURE_PER_SECOND && !emergencyStopOccured; delay_us(1));
 			
-			// Break if an emergency stop occured or heater isn't working
-			if(emergencyStopOccured || !heaterWorking)
+			// Break if an emergency stop occured
+			if(emergencyStopOccured)
 				break;
 		
 			// Set response to temperature
@@ -229,12 +232,6 @@ float Heater::getTemperature() const {
 	
 	// Return value
 	return value;
-}
-
-bool Heater::isWorking() {
-
-	// Return if heater is working
-	return heaterWorking;
 }
 
 void Heater::clearTemperature() {

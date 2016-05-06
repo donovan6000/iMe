@@ -5,6 +5,7 @@
 
 // Header files
 #include "compiler.h"
+#include "eeprom.h"
 
 
 // Device definitions
@@ -21,7 +22,7 @@
 #define USB_DEVICE_PRODUCT_NAME "The Micro"
 #define USB_DEVICE_SERIAL_NAME
 #define USB_DEVICE_GET_SERIAL_NAME_POINTER serialNumber
-#define USB_DEVICE_GET_SERIAL_NAME_LENGTH 16
+#define USB_DEVICE_GET_SERIAL_NAME_LENGTH (EEPROM_SERIAL_NUMBER_LENGTH - 1)
 extern char serialNumber[];
 
 

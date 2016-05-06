@@ -5,8 +5,9 @@
 
 // Definitions
 #define TEMPERATURE_TIMER TCC1
-#define MIN_TEMPERATURE 100
-#define MAX_TEMPERATURE 285
+#define HEATER_READ_ADC ADCA
+#define HEATER_MIN_TEMPERATURE 100
+#define HEATER_MAX_TEMPERATURE 285
 
 
 // Heater class
@@ -24,14 +25,14 @@ class Heater {
 		// Get temperature
 		float getTemperature() const;
 		
-		// Is working
-		bool isWorking();
-		
 		// Reset
 		void reset();
 		
 		// Emergency stop occured
 		bool emergencyStopOccured;
+		
+		// Is working
+		bool isWorking;
 	
 	// Private
 	private:

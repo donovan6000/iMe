@@ -20,7 +20,7 @@ bool Gcode::parseCommand(const char *command) {
 
 	// Remove leading whitespace
 	const char *firstValidCharacter = command;
-	for(;isspace(*firstValidCharacter); firstValidCharacter++);
+	for(; isspace(*firstValidCharacter); firstValidCharacter++);
 	
 	// Get last valid character
 	const char *lastValidCharacter = firstValidCharacter;

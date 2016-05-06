@@ -6,13 +6,15 @@
 // Header files
 #include "accelerometer.h"
 #include "gcode.h"
+#include "heater.h"
 #include "vector.h"
 
 
 // Definitions
 #define MOTORS_VREF_TIMER TCD0
 #define MOTORS_VREF_TIMER_PERIOD 0x27F
-#define MOTOR_E_CURRENT_SENSE_ADC ADCA
+#define MOTOR_E_CURRENT_SENSE_ADC HEATER_READ_ADC
+#define NUMBER_OF_MOTORS 4
 
 // Tasks
 #define NO_TASK 0
@@ -85,7 +87,7 @@ class Motors {
 		void compensateForBacklash(BACKLASH_DIRECTION backlashDirectionX, BACKLASH_DIRECTION backlashDirectionY);
 		
 		// Compensate for bed leveling
-		void compensateForBedLeveling(float startValues[]);
+		void compensateForBedLeveling();
 	
 		// Move to Z0
 		void moveToZ0();
@@ -99,6 +101,17 @@ class Motors {
 		
 		// Bed height offset
 		float bedHeightOffset;
+		
+		// Get next segment values
+		void getNextSegmentValues();
+		
+		// Segment values
+		Gcode bedLevelingGcode;
+		float startValues[NUMBER_OF_MOTORS];
+		float endValues[NUMBER_OF_MOTORS];
+		float valueChanges[NUMBER_OF_MOTORS];
+		uint32_t numberOfSegments;
+		uint32_t segmentCounter;
 		
 		// Vectors
 		Vector backRightVector;

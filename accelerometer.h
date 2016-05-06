@@ -15,15 +15,10 @@ class Accelerometer {
 		// Read Acceleration values
 		void readAccelerationValues();
 		
-		// X, Y, and Z values
-		int16_t xValue;
-		int16_t yValue;
-		int16_t zValue;
-		
 		// X, Y, and Z acceleration
-		float xAcceleration;
-		float yAcceleration;
-		float zAcceleration;
+		int16_t xAcceleration;
+		int16_t yAcceleration;
+		int16_t zAcceleration;
 		
 		// Is working
 		bool isWorking;
