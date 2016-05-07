@@ -93,15 +93,15 @@ all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(SRCS)
 	$(CC) $(CFLAGS) "bin2h.cpp" -o "bin2h"
-	./bin2h "../iMe 1900000001.hex"
+	./bin2h "../iMe 1900000002.hex"
 	./bin2h "resources/Linux/90-m3d-local.rules"
 	./bin2h "resources/Windows/M3D.cat"
 	./bin2h "resources/Windows/M3D.inf"
 	$(CC) -o $(EXECUTABLE) $(SRCS) $(LIBS) -D $(PLATFORM) $(CFLAGS)
-	rm -f "resource.o" "bin2h" "iMe 1900000001_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
+	rm -f "resource.o" "bin2h" "iMe 1900000002_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
 
 clean:
-	rm -rf $(EXECUTABLE) $(BUNDLE) $(ARCHIVE) "resource.o" "applet.iconset" "icon.ico" "bin2h" "iMe 1900000001_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
+	rm -rf $(EXECUTABLE) $(BUNDLE) $(ARCHIVE) "resource.o" "applet.iconset" "icon.ico" "bin2h" "iMe 1900000002_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
 
 run:
 	./$(EXECUTABLE)

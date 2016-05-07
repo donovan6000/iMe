@@ -328,6 +328,15 @@ int main() {
 											strcat(responseBuffer, " ZV:");
 											strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET) ? "1" : "0");
 										break;
+										
+										// M404
+										case 404:
+										
+											// Set response to reset cause
+											strcpy(responseBuffer, "ok RC:");
+											ulltoa(reset_cause_get_causes(), numberBuffer);
+											strcat(responseBuffer, numberBuffer);
+										break;
 						
 										// M420
 										case 420:
@@ -382,6 +391,23 @@ int main() {
 														// Clear response buffer
 														*responseBuffer = 0;
 												}
+											}
+										break;
+										
+										// M5321
+										case 5321:
+										
+											// Check if hours is provided
+											if(requests[currentProcessingRequest].commandParameters & PARAMETER_X_OFFSET) {
+											
+												// Update hours counter in EEPROM
+												float hoursCounter;
+												nvm_eeprom_read_buffer(EEPROM_HOURS_COUNTER_OFFSET, &hoursCounter, EEPROM_HOURS_COUNTER_LENGTH);
+												hoursCounter += requests[currentProcessingRequest].valueX;
+												nvm_eeprom_erase_and_write_buffer(EEPROM_HOURS_COUNTER_OFFSET, &hoursCounter, EEPROM_HOURS_COUNTER_LENGTH);
+												
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
 											}
 										break;
 						
