@@ -1,6 +1,6 @@
 # Firmware name and version
 FIRMWARE_NAME = iMe
-FIRMWARE_VERSION = 1900000002
+FIRMWARE_VERSION = 1900000003
 
 # Tool locations
 ifeq ($(OS), Windows_NT)

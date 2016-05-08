@@ -175,7 +175,7 @@ wxThread::ExitCode MyFrame::Entry() {
 			else if(threadTask == "Install iMe firmware") {
 			
 				// Set firmware location
-				string firmwareLocation = getTemporaryLocation() + "/iMe 1900000002.hex";
+				string firmwareLocation = getTemporaryLocation() + "/iMe " TOSTRING(IME_VERSION) ".hex";
 
 				// Check if creating iMe ROM failed
 				ofstream fout(firmwareLocation, ios::binary);
@@ -188,8 +188,8 @@ wxThread::ExitCode MyFrame::Entry() {
 				else {
 		
 					// Unpack iMe ROM
-					for(uint64_t i = 0; i < iMe1900000002_hexSize; i++)
-						fout.put(iMe1900000002_hexData[i]);
+					for(uint64_t i = 0; i < IME_HEX_SIZE; i++)
+						fout.put(IME_HEX_DATA[i]);
 					fout.close();
 					
 					// Install firmware

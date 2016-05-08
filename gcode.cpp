@@ -133,8 +133,8 @@ bool Gcode::parseCommand(const char *command) {
 							
 									// Calculate checksum
 									uint8_t calculatedChecksum = 0;
-									for(uint8_t i = 0; command[i] != '*'; i++)
-										calculatedChecksum ^= command[i];
+									for(uint8_t j = 0; command[j] != '*'; j++)
+										calculatedChecksum ^= command[j];
 								
 									// Set valid checksum
 									if(calculatedChecksum == providedChecksum)

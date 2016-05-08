@@ -62,6 +62,9 @@ class Motors {
 		// Calibrate bed center orientation
 		void calibrateBedOrientation();
 		
+		// Update bed changes
+		void updateBedChanges(bool adjustHeight = true);
+		
 		// Reset
 		void reset();
 		

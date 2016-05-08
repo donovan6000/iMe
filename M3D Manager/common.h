@@ -16,11 +16,6 @@
 	#include <tchar.h>
 #endif
 
-// Packed files
-#include "iMe 1900000002_hex.h"
-#include "M3D_cat.h"
-#include "M3D_inf.h"
-#include "_90_m3d_local_rules.h"
 
 using namespace std;
 
@@ -28,6 +23,13 @@ using namespace std;
 // Definitions
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
+
+
+// Packed files
+#include TOSTRING(IME_HEADER)
+#include "M3D_cat.h"
+#include "M3D_inf.h"
+#include "_90_m3d_local_rules.h"
 
 
 // Function prototypes

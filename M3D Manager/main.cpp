@@ -306,7 +306,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 					cout << "Installing iMe firmware" << endl;
 		
 					// Set firmware location
-					string firmwareLocation = getTemporaryLocation() + "/iMe 1900000002.hex";
+					string firmwareLocation = getTemporaryLocation() + "/iMe " TOSTRING(IME_VERSION) ".hex";
 		
 					// Check if creating iMe firmware ROM failed
 					ofstream fout(firmwareLocation, ios::binary);
@@ -320,8 +320,8 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 					}
 				
 					// Unpack iMe ROM
-					for(uint64_t i = 0; i < iMe1900000002_hexSize; i++)
-						fout.put(iMe1900000002_hexData[i]);
+					for(uint64_t i = 0; i < IME_HEX_SIZE; i++)
+						fout.put(IME_HEX_DATA[i]);
 					fout.close();
 			
 					// Set serial port

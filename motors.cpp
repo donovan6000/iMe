@@ -279,9 +279,6 @@ void Motors::initialize() {
 	currentValues[E] = 0;
 	currentValues[F] = 1000;
 	
-	// Set bed height offset
-	nvm_eeprom_read_buffer(EEPROM_BED_HEIGHT_OFFSET_OFFSET, &bedHeightOffset, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
-	
 	// Configure motors enable
 	ioport_set_pin_dir(MOTORS_ENABLE_PIN, IOPORT_DIR_OUTPUT);
 	
@@ -428,6 +425,9 @@ void Motors::initialize() {
 	frontLeftVector.initialize(9, 5);
 	frontRightVector.initialize(99, 5);
 	centerVector.initialize(54, 50);
+	
+	// Update bed changes
+	updateBedChanges(false);
 	
 	// Initialize bed leveling G-code
 	bedLevelingGcode.valueG = 0;
@@ -877,6 +877,9 @@ void Motors::compensateForBedLeveling() {
 		valueChanges[i] = endValues[i] - startValues[i];
 	}
 	
+	// Adjust current Z value for current real height
+	currentValues[Z] += getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+	
 	// Get horizontal distance
 	float horizontalDistance = sqrt(pow(valueChanges[X], 2) + pow(valueChanges[Y], 2));
 	
@@ -884,6 +887,29 @@ void Motors::compensateForBedLeveling() {
 	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
 		valueChanges[i] = horizontalDistance ? valueChanges[i] / horizontalDistance : 0;
 	
+	// Go through all segments
+	for(numberOfSegments = max(1, ceil(horizontalDistance / SEGMENT_LENGTH)), segmentCounter = 0; segmentCounter <= numberOfSegments;) {
+	
+		// Set initial segment values
+		if(!segmentCounter)
+			getNextSegmentValues();
+		
+		// Move to end of current segment
+		move(bedLevelingGcode, NO_TASK);
+	}
+	
+	// Restore Z value
+	currentValues[Z] = endValues[Z];
+	
+	// Restore mode
+	mode = savedMode;
+}
+
+void Motors::updateBedChanges(bool adjustHeight) {
+
+	// Set previous height adjustment
+	float previousHeightAdjustment = bedHeightOffset + getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+
 	// Update vectors
 	float orientation, offset;
 	nvm_eeprom_read_buffer(EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET, &orientation, EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH);
@@ -908,29 +934,18 @@ void Motors::compensateForBedLeveling() {
 	rightPlane = generatePlaneEquation(backRightVector, frontRightVector, centerVector);
 	frontPlane = generatePlaneEquation(frontLeftVector, frontRightVector, centerVector);
 	
-	// Adjust current Z value for current real height
-	currentValues[Z] += bedHeightOffset + getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
-	
 	// Update bed height offset
 	nvm_eeprom_read_buffer(EEPROM_BED_HEIGHT_OFFSET_OFFSET, &bedHeightOffset, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
 	
-	// Go through all segments
-	for(numberOfSegments = max(1, ceil(horizontalDistance / SEGMENT_LENGTH)), segmentCounter = 0; segmentCounter <= numberOfSegments;) {
+	// Check if adjusting height
+	if(adjustHeight) {
 	
-		// Set initial segment values
-		if(!segmentCounter)
-			getNextSegmentValues();
-		
-		// Move to end of current segment
-		move(bedLevelingGcode, NO_TASK);
+		// Set current Z
+		currentValues[Z] += bedHeightOffset + getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) - previousHeightAdjustment;
+
+		// Save current Z
+		nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
 	}
-	
-	// Restore X, Y, Z, and E values
-	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
-		currentValues[i] = endValues[i];
-	
-	// Restore mode
-	mode = savedMode;
 }
 
 void Motors::getNextSegmentValues() {
@@ -956,7 +971,7 @@ void Motors::getNextSegmentValues() {
 			break;
 			
 			case Z:
-				bedLevelingGcode.valueZ = segmentValue + bedHeightOffset + getHeightAdjustmentRequired(bedLevelingGcode.valueX, bedLevelingGcode.valueY);
+				bedLevelingGcode.valueZ = segmentValue + getHeightAdjustmentRequired(bedLevelingGcode.valueX, bedLevelingGcode.valueY);
 			break;
 			
 			default:
@@ -1057,7 +1072,7 @@ void Motors::homeXY() {
 		
 		// Set mode to relative
 		mode = RELATIVE;
-
+		
 		// Move to center
 		Gcode gcode;
 		gcode.valueG = 0;

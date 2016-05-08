@@ -98,6 +98,9 @@ int main() {
 		}
 	});
 	
+	// Fix writing to EEPROM addresses above 0x2E0 by first writing to an address less than that
+	nvm_eeprom_write_byte(0, nvm_eeprom_read_byte(0));
+	
 	// Read serial number from EEPROM
 	nvm_eeprom_write_byte(EEPROM_SERIAL_NUMBER_OFFSET + EEPROM_SERIAL_NUMBER_LENGTH - 1, 0);
 	nvm_eeprom_read_buffer(EEPROM_SERIAL_NUMBER_OFFSET, serialNumber, EEPROM_SERIAL_NUMBER_LENGTH);
@@ -160,12 +163,6 @@ int main() {
 							// Check if command has an N parameter
 							if(requests[currentProcessingRequest].commandParameters & PARAMETER_N_OFFSET) {
 			
-								// Check if command is has a valid checksum and a starting line number
-								if(requests[currentProcessingRequest].hasValidChecksum() && requests[currentProcessingRequest].valueM == 110 && requests[currentProcessingRequest].valueN == 0)
-	
-									// Reset current line number
-									currentLineNumber = 0;
-			
 								// Check if command doesn't have a valid checksum
 								if(!requests[currentProcessingRequest].hasValidChecksum())
 	
@@ -174,9 +171,15 @@ int main() {
 				
 								// Otherwise
 								else {
+								
+									// Check if command is a starting line number
+									if(requests[currentProcessingRequest].valueM == 110)
+	
+										// Set current line number
+										currentLineNumber = requests[currentProcessingRequest].valueN + 1;
 		
-									// Check if line number is correct
-									if(requests[currentProcessingRequest].valueN == currentLineNumber)
+									// Otherwise check if line number is correct
+									else if(requests[currentProcessingRequest].valueN == currentLineNumber)
 		
 										// Increment current line number
 										currentLineNumber++;
@@ -380,10 +383,17 @@ int main() {
 													}
 									
 													// Otherwise check if EEPROM value is provided
-													else if(requests[currentProcessingRequest].commandParameters & PARAMETER_P_OFFSET)
+													else if(requests[currentProcessingRequest].commandParameters & PARAMETER_P_OFFSET) {
 							
 														// Write value to EEPROM
 														nvm_eeprom_erase_and_write_buffer(offset, &requests[currentProcessingRequest].valueP, length);
+														
+														// Check if value changes the bed height
+														if(offset == EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET || offset == EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET || offset == EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET || offset == EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET || offset == EEPROM_BED_OFFSET_BACK_LEFT_OFFSET || offset == EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET || offset == EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET || offset == EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET || offset == EEPROM_BED_HEIGHT_OFFSET_OFFSET)
+															
+															// Update bed changes
+															motors.updateBedChanges();
+													}
 									
 													// Otherwise
 													else
@@ -512,12 +522,29 @@ int main() {
 						
 										// G92
 										case 92:
+										
+											// Check if an X, Y, Z, or E value is provided
+											if(requests[currentProcessingRequest].commandParameters & (PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET)) {
+										
+												// Set motors current X if provided
+												if(requests[currentProcessingRequest].commandParameters & PARAMETER_X_OFFSET)
+													motors.currentValues[X] = requests[currentProcessingRequest].valueX;
+											
+												// Set motors current Y if provided
+												if(requests[currentProcessingRequest].commandParameters & PARAMETER_Y_OFFSET)
+													motors.currentValues[Y] = requests[currentProcessingRequest].valueY;
+											
+												// Set motors current Z if provided
+												if(requests[currentProcessingRequest].commandParameters & PARAMETER_Z_OFFSET)
+													motors.currentValues[Z] = requests[currentProcessingRequest].valueZ;
 						
-											// Set motors current E
-											motors.currentValues[E] = requests[currentProcessingRequest].commandParameters & PARAMETER_E_OFFSET ? requests[currentProcessingRequest].valueE : 0;
+												// Set motors current E if provided
+												if(requests[currentProcessingRequest].commandParameters & PARAMETER_E_OFFSET)
+													motors.currentValues[E] = requests[currentProcessingRequest].valueE;
 				
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
+												// Set response to confirmation
+												strcpy(responseBuffer, "ok");
+											}
 									}
 								}
 				

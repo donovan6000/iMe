@@ -85,7 +85,7 @@ uint64_t strtoull(const char *nptr, char **endptr) {
 	uint64_t value = 0;
 	
 	// Skip plus sign
-	if(*nptr == '+')
+	if(*nptr == '+' && isdigit(nptr[1]))
 		nptr++;
 	
 	// Go through all characters
@@ -107,7 +107,7 @@ uint64_t strtoull(const char *nptr, char **endptr) {
 int64_t strtoll(const char *nptr, char **endptr) {
 
 	// Return value converted to a long long
-	return *nptr == '-' ? strtoull(nptr + 1, endptr) * -1 : strtoull(nptr, endptr);
+	return *nptr == '-' && isdigit(nptr[1]) ? strtoull(nptr + 1, endptr) * -1 : strtoull(nptr, endptr);
 }
 
 float strtof(const char *nptr, char **endptr) {
@@ -116,17 +116,15 @@ float strtof(const char *nptr, char **endptr) {
 	float value = 0;
 	bool negative = false;
 	
-	// Check if value is negative
-	if(*nptr == '-') {
+	// Check if value contains a sign
+	if((*nptr == '-' || *nptr == '+') && (isdigit(nptr[1]) || (nptr[1] == '.' && isdigit(nptr[2])))) {
 	
 		// Set negative
-		negative = true;
+		negative = *nptr == '-';
+		
+		// Skip sign
 		nptr++;
 	}
-	
-	// Otherwise skip plus sign
-	else if(*nptr == '+')
-		nptr++;
 	
 	// Go through all characters
 	for(; isdigit(*nptr); nptr++) {
@@ -137,7 +135,7 @@ float strtof(const char *nptr, char **endptr) {
 	}
 	
 	// Check if value contains a decimal
-	if(*nptr == '.') {
+	if(*nptr == '.' && isdigit(nptr[1])) {
 
 		// Move to first decimal digit
 		nptr++;
