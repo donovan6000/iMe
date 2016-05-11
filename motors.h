@@ -13,7 +13,6 @@
 // Definitions
 #define MOTORS_VREF_TIMER TCD0
 #define MOTORS_VREF_TIMER_PERIOD 0x27F
-#define MOTOR_E_CURRENT_SENSE_ADC HEATER_READ_ADC
 #define NUMBER_OF_MOTORS 4
 
 // Tasks
@@ -64,6 +63,12 @@ class Motors {
 		
 		// Update bed changes
 		void updateBedChanges(bool adjustHeight = true);
+		
+		// Save value
+		void saveValue(AXES motor);
+		
+		// Gantry clips detected
+		bool gantryClipsDetected();
 		
 		// Reset
 		void reset();

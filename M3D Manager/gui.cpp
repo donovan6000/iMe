@@ -31,7 +31,10 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	wxPanel *panel = new wxPanel(this, wxID_ANY);
 
 	// Create version text
-	versionText = new wxStaticText(panel, wxID_ANY, "V" TOSTRING(VERSION));
+	string iMeVersion = static_cast<string>(TOSTRING(IME_ROM_VERSION_STRING)).substr(2);
+	for(uint8_t i = 0; i < 3; i++)
+		iMeVersion.insert(i * 2 + 2 + i, ".");
+	versionText = new wxStaticText(panel, wxID_ANY, "M3D Manager V" TOSTRING(VERSION) " - iMe V" + iMeVersion);
 	wxFont font = versionText->GetFont();
 	font.SetPointSize(9);
 	versionText->SetFont(font);
@@ -175,7 +178,7 @@ wxThread::ExitCode MyFrame::Entry() {
 			else if(threadTask == "Install iMe firmware") {
 			
 				// Set firmware location
-				string firmwareLocation = getTemporaryLocation() + "/iMe " TOSTRING(IME_VERSION) ".hex";
+				string firmwareLocation = getTemporaryLocation() + "/iMe " TOSTRING(IME_ROM_VERSION_STRING) ".hex";
 
 				// Check if creating iMe ROM failed
 				ofstream fout(firmwareLocation, ios::binary);
@@ -263,7 +266,7 @@ wxThread::ExitCode MyFrame::Entry() {
 							TCHAR command[MAX_PATH];
 							_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + getTemporaryLocation() + "\\M3D.inf\"").c_str());
 		
-							if(!CreateProcess(NULL, command, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &startupInfo, &processInfo))
+							if(!CreateProcess(nullptr, command, nullptr, nullptr, false, CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &processInfo))
 
 								// Set thread message
 								threadMessage = {"Failed to install drivers", wxOK | wxICON_ERROR | wxCENTRE};

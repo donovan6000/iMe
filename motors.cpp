@@ -12,21 +12,25 @@ extern "C" {
 // Definitions
 #define MICROCONTROLLER_VOLTAGE 3.3
 #define SEGMENT_LENGTH 2
-#define MICROSTEPS_PER_STEP 32
+#define ADC_VREF_PIN IOPORT_CREATE_PIN(PORTA, 0)
+#define ADC_VREF_VOLTAGE 2.6
 
 // Motors settings
+#define MICROSTEPS_PER_STEP 32
 #define MOTORS_ENABLE_PIN IOPORT_CREATE_PIN(PORTB, 3)
 #define MOTORS_STEP_CONTROL_PIN IOPORT_CREATE_PIN(PORTB, 2)
 #define MOTORS_STEP_TIMER TCC0
 #define MOTORS_STEP_TIMER_PERIOD 0x400
+#define MOTORS_CURRENT_SENSE_RESISTANCE 0.1
+#define MOTORS_CURRENT_TO_VOLTAGE_CONSTANT (5 * MOTORS_CURRENT_SENSE_RESISTANCE)
 
 // Motor X settings
 #define MOTOR_X_DIRECTION_PIN IOPORT_CREATE_PIN(PORTC, 2)
 #define MOTOR_X_VREF_PIN IOPORT_CREATE_PIN(PORTD, 1)
 #define MOTOR_X_STEP_PIN IOPORT_CREATE_PIN(PORTC, 5)
 #define MOTOR_X_VREF_CHANNEL TC_CCB
-#define MOTOR_X_VREF_VOLTAGE_IDLE 0.34600939
-#define MOTOR_X_VREF_VOLTAGE_ACTIVE 0.361502347
+#define MOTOR_X_CURRENT_IDLE 0.692018779
+#define MOTOR_X_CURRENT_ACTIVE 0.723004695
 #define MOTOR_X_STEPS_PER_MM 19.3067875
 #define MOTOR_X_MAX_FEEDRATE 4800
 #define MOTOR_X_MIN_FEEDRATE 120
@@ -36,8 +40,8 @@ extern "C" {
 #define MOTOR_Y_VREF_PIN IOPORT_CREATE_PIN(PORTD, 3)
 #define MOTOR_Y_STEP_PIN IOPORT_CREATE_PIN(PORTC, 7)
 #define MOTOR_Y_VREF_CHANNEL TC_CCD
-#define MOTOR_Y_VREF_VOLTAGE_IDLE 0.34600939
-#define MOTOR_Y_VREF_VOLTAGE_ACTIVE 0.41314554
+#define MOTOR_Y_CURRENT_IDLE 0.692018779
+#define MOTOR_Y_CURRENT_ACTIVE 0.82629108
 #define MOTOR_Y_STEPS_PER_MM 18.00885
 #define MOTOR_Y_MAX_FEEDRATE 4800
 #define MOTOR_Y_MIN_FEEDRATE 120
@@ -47,8 +51,8 @@ extern "C" {
 #define MOTOR_Z_VREF_PIN IOPORT_CREATE_PIN(PORTD, 2)
 #define MOTOR_Z_STEP_PIN IOPORT_CREATE_PIN(PORTC, 6)
 #define MOTOR_Z_VREF_CHANNEL TC_CCC
-#define MOTOR_Z_VREF_VOLTAGE_IDLE 0.098122066
-#define MOTOR_Z_VREF_VOLTAGE_ACTIVE 0.325352113
+#define MOTOR_Z_CURRENT_IDLE 0.196244131
+#define MOTOR_Z_CURRENT_ACTIVE 0.650704225
 #define MOTOR_Z_STEPS_PER_MM 646.3295
 #define MOTOR_Z_MAX_FEEDRATE 60
 #define MOTOR_Z_MIN_FEEDRATE 30
@@ -57,19 +61,16 @@ extern "C" {
 #define MOTOR_E_DIRECTION_PIN IOPORT_CREATE_PIN(PORTC, 3)
 #define MOTOR_E_VREF_PIN IOPORT_CREATE_PIN(PORTD, 0)
 #define MOTOR_E_STEP_PIN IOPORT_CREATE_PIN(PORTC, 4)
+#define MOTOR_E_CURRENT_SENSE_ADC HEATER_READ_ADC
 #define MOTOR_E_CURRENT_SENSE_PIN IOPORT_CREATE_PIN(PORTA, 7)
 #define MOTOR_E_CURRENT_SENSE_ADC_CHANNEL ADC_CH0
 #define MOTOR_E_CURRENT_SENSE_ADC_PIN ADCCH_POS_PIN7
 #define MOTOR_E_VREF_CHANNEL TC_CCA
-#define MOTOR_E_VREF_VOLTAGE_IDLE 0.149765258
-#define MOTOR_E_VREF_VOLTAGE_ACTIVE 0.149765258
-#define MOTOR_E_VREF_VOLTAGE_INITIAL 0.247887324
+#define MOTOR_E_CURRENT_IDLE 0.299530516
 #define MOTOR_E_STEPS_PER_MM 128.451375
 #define MOTOR_E_MAX_FEEDRATE_EXTRUSION 600
 #define MOTOR_E_MAX_FEEDRATE_RETRACTION 720
 #define MOTOR_E_MIN_FEEDRATE 60
-#define ADC_VREF_PIN IOPORT_CREATE_PIN(PORTA, 0)
-#define ADC_VREF 2.6
 
 // Pin states
 #define MOTORS_ON IOPORT_PIN_LEVEL_LOW
@@ -335,10 +336,10 @@ void Motors::initialize() {
 	tc_enable(&MOTORS_VREF_TIMER);
 	tc_set_wgm(&MOTORS_VREF_TIMER, TC_WG_SS);
 	tc_write_period(&MOTORS_VREF_TIMER, MOTORS_VREF_TIMER_PERIOD);
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	tc_enable_cc_channels(&MOTORS_VREF_TIMER, static_cast<tc_cc_channel_mask_enable_t>(TC_CCAEN | TC_CCBEN | TC_CCCEN | TC_CCDEN));
 	tc_write_clock_source(&MOTORS_VREF_TIMER, TC_CLKSEL_DIV1_gc);
 	
@@ -627,6 +628,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		// Initialize variables
 		uint32_t motorsTotalRoundedTime[NUMBER_OF_MOTORS] = {};
 		uint32_t slowestRoundedTime = 0;
+		float motorVoltageE = 0;
 	
 		// Go through all motors
 		for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
@@ -653,22 +655,28 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		
 					case X:
 						setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
-						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 					break;
 			
 					case Y:
 						setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
-						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 					break;
 			
 					case Z:
 						setMotorStepInterruptLevel = tc_set_ccc_interrupt_level;
-						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 					break;
 			
 					default:
+						
+						// Set motor E voltage
+						uint16_t motorCurrentE;
+						nvm_eeprom_read_buffer(EEPROM_E_MOTOR_CURRENT_OFFSET, &motorCurrentE, EEPROM_E_MOTOR_CURRENT_LENGTH);
+						motorVoltageE = MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / 1000 * motorCurrentE;
+						
 						setMotorStepInterruptLevel = tc_set_ccd_interrupt_level;
-						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_INITIAL / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(motorVoltageE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 				}
 				(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 			}
@@ -694,7 +702,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		// Wait until all motors step interrupts have stopped or an emergency stop occurs
 		while(MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm) && !emergencyStopOccured) {
 	
-			// Check if E motor is moving
+			// Check if motor E is moving
 			if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm) {
 		
 				// Prevent updating temperature
@@ -705,7 +713,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				adcch_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
 				
 				uint32_t value = 0;
-				for(uint8_t i = 0; MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm && i < 50; i++) {
+				for(uint8_t i = 0; i < 50; i++) {
 					adc_start_conversion(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 					adc_wait_for_interrupt_flag(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 					value += adc_get_unsigned_result(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
@@ -714,19 +722,15 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Allow updating temperature
 				tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
 				
-				// Check if motor E is still moving
-				if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm) {
-			
-					// Set average actual motor E voltage
-					value /= 50;
-					float actualVoltage = ADC_VREF / (pow(2, 12) - 1) * value;
-			
-					// Get ideal motor E voltage
-					float idealVoltage = static_cast<float>(tc_read_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL)) / MOTORS_VREF_TIMER_PERIOD * MICROCONTROLLER_VOLTAGE;
-					
-					// Adjust motor E Vref to maintain a constant motor current
-					tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round((MOTOR_E_VREF_VOLTAGE_ACTIVE + idealVoltage - actualVoltage) / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-				}
+				// Set average actual motor E voltage
+				value /= 50;
+				float actualVoltage = ADC_VREF_VOLTAGE / (pow(2, 12) - 1) * value;
+		
+				// Get ideal motor E voltage
+				float idealVoltage = static_cast<float>(tc_read_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL)) / MOTORS_VREF_TIMER_PERIOD * MICROCONTROLLER_VOLTAGE;
+				
+				// Adjust motor E Vref to maintain a constant motor current
+				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round((motorVoltageE + idealVoltage - actualVoltage) / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 			}
 		}
 	
@@ -734,10 +738,10 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
 		
 		// Set motors Vref to idle
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	}
 	
 	// Check if saving changes
@@ -761,30 +765,31 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 			// Check if motor moved
 			if(motorMoves[i]) {
 			
-				// Save current value and get saved value offset
-				eeprom_addr_t savedValueOffset;
-				switch(i) {
-				
-					case X:
-						nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, &currentValues[X], EEPROM_LAST_RECORDED_X_VALUE_LENGTH);
-						savedValueOffset = EEPROM_SAVED_X_STATE_OFFSET;
-					break;
-					
-					case Y:
-						nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Y_VALUE_OFFSET, &currentValues[Y], EEPROM_LAST_RECORDED_Y_VALUE_LENGTH);
-						savedValueOffset = EEPROM_SAVED_Y_STATE_OFFSET;
-					break;
-					
-					default:
-						nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
-						savedValueOffset = EEPROM_SAVED_Z_STATE_OFFSET;
-				}
+				// Save value
+				saveValue(static_cast<AXES>(i));
 
 				// Check if value was previously valid and an emergency stop didn't happen
-				if(validValues[i] && !emergencyStopOccured)
+				if(validValues[i] && !emergencyStopOccured) {
+				
+					// Save get saved value offset
+					eeprom_addr_t savedValueOffset;
+					switch(i) {
+				
+						case X:
+							savedValueOffset = EEPROM_SAVED_X_STATE_OFFSET;
+						break;
+					
+						case Y:
+							savedValueOffset = EEPROM_SAVED_Y_STATE_OFFSET;
+						break;
+					
+						default:
+							savedValueOffset = EEPROM_SAVED_Z_STATE_OFFSET;
+					}
 	
 					// Save that Z is valid
 					nvm_eeprom_write_byte(savedValueOffset, VALID);
+				}
 			}
 	}
 }
@@ -909,24 +914,54 @@ void Motors::updateBedChanges(bool adjustHeight) {
 
 	// Set previous height adjustment
 	float previousHeightAdjustment = bedHeightOffset + getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
-
-	// Update vectors
-	float orientation, offset;
-	nvm_eeprom_read_buffer(EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET, &orientation, EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH);
-	nvm_eeprom_read_buffer(EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET, &offset, EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH);
-	backRightVector.z = orientation + offset;
 	
-	nvm_eeprom_read_buffer(EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET, &orientation, EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH);
-	nvm_eeprom_read_buffer(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, &offset, EEPROM_BED_OFFSET_BACK_LEFT_LENGTH);
-	backLeftVector.z = orientation + offset;
+	// Go through all corners
+	for(uint8_t i = 0; i < 4; i++) {
 	
-	nvm_eeprom_read_buffer(EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET, &orientation, EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH);
-	nvm_eeprom_read_buffer(EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET, &offset, EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH);
-	frontLeftVector.z = orientation + offset;
-	
-	nvm_eeprom_read_buffer(EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET, &orientation, EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH);
-	nvm_eeprom_read_buffer(EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET, &offset, EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH);
-	frontRightVector.z = orientation + offset;
+		// Set corner's orientation, offset, and value
+		eeprom_addr_t orientationOffset, offsetOffset;
+		uint8_t orientationLength, offsetLength;
+		float *value;
+		switch(i) {
+		
+			case 0:
+				orientationOffset = EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET;
+				orientationLength = EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH;
+				offsetOffset = EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET;
+				offsetLength = EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH;
+				value = &backRightVector.z;
+			break;
+			
+			case 1:
+				orientationOffset = EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET;
+				orientationLength = EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH;
+				offsetOffset = EEPROM_BED_OFFSET_BACK_LEFT_OFFSET;
+				offsetLength = EEPROM_BED_OFFSET_BACK_LEFT_LENGTH;
+				value = &backLeftVector.z;
+			break;
+			
+			case 2:
+				orientationOffset = EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET;
+				orientationLength = EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH;
+				offsetOffset = EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET;
+				offsetLength = EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH;
+				value = &frontLeftVector.z;
+			break;
+			
+			default:
+				orientationOffset = EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET;
+				orientationLength = EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH;
+				offsetOffset = EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET;
+				offsetLength = EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH;
+				value = &frontRightVector.z;
+		}
+		
+		// Update corner vector
+		float orientation, offset;
+		nvm_eeprom_read_buffer(orientationOffset, &orientation, orientationLength);
+		nvm_eeprom_read_buffer(offsetOffset, &offset, offsetLength);
+		*value = orientation + offset;
+	}
 	
 	// Update planes
 	backPlane = generatePlaneEquation(backLeftVector, backRightVector, centerVector);
@@ -944,8 +979,38 @@ void Motors::updateBedChanges(bool adjustHeight) {
 		currentValues[Z] += bedHeightOffset + getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) - previousHeightAdjustment;
 
 		// Save current Z
-		nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
+		saveValue(Z);
 	}
+}
+
+void Motors::saveValue(AXES motor) {
+
+	// Get offset, length, and value
+	eeprom_addr_t eepromOffset;
+	uint8_t eepromLength;
+	float *value;
+	switch(motor) {
+	
+		case X:
+			eepromOffset = EEPROM_LAST_RECORDED_X_VALUE_OFFSET;
+			eepromLength = EEPROM_LAST_RECORDED_X_VALUE_LENGTH;
+			value = &currentValues[X];
+		break;
+		
+		case Y:
+			eepromOffset = EEPROM_LAST_RECORDED_Y_VALUE_OFFSET;
+			eepromLength = EEPROM_LAST_RECORDED_Y_VALUE_LENGTH;
+			value = &currentValues[Y];
+		break;
+		
+		default:
+			eepromOffset = EEPROM_LAST_RECORDED_Z_VALUE_OFFSET;
+			eepromLength = EEPROM_LAST_RECORDED_Z_VALUE_LENGTH;
+			value = &currentValues[Z];
+	}
+	
+	// Save current value
+	nvm_eeprom_erase_and_write_buffer(eepromOffset, value, eepromLength);
 }
 
 void Motors::getNextSegmentValues() {
@@ -980,6 +1045,12 @@ void Motors::getNextSegmentValues() {
 	}
 }
 
+bool Motors::gantryClipsDetected() {
+
+	// Return false
+	return false;
+}
+
 void Motors::homeXY() {
 
 	// Save that X and Y are invalid
@@ -1003,7 +1074,7 @@ void Motors::homeXY() {
 			accelerometerValue = &accelerometer.yAcceleration;
 			
 			// Set motor Y Vref to active
-			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		}
 		else {
 			motorsNumberOfSteps[i] = round(112 * MOTOR_X_STEPS_PER_MM * MICROSTEPS_PER_STEP);
@@ -1014,7 +1085,7 @@ void Motors::homeXY() {
 			accelerometerValue = &accelerometer.xAcceleration;
 			
 			// Set motor X Vref to active
-			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		}
 		
 		// Enable motor step interrupt 
@@ -1057,8 +1128,8 @@ void Motors::homeXY() {
 		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
 		
 		// Set motors Vref to idle
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	}
 	
 	// Check if emergency stop hasn't occured
@@ -1092,9 +1163,8 @@ void Motors::homeXY() {
 		currentValues[Z] = savedZ;
 		
 		// Save current X, Y, and Z
-		nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, &currentValues[X], EEPROM_LAST_RECORDED_X_VALUE_LENGTH);
-		nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Y_VALUE_OFFSET, &currentValues[Y], EEPROM_LAST_RECORDED_Y_VALUE_LENGTH);
-		nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
+		for(uint8_t i = 0; i < 3; i++)
+			saveValue(static_cast<AXES>(i));
 		
 		// Check if an emergency stop didn't happen
 		if(!emergencyStopOccured) {
@@ -1112,7 +1182,7 @@ void Motors::saveZAsBedCenterZ0() {
 	currentValues[Z] = 0.0999;
 
 	// Save current Z
-	nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
+	saveValue(Z);
 	
 	// Save that Z is valid
 	nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, VALID);
@@ -1128,9 +1198,7 @@ void Motors::moveToZ0() {
 	
 	// Find Z0
 	float lastZ0 = currentValues[Z];
-	float heighest = currentValues[Z] + 2;
-	uint8_t matchCounter = 0;
-	while(!emergencyStopOccured) {
+	for(uint8_t matchCounter = 0; !emergencyStopOccured;) {
 	
 		// Set up motors to move down
 		motorsDelaySkips[Z] = 0;
@@ -1140,7 +1208,7 @@ void Motors::moveToZ0() {
 		tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 		
 		// Set motor Z Vref to active
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_ACTIVE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		
 		// Turn on motors
 		turnOn();
@@ -1196,15 +1264,14 @@ void Motors::moveToZ0() {
 		lastZ0 = currentValues[Z];
 		
 		// Move slightly up
-		heighest = min(heighest, currentValues[Z] + 2);
-		moveToHeight(heighest);
+		moveToHeight(currentValues[Z] + 2);
 	}
 	
 	// Set motor Z Vref to idle
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_VREF_VOLTAGE_IDLE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	
 	// Save current Z
-	nvm_eeprom_erase_and_write_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
+	saveValue(Z);
 
 	// Check if Z was previously valid and an emergency stop didn't happen
 	if(validZ && !emergencyStopOccured)

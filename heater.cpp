@@ -5,7 +5,6 @@ extern "C" {
 #include <string.h>
 #include <math.h>
 #include "heater.h"
-#include "motors.h"
 #include "eeprom.h"
 #include "common.h"
 

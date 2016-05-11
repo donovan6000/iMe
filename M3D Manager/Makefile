@@ -3,10 +3,10 @@ PROGRAM_NAME = M3D\ Manager
 VERSION = 0.01
 TARGET_PLATFORM = LINUX64
 USE_GUI = TRUE
-IME_VERSION = 1900000003
+IME_ROM_VERSION_STRING = 1900000004
 
 SRCS = main.cpp printer.cpp gcode.cpp common.cpp
-CFLAGS = -Wall -std=c++11 -O3 -D VERSION=$(VERSION) -D IME_VERSION=$(IME_VERSION) -D IME_HEADER="iMe $(IME_VERSION)_hex.h" -D IME_HEX_SIZE=iMe$(IME_VERSION)_hexSize -D IME_HEX_DATA=iMe$(IME_VERSION)_hexData
+CFLAGS = -Wall -std=c++11 -O3 -D VERSION=$(VERSION) -D IME_ROM_VERSION_STRING=$(IME_ROM_VERSION_STRING) -D IME_HEADER="iMe $(IME_ROM_VERSION_STRING)_hex.h" -D IME_HEX_SIZE=iMe$(IME_ROM_VERSION_STRING)_hexSize -D IME_HEX_DATA=iMe$(IME_ROM_VERSION_STRING)_hexData
 
 ifeq ($(TARGET_PLATFORM), WINDOWS32)
 	PLATFORM = WINDOWS
@@ -94,15 +94,15 @@ all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(SRCS)
 	$(CC) $(CFLAGS) "bin2h.cpp" -o "bin2h"
-	./bin2h "../iMe $(IME_VERSION).hex"
+	./bin2h "../iMe $(IME_ROM_VERSION_STRING).hex"
 	./bin2h "resources/Linux/90-m3d-local.rules"
 	./bin2h "resources/Windows/M3D.cat"
 	./bin2h "resources/Windows/M3D.inf"
 	$(CC) -o $(EXECUTABLE) $(SRCS) $(LIBS) -D $(PLATFORM) $(CFLAGS)
-	rm -f "resource.o" "bin2h" "iMe $(IME_VERSION)_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
+	rm -f "resource.o" "bin2h" "iMe $(IME_ROM_VERSION_STRING)_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
 
 clean:
-	rm -rf $(EXECUTABLE) $(BUNDLE) $(ARCHIVE) "resource.o" "applet.iconset" "icon.ico" "bin2h" "iMe $(IME_VERSION)_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
+	rm -rf $(EXECUTABLE) $(BUNDLE) $(ARCHIVE) "resource.o" "applet.iconset" "icon.ico" "bin2h" "iMe $(IME_ROM_VERSION_STRING)_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
 
 run:
 	./$(EXECUTABLE)

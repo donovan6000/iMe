@@ -1,6 +1,7 @@
 # Firmware name and version
 FIRMWARE_NAME = iMe
-FIRMWARE_VERSION = 1900000003
+FIRMWARE_VERSION = 00.00.00.04
+ROM_VERSION_STRING = 1900000004
 
 # Tool locations
 ifeq ($(OS), Windows_NT)
@@ -105,18 +106,18 @@ all:
 	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CFLAGS) -c $(CSRCS)
 	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CPPFLAGS) -c $(CPPSRCS)
 	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(LFLAGS) *.o -o $(FIRMWARE_NAME).elf
-	@$(COPY) -O binary $(FIRMWARE_NAME).elf "$(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex"
+	@$(COPY) -O binary $(FIRMWARE_NAME).elf "$(FIRMWARE_NAME) $(ROM_VERSION_STRING).hex"
 	@$(SIZE) --mcu=atxmega32c4 -C $(FIRMWARE_NAME).elf
 	@rm -f *.o $(FIRMWARE_NAME).elf
-	@echo $(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex is ready
+	@echo $(FIRMWARE_NAME) $(ROM_VERSION_STRING).hex is ready
 
 # Make clean - Removes temporary files and compiled firmware
 clean:
-	rm -f $(FIRMWARE_NAME).elf debug.elf "$(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex" *.o
+	rm -f $(FIRMWARE_NAME).elf debug.elf "$(FIRMWARE_NAME) $(ROM_VERSION_STRING).hex" *.o
 
 # Make run - Flashes and runs compiled firmware
 run:
-	@$(M3DMANAGER) -r "$(FIRMWARE_NAME) $(FIRMWARE_VERSION).hex"
+	@$(M3DMANAGER) -r "$(FIRMWARE_NAME) $(ROM_VERSION_STRING).hex"
 
 # Make production debug - Adds debug information to a production elf named production.elf
 productionDebug:

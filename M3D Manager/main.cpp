@@ -74,7 +74,10 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 	#else
 	
 		// Display version
-		cout << "M3D Manager V" TOSTRING(VERSION) << endl << endl;
+		string iMeVersion = static_cast<string>(TOSTRING(IME_ROM_VERSION_STRING)).substr(2);
+		for(uint8_t i = 0; i < 3; i++)
+			iMeVersion.insert(i * 2 + 2 + i, ".");
+		cout << "M3D Manager V" TOSTRING(VERSION) " - iMe V" << iMeVersion << endl << endl;
 	
 		// Check if using command line interface
 		if(argc > 1) {
@@ -164,7 +167,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 							TCHAR command[MAX_PATH];
 							_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + getTemporaryLocation() + "\\M3D.inf\"").c_str());
 						
-							if(!CreateProcess(NULL, command, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &startupInfo, &processInfo)) {
+							if(!CreateProcess(nullptr, command, nullptr, nullptr, false, CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &processInfo)) {
 
 								// Display error
 								cout << "Failed to install drivers" << endl;
@@ -306,7 +309,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 					cout << "Installing iMe firmware" << endl;
 		
 					// Set firmware location
-					string firmwareLocation = getTemporaryLocation() + "/iMe " TOSTRING(IME_VERSION) ".hex";
+					string firmwareLocation = getTemporaryLocation() + "/iMe " TOSTRING(IME_ROM_VERSION_STRING) ".hex";
 		
 					// Check if creating iMe firmware ROM failed
 					ofstream fout(firmwareLocation, ios::binary);

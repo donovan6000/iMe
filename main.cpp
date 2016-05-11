@@ -205,7 +205,7 @@ int main() {
 								if(requests[currentProcessingRequest].commandParameters & PARAMETER_M_OFFSET) {
 	
 									switch(requests[currentProcessingRequest].valueM) {
-					
+										
 										// M17
 										case 17:
 						
@@ -350,6 +350,14 @@ int main() {
 											// Set response to confirmation
 											strcpy(responseBuffer, "ok");
 										break;
+										
+										// M583
+										case 583:
+										
+											// Set response to if gantry clips are detected
+											strcpy(responseBuffer, "ok C");
+											strcat(responseBuffer, motors.gantryClipsDetected() ? "1" : "0");
+										break;
 					
 										// M618 or M619
 										case 618:
@@ -362,7 +370,7 @@ int main() {
 												int32_t offset = requests[currentProcessingRequest].valueS;
 												uint8_t length = requests[currentProcessingRequest].valueT;
 							
-												if(offset >= 0 && length && length <= sizeof(INT32_MAX) && offset + length < EEPROM_SIZE) {
+												if(offset >= 0 && length && length <= sizeof(UINT32_MAX) && offset + length < EEPROM_SIZE) {
 								
 													// Set response to offset
 													strcpy(responseBuffer, "ok PT:");
@@ -526,21 +534,45 @@ int main() {
 											// Check if an X, Y, Z, or E value is provided
 											if(requests[currentProcessingRequest].commandParameters & (PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET)) {
 										
-												// Set motors current X if provided
-												if(requests[currentProcessingRequest].commandParameters & PARAMETER_X_OFFSET)
-													motors.currentValues[X] = requests[currentProcessingRequest].valueX;
-											
-												// Set motors current Y if provided
-												if(requests[currentProcessingRequest].commandParameters & PARAMETER_Y_OFFSET)
-													motors.currentValues[Y] = requests[currentProcessingRequest].valueY;
-											
-												// Set motors current Z if provided
-												if(requests[currentProcessingRequest].commandParameters & PARAMETER_Z_OFFSET)
-													motors.currentValues[Z] = requests[currentProcessingRequest].valueZ;
-						
-												// Set motors current E if provided
-												if(requests[currentProcessingRequest].commandParameters & PARAMETER_E_OFFSET)
-													motors.currentValues[E] = requests[currentProcessingRequest].valueE;
+												// Go through all motors
+												for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
+												
+													// Get parameter offset and value
+													uint16_t parameterOffset;
+													float *value;
+													switch(i) {
+													
+														case X:
+															parameterOffset = PARAMETER_X_OFFSET;
+															value = &requests[currentProcessingRequest].valueX;
+														break;
+														
+														case Y:
+															parameterOffset = PARAMETER_Y_OFFSET;
+															value = &requests[currentProcessingRequest].valueY;
+														break;
+														
+														case Z:
+															parameterOffset = PARAMETER_Z_OFFSET;
+															value = &requests[currentProcessingRequest].valueZ;
+														break;
+														
+														default:
+															parameterOffset = PARAMETER_E_OFFSET;
+															value = &requests[currentProcessingRequest].valueE;
+													}
+													
+													// Set parameter is provided
+													if(requests[currentProcessingRequest].commandParameters & parameterOffset) {
+													
+														// Set motors current value
+														motors.currentValues[i] = *value;
+														
+														// Save current X, Y, and Z
+														if(i != E)
+															motors.saveValue(static_cast<AXES>(i));
+													}
+												}
 				
 												// Set response to confirmation
 												strcpy(responseBuffer, "ok");
@@ -643,7 +675,7 @@ void cdcRxNotifyCallback(uint8_t port) {
 		gcode.parseCommand(buffer);
 	
 		// Check if request is an emergency stop and it has a valid checksum if it has an N parameter
-		if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.hasValidChecksum()))
+		if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.commandParameters & VALID_CHECKSUM_OFFSET))
 
 			// Stop all peripherals
 			heater.emergencyStopOccured = motors.emergencyStopOccured = emergencyStopOccured = true;
