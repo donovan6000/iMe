@@ -12,7 +12,7 @@ extern "C" {
 void ulltoa(uint64_t value, char *buffer) {
 
 	// Initialize variables
-	uint8_t i = sizeof("18446744073709551615");
+	uint8_t i = INT_BUFFER_SIZE;
 	
 	// Add terminating character
 	buffer[i] = 0;
@@ -26,15 +26,15 @@ void ulltoa(uint64_t value, char *buffer) {
 	} while(value);
 	
 	// Move string to the start of the buffer
-	memmove(buffer, &buffer[i], sizeof("18446744073709551615") - i + 1);
+	memmove(buffer, &buffer[i], INT_BUFFER_SIZE - i + 1);
 }
 
 void lltoa(int64_t value, char *buffer) {
 
 	// Convert value to string
 	if(value < 0) {
-		ulltoa(value * -1, buffer + 1);
 		buffer[0] = '-';
+		ulltoa(value * -1, buffer + sizeof('-'));
 	}
 	else
 		ulltoa(value, buffer);
@@ -43,13 +43,13 @@ void lltoa(int64_t value, char *buffer) {
 void ftoa(float value, char *buffer) {
 
 	// Initialize variables
-	uint8_t i = sizeof("4294967296") + NUMBER_OF_DECIMAL_PLACES + 1;
+	uint8_t i = FLOAT_BUFFER_SIZE;
 	
 	// Add terminating character
 	buffer[i] = 0;
 	
 	// Add decimal character
-	i -= NUMBER_OF_DECIMAL_PLACES + 1;
+	i -= sizeof('.') + NUMBER_OF_DECIMAL_PLACES;
 	buffer[i] = '.';
 	uint8_t j = i;
 	
@@ -76,7 +76,7 @@ void ftoa(float value, char *buffer) {
 		buffer[--i] = '-';
 	
 	// Move string to the start of the buffer
-	memmove(buffer, &buffer[i], sizeof("4294967296") + NUMBER_OF_DECIMAL_PLACES - i + 2);
+	memmove(buffer, &buffer[i], FLOAT_BUFFER_SIZE - i + 1);
 }
 
 uint64_t strtoull(const char *nptr, char **endptr) {
@@ -107,7 +107,7 @@ uint64_t strtoull(const char *nptr, char **endptr) {
 int64_t strtoll(const char *nptr, char **endptr) {
 
 	// Return value converted to a long long
-	return *nptr == '-' && isdigit(nptr[1]) ? strtoull(nptr + 1, endptr) * -1 : strtoull(nptr, endptr);
+	return *nptr == '-' && isdigit(nptr[1]) ? strtoull(nptr + sizeof('-'), endptr) * -1 : strtoull(nptr, endptr);
 }
 
 float strtof(const char *nptr, char **endptr) {

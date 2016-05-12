@@ -20,7 +20,7 @@
 	<string>aplt</string>
 	<key>LSMinimumSystemVersionByArchitecture</key>
 	<dict>
-		<key>x86_64</key>
+		<key>i386</key>
 		<string>10.6</string>
 	</dict>
 	<key>LSRequiresCarbon</key>

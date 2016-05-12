@@ -3,6 +3,12 @@
 #define ACCELEROMETER_H
 
 
+// Definitions
+#define X_JERK_ACCELERATION 50
+#define Y_JERK_ACCELERATION 50
+#define Y_TILT_ACCELERATION 10
+
+
 // Accelerometer class
 class Accelerometer {
 

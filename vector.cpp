@@ -16,7 +16,7 @@ void Vector::initialize(float x, float y, float z, float e) {
 float Vector::getLength() const {
 
 	// Return length
-	return sqrt(x * x + y * y + z * z + e * e);
+	return sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2) + pow(e, 2));
 }
 
 void Vector::normalize() {

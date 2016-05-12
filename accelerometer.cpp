@@ -9,6 +9,7 @@ extern "C" {
 // Definitions
 #define ACCELEROMETER_ENABLE IOPORT_PIN_LEVEL_HIGH
 #define ACCELEROMETER_DISABLE IOPORT_PIN_LEVEL_LOW
+#define ACCELEROMETER_SAMPLE_SIZE 25
 
 // Accelerometer pins
 #define TWI_MASTER TWIC
@@ -41,6 +42,9 @@ extern "C" {
 #define CTRL_REG1_DR2 0b00100000
 #define CTRL_REG2 0x2B
 #define CTRL_REG2_RST 0b01000000
+
+// Accelerations
+enum {ACCELERATION_X, ACCELERATION_Y, ACCELERATION_Z, NUMBER_OF_ACCELERATION_AXES};
 
 
 // Supporting function implementation
@@ -99,28 +103,27 @@ void Accelerometer::initialize() {
 void Accelerometer::readAccelerationValues() {
 
 	// Get average acceleration
-	int32_t averageX = 0, averageY = 0, averageZ = 0;
-	for(uint8_t i = 0; i < 25; i++) {
+	int32_t averages[NUMBER_OF_ACCELERATION_AXES] = {};
+	for(uint8_t i = 0; i < ACCELEROMETER_SAMPLE_SIZE; i++) {
 		
 		// Wait until data is available
 		while(!dataAvailable());
 	
 		// Read values
-		uint8_t values[6];
-		readValue(OUT_X_MSB, values, 6);
+		uint8_t values[OUT_Z_LSB - OUT_X_MSB + 1];
+		readValue(OUT_X_MSB, values, OUT_Z_LSB - OUT_X_MSB + 1);
 		
-		averageX += ((values[4] << 8) | values[5]) >> 4;
-		averageY += ((values[2] << 8) | values[3]) >> 4;
-		averageZ += ((values[0] << 8) | values[1]) >> 4;
+		for(uint8_t j = 0; j < NUMBER_OF_ACCELERATION_AXES; j++)
+			averages[j] += ((values[j * 2] << 8) | values[j * 2 + 1]) >> 4;
 	}
-	averageX /= 25;
-	averageY /= 25;
-	averageZ /= 25;
 	
-	// Set acceleration values
-	xAcceleration = averageX;
-	yAcceleration = averageY;
-	zAcceleration = averageZ;
+	for(uint8_t i = 0; i < NUMBER_OF_ACCELERATION_AXES; i++)
+		averages[i] /= ACCELEROMETER_SAMPLE_SIZE;
+	
+	// Set acceleration values and account for accelerometer's orientation
+	xAcceleration = averages[ACCELERATION_Z];
+	yAcceleration = averages[ACCELERATION_Y];
+	zAcceleration = averages[ACCELERATION_X];
 }
 
 bool Accelerometer::dataAvailable() {

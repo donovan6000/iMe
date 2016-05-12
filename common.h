@@ -11,6 +11,8 @@
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 #define NUMBER_OF_DECIMAL_PLACES 4
+#define INT_BUFFER_SIZE sizeof("18446744073709551615")
+#define FLOAT_BUFFER_SIZE (sizeof("4294967296") + sizeof('.') + NUMBER_OF_DECIMAL_PLACES)
 
 
 // Function prototypes

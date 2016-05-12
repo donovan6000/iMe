@@ -71,8 +71,8 @@ int main() {
 	// Initialize variables
 	uint64_t currentLineNumber = 0;
 	uint8_t currentProcessingRequest = 0;
-	char responseBuffer[255];
-	char numberBuffer[sizeof("18446744073709551615")];
+	char responseBuffer[UINT8_MAX];
+	char numberBuffer[INT_BUFFER_SIZE];
 	
 	// Initialize peripherals
 	fan.initialize();
@@ -315,7 +315,7 @@ int main() {
 											else {
 				
 												// Put device details into response
-												strcpy(responseBuffer, "ok REPRAP_PROTOCOL:0 FIRMWARE_NAME:" TOSTRING(FIRMWARE_NAME) " FIRMWARE_VERSION:" TOSTRING(FIRMWARE_VERSION) " MACHINE_TYPE:The_Micro X-SERIAL_NUMBER:");
+												strcpy(responseBuffer, "ok PROTOCOL:RepRap FIRMWARE_NAME:" TOSTRING(FIRMWARE_NAME) " FIRMWARE_VERSION:" TOSTRING(FIRMWARE_VERSION) " MACHINE_TYPE:Micro_3D SERIAL_NUMBER:");
 												strcat(responseBuffer, serialNumber);
 											}
 										break;

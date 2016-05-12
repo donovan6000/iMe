@@ -15,6 +15,29 @@ extern "C" {
 #define ADC_VREF_PIN IOPORT_CREATE_PIN(PORTA, 0)
 #define ADC_VREF_VOLTAGE 2.6
 
+// Bed dimensions
+#define BED_CENTER_X 54
+#define BED_CENTER_Y 50
+#define CORNER_DISTANCE_FROM_CENTER 45
+#define BED_LOW_MAX_X 106.0
+#define BED_LOW_MIN_X -2.0
+#define BED_LOW_MAX_Y 105.0
+#define BED_LOW_MIN_Y -2.0
+#define BED_LOW_MAX_Z 5.0
+#define BED_LOW_MIN_Z 0.0
+#define BED_MEDIUM_MAX_X 106.0
+#define BED_MEDIUM_MIN_X -2.0
+#define BED_MEDIUM_MAX_Y 105.0
+#define BED_MEDIUM_MIN_Y -9.0
+#define BED_MEDIUM_MAX_Z 73.5
+#define BED_MEDIUM_MIN_Z BED_LOW_MAX_Z
+#define BED_HIGH_MAX_X 97.0
+#define BED_HIGH_MIN_X 7.0
+#define BED_HIGH_MAX_Y 85.0
+#define BED_HIGH_MIN_Y 9.0
+#define BED_HIGH_MAX_Z 112.0
+#define BED_HIGH_MIN_Z BED_MEDIUM_MAX_Z
+
 // Motors settings
 #define MICROSTEPS_PER_STEP 32
 #define MOTORS_ENABLE_PIN IOPORT_CREATE_PIN(PORTB, 3)
@@ -22,7 +45,7 @@ extern "C" {
 #define MOTORS_STEP_TIMER TCC0
 #define MOTORS_STEP_TIMER_PERIOD 0x400
 #define MOTORS_CURRENT_SENSE_RESISTANCE 0.1
-#define MOTORS_CURRENT_TO_VOLTAGE_CONSTANT (5 * MOTORS_CURRENT_SENSE_RESISTANCE)
+#define MOTORS_CURRENT_TO_VOLTAGE_SCALAR (5 * MOTORS_CURRENT_SENSE_RESISTANCE)
 
 // Motor X settings
 #define MOTOR_X_DIRECTION_PIN IOPORT_CREATE_PIN(PORTC, 2)
@@ -63,6 +86,8 @@ extern "C" {
 #define MOTOR_E_STEP_PIN IOPORT_CREATE_PIN(PORTC, 4)
 #define MOTOR_E_CURRENT_SENSE_ADC HEATER_READ_ADC
 #define MOTOR_E_CURRENT_SENSE_PIN IOPORT_CREATE_PIN(PORTA, 7)
+#define MOTOR_E_CURRENT_SENSE_ADC_FREQUENCY 200000
+#define MOTOR_E_CURRENT_SENSE_ADC_SAMPLE_SIZE 50
 #define MOTOR_E_CURRENT_SENSE_ADC_CHANNEL ADC_CH0
 #define MOTOR_E_CURRENT_SENSE_ADC_PIN ADCCH_POS_PIN7
 #define MOTOR_E_VREF_CHANNEL TC_CCA
@@ -278,7 +303,7 @@ void Motors::initialize() {
 	nvm_eeprom_read_buffer(EEPROM_LAST_RECORDED_Y_VALUE_OFFSET, &currentValues[Y], EEPROM_LAST_RECORDED_Y_VALUE_LENGTH);
 	nvm_eeprom_read_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
 	currentValues[E] = 0;
-	currentValues[F] = 1000;
+	currentValues[F] = MOTOR_X_MAX_FEEDRATE;
 	
 	// Configure motors enable
 	ioport_set_pin_dir(MOTORS_ENABLE_PIN, IOPORT_DIR_OUTPUT);
@@ -336,10 +361,10 @@ void Motors::initialize() {
 	tc_enable(&MOTORS_VREF_TIMER);
 	tc_set_wgm(&MOTORS_VREF_TIMER, TC_WG_SS);
 	tc_write_period(&MOTORS_VREF_TIMER, MOTORS_VREF_TIMER_PERIOD);
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	tc_enable_cc_channels(&MOTORS_VREF_TIMER, static_cast<tc_cc_channel_mask_enable_t>(TC_CCAEN | TC_CCBEN | TC_CCCEN | TC_CCDEN));
 	tc_write_clock_source(&MOTORS_VREF_TIMER, TC_CLKSEL_DIV1_gc);
 	
@@ -407,11 +432,11 @@ void Motors::initialize() {
 	ioport_set_pin_dir(ADC_VREF_PIN, IOPORT_DIR_INPUT);
 	ioport_set_pin_mode(ADC_VREF_PIN, IOPORT_MODE_PULLDOWN);
 	
-	// Set ADC controller to use unsigned, 12bit, Vref refrence, manual trigger, 200kHz frequency
+	// Set ADC controller to use unsigned, 12bit, Vref refrence, and manual trigger
 	adc_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &currentSenseAdcController);
 	adc_set_conversion_parameters(&currentSenseAdcController, ADC_SIGN_OFF, ADC_RES_12, ADC_REF_AREFA);
 	adc_set_conversion_trigger(&currentSenseAdcController, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
-	adc_set_clock_rate(&currentSenseAdcController, 200000);
+	adc_set_clock_rate(&currentSenseAdcController, MOTOR_E_CURRENT_SENSE_ADC_FREQUENCY);
 	
 	// Set ADC channel to use motor E current sense pin as single ended input with no gain
 	adcch_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
@@ -421,11 +446,11 @@ void Motors::initialize() {
 	accelerometer.initialize();
 	
 	// Set vectors
-	backRightVector.initialize(99, 95);
-	backLeftVector.initialize(9, 95);
-	frontLeftVector.initialize(9, 5);
-	frontRightVector.initialize(99, 5);
-	centerVector.initialize(54, 50);
+	backRightVector.initialize(BED_CENTER_X + CORNER_DISTANCE_FROM_CENTER, BED_CENTER_Y + CORNER_DISTANCE_FROM_CENTER);
+	backLeftVector.initialize(BED_CENTER_X - CORNER_DISTANCE_FROM_CENTER, BED_CENTER_Y + CORNER_DISTANCE_FROM_CENTER);
+	frontLeftVector.initialize(BED_CENTER_X - CORNER_DISTANCE_FROM_CENTER, BED_CENTER_Y - CORNER_DISTANCE_FROM_CENTER);
+	frontRightVector.initialize(BED_CENTER_X + CORNER_DISTANCE_FROM_CENTER, BED_CENTER_Y - CORNER_DISTANCE_FROM_CENTER);
+	centerVector.initialize(BED_CENTER_X, BED_CENTER_Y);
 	
 	// Update bed changes
 	updateBedChanges(false);
@@ -655,17 +680,17 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		
 					case X:
 						setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
-						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 					break;
 			
 					case Y:
 						setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
-						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 					break;
 			
 					case Z:
 						setMotorStepInterruptLevel = tc_set_ccc_interrupt_level;
-						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 					break;
 			
 					default:
@@ -673,7 +698,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 						// Set motor E voltage
 						uint16_t motorCurrentE;
 						nvm_eeprom_read_buffer(EEPROM_E_MOTOR_CURRENT_OFFSET, &motorCurrentE, EEPROM_E_MOTOR_CURRENT_LENGTH);
-						motorVoltageE = MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / 1000 * motorCurrentE;
+						motorVoltageE = MOTORS_CURRENT_TO_VOLTAGE_SCALAR / 1000 * motorCurrentE;
 						
 						setMotorStepInterruptLevel = tc_set_ccd_interrupt_level;
 						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(motorVoltageE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
@@ -713,7 +738,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				adcch_write_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
 				
 				uint32_t value = 0;
-				for(uint8_t i = 0; i < 50; i++) {
+				for(uint8_t i = 0; i < MOTOR_E_CURRENT_SENSE_ADC_SAMPLE_SIZE; i++) {
 					adc_start_conversion(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 					adc_wait_for_interrupt_flag(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
 					value += adc_get_unsigned_result(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL);
@@ -723,7 +748,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
 				
 				// Set average actual motor E voltage
-				value /= 50;
+				value /= MOTOR_E_CURRENT_SENSE_ADC_SAMPLE_SIZE;
 				float actualVoltage = ADC_VREF_VOLTAGE / (pow(2, 12) - 1) * value;
 		
 				// Get ideal motor E voltage
@@ -738,10 +763,10 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
 		
 		// Set motors Vref to idle
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	}
 	
 	// Check if saving changes
@@ -806,7 +831,7 @@ void Motors::moveToHeight(float height) {
 	Gcode gcode;
 	gcode.valueG = 0;
 	gcode.valueZ = height;
-	gcode.valueF = 90;
+	gcode.valueF = MOTOR_Z_MAX_FEEDRATE;
 	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_F_OFFSET;
 	move(gcode, SAVE_CHANGES_TASK);
 	
@@ -1064,28 +1089,31 @@ void Motors::homeXY() {
 		motorsDelaySkips[i] = 0;
 		motorsStepDelay[i]  = 1;
 		int16_t *accelerometerValue;
+		int16_t jerkAcceleration;
 		void (*setMotorStepInterruptLevel)(volatile void *tc, TC_INT_LEVEL_t level);
 		if(i) {
-			motorsNumberOfSteps[i] = round(111 * MOTOR_Y_STEPS_PER_MM * MICROSTEPS_PER_STEP);
+			motorsNumberOfSteps[i] = round((max(max(BED_LOW_MAX_Y, BED_MEDIUM_MAX_Y), BED_HIGH_MAX_Y) - min(min(BED_LOW_MIN_Y, BED_MEDIUM_MIN_Y), BED_HIGH_MIN_Y)) * MOTOR_Y_STEPS_PER_MM * MICROSTEPS_PER_STEP);
 			ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
 			setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
 			
 			// Set accelerometer value
 			accelerometerValue = &accelerometer.yAcceleration;
+			jerkAcceleration = Y_JERK_ACCELERATION;
 			
 			// Set motor Y Vref to active
-			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		}
 		else {
-			motorsNumberOfSteps[i] = round(112 * MOTOR_X_STEPS_PER_MM * MICROSTEPS_PER_STEP);
+			motorsNumberOfSteps[i] = round((max(max(BED_LOW_MAX_X, BED_MEDIUM_MAX_X), BED_HIGH_MAX_X) - min(min(BED_LOW_MIN_X, BED_MEDIUM_MIN_X), BED_HIGH_MIN_X)) * MOTOR_X_STEPS_PER_MM * MICROSTEPS_PER_STEP);
 			ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
 			setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
 			
 			// Set accelerometer value
 			accelerometerValue = &accelerometer.xAcceleration;
+			jerkAcceleration = X_JERK_ACCELERATION;
 			
 			// Set motor X Vref to active
-			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		}
 		
 		// Enable motor step interrupt 
@@ -1110,7 +1138,7 @@ void Motors::homeXY() {
 			if(!firstRun) {
 			
 				// Check if extruder hit the edge
-				if(abs(lastValue - *accelerometerValue) >= 50) {
+				if(abs(lastValue - *accelerometerValue) >= jerkAcceleration) {
 					if(++counter >= 2)
 	
 						// Stop motor interrupt
@@ -1128,8 +1156,8 @@ void Motors::homeXY() {
 		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
 		
 		// Set motors Vref to idle
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	}
 	
 	// Check if emergency stop hasn't occured
@@ -1147,10 +1175,10 @@ void Motors::homeXY() {
 		// Move to center
 		Gcode gcode;
 		gcode.valueG = 0;
-		gcode.valueX = -54;
-		gcode.valueY = -50;
-		gcode.valueZ = -getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
-		gcode.valueF = 3000;
+		gcode.valueX = -BED_CENTER_X;
+		gcode.valueY = -BED_CENTER_Y;
+		gcode.valueZ = getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+		gcode.valueF = MOTOR_X_MAX_FEEDRATE;
 		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_F_OFFSET;
 		move(gcode, SAVE_CHANGES_TASK);
 
@@ -1158,8 +1186,8 @@ void Motors::homeXY() {
 		mode = savedMode;
 
 		// Set current X, Y, and Z
-		currentValues[X] = 54;
-		currentValues[Y] = 50;
+		currentValues[X] = BED_CENTER_X;
+		currentValues[Y] = BED_CENTER_Y;
 		currentValues[Z] = savedZ;
 		
 		// Save current X, Y, and Z
@@ -1208,7 +1236,7 @@ void Motors::moveToZ0() {
 		tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 		
 		// Set motor Z Vref to active
-		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		
 		// Turn on motors
 		turnOn();
@@ -1228,8 +1256,8 @@ void Motors::moveToZ0() {
 			accelerometer.readAccelerationValues();
 	
 			// Check if extruder has hit the bed
-			if(abs(stillValue - accelerometer.yAcceleration) >= 10) {
-				if(++counter >= 3)
+			if(abs(stillValue - accelerometer.yAcceleration) >= Y_TILT_ACCELERATION) {
+				if(++counter >= 2)
 			
 					// Stop motor Z interrupt
 					tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
@@ -1268,7 +1296,7 @@ void Motors::moveToZ0() {
 	}
 	
 	// Set motor Z Vref to idle
-	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_CONSTANT / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	
 	// Save current Z
 	saveValue(Z);
@@ -1316,8 +1344,8 @@ void Motors::calibrateBedOrientation() {
 	calibrateBedCenterZ0();
 	
 	// Initialize X and Y positions
-	uint8_t positionsX[] = {9, 99, 99, 9, 54};
-	uint8_t positionsY[] = {5, 5, 95, 95, 50};
+	uint8_t positionsX[] = {BED_CENTER_X - CORNER_DISTANCE_FROM_CENTER, BED_CENTER_X + CORNER_DISTANCE_FROM_CENTER, BED_CENTER_X + CORNER_DISTANCE_FROM_CENTER, BED_CENTER_X - CORNER_DISTANCE_FROM_CENTER, BED_CENTER_X};
+	uint8_t positionsY[] = {BED_CENTER_Y - CORNER_DISTANCE_FROM_CENTER, BED_CENTER_Y - CORNER_DISTANCE_FROM_CENTER, BED_CENTER_Y + CORNER_DISTANCE_FROM_CENTER, BED_CENTER_Y + CORNER_DISTANCE_FROM_CENTER, BED_CENTER_Y};
 
 	// Save mode
 	MODES savedMode = mode;
@@ -1331,7 +1359,7 @@ void Motors::calibrateBedOrientation() {
 		gcode.valueG = 0;
 		gcode.valueX = positionsX[i];
 		gcode.valueY = positionsY[i];
-		gcode.valueF = 3000;
+		gcode.valueF = MOTOR_X_MAX_FEEDRATE;
 		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
 		move(gcode, BACKLASH_TASK | SAVE_CHANGES_TASK);
 		
