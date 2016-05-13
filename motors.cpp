@@ -18,6 +18,8 @@ extern "C" {
 // Bed dimensions
 #define BED_CENTER_X 54
 #define BED_CENTER_Y 50
+#define BED_CENTER_X_DISTANCE_FROM_HOMING_CORNER 54
+#define BED_CENTER_Y_DISTANCE_FROM_HOMING_CORNER 50
 #define CORNER_DISTANCE_FROM_CENTER 45
 #define BED_LOW_MAX_X 106.0
 #define BED_LOW_MIN_X -2.0
@@ -938,7 +940,7 @@ void Motors::compensateForBedLeveling() {
 void Motors::updateBedChanges(bool adjustHeight) {
 
 	// Set previous height adjustment
-	float previousHeightAdjustment = bedHeightOffset + getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+	float previousHeightAdjustment = getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) + bedHeightOffset;
 	
 	// Go through all corners
 	for(uint8_t i = 0; i < 4; i++) {
@@ -1001,7 +1003,7 @@ void Motors::updateBedChanges(bool adjustHeight) {
 	if(adjustHeight) {
 	
 		// Set current Z
-		currentValues[Z] += bedHeightOffset + getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) - previousHeightAdjustment;
+		currentValues[Z] += previousHeightAdjustment - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) - bedHeightOffset;
 
 		// Save current Z
 		saveValue(Z);
@@ -1085,14 +1087,14 @@ void Motors::homeXY() {
 	// Go through X and Y motors
 	for(int8_t i = 1; i >= 0 && !emergencyStopOccured; i--) {
 	
-		// Set up motors to move all the way to the back as a fallback
+		// Set up motors to move all the way to the back right corner as a fallback
 		motorsDelaySkips[i] = 0;
 		motorsStepDelay[i]  = 1;
 		int16_t *accelerometerValue;
 		int16_t jerkAcceleration;
 		void (*setMotorStepInterruptLevel)(volatile void *tc, TC_INT_LEVEL_t level);
 		if(i) {
-			motorsNumberOfSteps[i] = round((max(max(BED_LOW_MAX_Y, BED_MEDIUM_MAX_Y), BED_HIGH_MAX_Y) - min(min(BED_LOW_MIN_Y, BED_MEDIUM_MIN_Y), BED_HIGH_MIN_Y)) * MOTOR_Y_STEPS_PER_MM * MICROSTEPS_PER_STEP);
+			motorsNumberOfSteps[i] = round((max(max(BED_LOW_MAX_Y, BED_MEDIUM_MAX_Y), BED_HIGH_MAX_Y) - min(min(BED_LOW_MIN_Y, BED_MEDIUM_MIN_Y), BED_HIGH_MIN_Y) + 5) * MOTOR_Y_STEPS_PER_MM * MICROSTEPS_PER_STEP);
 			ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
 			setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
 			
@@ -1104,7 +1106,7 @@ void Motors::homeXY() {
 			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		}
 		else {
-			motorsNumberOfSteps[i] = round((max(max(BED_LOW_MAX_X, BED_MEDIUM_MAX_X), BED_HIGH_MAX_X) - min(min(BED_LOW_MIN_X, BED_MEDIUM_MIN_X), BED_HIGH_MIN_X)) * MOTOR_X_STEPS_PER_MM * MICROSTEPS_PER_STEP);
+			motorsNumberOfSteps[i] = round((max(max(BED_LOW_MAX_X, BED_MEDIUM_MAX_X), BED_HIGH_MAX_X) - min(min(BED_LOW_MIN_X, BED_MEDIUM_MIN_X), BED_HIGH_MIN_X) + 5) * MOTOR_X_STEPS_PER_MM * MICROSTEPS_PER_STEP);
 			ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
 			setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
 			
@@ -1175,8 +1177,8 @@ void Motors::homeXY() {
 		// Move to center
 		Gcode gcode;
 		gcode.valueG = 0;
-		gcode.valueX = -BED_CENTER_X;
-		gcode.valueY = -BED_CENTER_Y;
+		gcode.valueX = -BED_CENTER_X_DISTANCE_FROM_HOMING_CORNER;
+		gcode.valueY = -BED_CENTER_Y_DISTANCE_FROM_HOMING_CORNER;
 		gcode.valueZ = getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
 		gcode.valueF = MOTOR_X_MAX_FEEDRATE;
 		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_F_OFFSET;
@@ -1207,7 +1209,7 @@ void Motors::homeXY() {
 void Motors::saveZAsBedCenterZ0() {
 
 	// Set current Z
-	currentValues[Z] = 0.0999;
+	currentValues[Z] = 0;
 
 	// Save current Z
 	saveValue(Z);
@@ -1412,6 +1414,9 @@ void Motors::calibrateBedOrientation() {
 		// Move to height 3mm
 		moveToHeight(3);
 	}
+	
+	// Update bed changes
+	updateBedChanges(false);
 	
 	// Restore mode
 	mode = savedMode;
