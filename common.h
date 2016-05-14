@@ -59,5 +59,11 @@ Purpose: Sends data to the USB host
 */
 void sendDataToUsb(const char *data, bool checkBufferSize = false);
 
+/*
+Name: Get value in range
+Purpose: Returns a value limited by the ranges min and max
+*/
+float getValueInRange(float value, float minValue, float maxValue);
+
 
 #endif

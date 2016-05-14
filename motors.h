@@ -50,7 +50,7 @@ class Motors {
 		void move(const Gcode &gcode, uint8_t tasks = BACKLASH_TASK | BED_LEVELING_TASK | SAVE_CHANGES_TASK);
 		
 		// Home XY
-		void homeXY();
+		void homeXY(bool adjustHeight = true);
 		
 		// Save Z as bed center Z0
 		void saveZAsBedCenterZ0();

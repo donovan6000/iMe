@@ -7,6 +7,7 @@ extern "C" {
 #include "motors.h"
 #include "eeprom.h"
 #include "heater.h"
+#include "common.h"
 
 
 // Definitions
@@ -18,8 +19,8 @@ extern "C" {
 // Bed dimensions
 #define BED_CENTER_X 54
 #define BED_CENTER_Y 50
-#define BED_CENTER_X_DISTANCE_FROM_HOMING_CORNER 54
-#define BED_CENTER_Y_DISTANCE_FROM_HOMING_CORNER 50
+#define BED_CENTER_X_DISTANCE_FROM_HOMING_CORNER 55
+#define BED_CENTER_Y_DISTANCE_FROM_HOMING_CORNER 55
 #define CORNER_DISTANCE_FROM_CENTER 45
 #define BED_LOW_MAX_X 106.0
 #define BED_LOW_MIN_X -2.0
@@ -624,8 +625,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 					float motorFeedRate = min(currentValues[F], speedLimit);
 				
 					// Enforce min/max feed rates
-					motorFeedRate = min(motorFeedRate, maxFeedRate);
-					motorFeedRate = max(motorFeedRate, minFeedRate);
+					motorFeedRate = getValueInRange(motorFeedRate, minFeedRate, maxFeedRate);
 		
 					// Set motor total time
 					uint32_t motorTotalTime = round(distanceTraveled / motorFeedRate * 60 * sysclk_get_cpu_hz() / MOTORS_STEP_TIMER_PERIOD);
@@ -644,10 +644,35 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		compensateForBacklash(backlashDirectionX, backlashDirectionY);
 	
 	// Check if set to compensate for bed leveling
-	if(tasks & BED_LEVELING_TASK)
+	if(tasks & BED_LEVELING_TASK) {
+	
+		// Limit X and Y from moving out of bounds
+		float minValues[2], maxValues[2];
+		if(currentValues[Z] < BED_LOW_MAX_Z) {
+			minValues[X] = BED_LOW_MIN_X;
+			minValues[Y] = BED_LOW_MIN_Y;
+			maxValues[X] = BED_LOW_MAX_X;
+			maxValues[Y] = BED_LOW_MAX_Y;
+		}
+		else if(currentValues[Z] < BED_MEDIUM_MAX_Z) {
+			minValues[X] = BED_MEDIUM_MIN_X;
+			minValues[Y] = BED_MEDIUM_MIN_Y;
+			maxValues[X] = BED_MEDIUM_MAX_X;
+			maxValues[Y] = BED_MEDIUM_MAX_Y;
+		}
+		else {
+			minValues[X] = BED_HIGH_MIN_X;
+			minValues[Y] = BED_HIGH_MIN_Y;
+			maxValues[X] = BED_HIGH_MAX_X;
+			maxValues[Y] = BED_HIGH_MAX_Y;
+		}
+		
+		currentValues[X] = getValueInRange(currentValues[X], minValues[X], maxValues[X]);
+		currentValues[Y] = getValueInRange(currentValues[Y], minValues[Y], maxValues[Y]);
 		
 		// Compensate for bed leveling
 		compensateForBedLeveling();
+	}
 	
 	// Otherwise check if an emergency stop didn't happen
 	else if(!emergencyStopOccured) {
@@ -1078,7 +1103,7 @@ bool Motors::gantryClipsDetected() {
 	return false;
 }
 
-void Motors::homeXY() {
+void Motors::homeXY(bool adjustHeight) {
 
 	// Save that X and Y are invalid
 	nvm_eeprom_write_byte(EEPROM_SAVED_X_STATE_OFFSET, INVALID);
@@ -1179,7 +1204,7 @@ void Motors::homeXY() {
 		gcode.valueG = 0;
 		gcode.valueX = -BED_CENTER_X_DISTANCE_FROM_HOMING_CORNER;
 		gcode.valueY = -BED_CENTER_Y_DISTANCE_FROM_HOMING_CORNER;
-		gcode.valueZ = getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+		gcode.valueZ = adjustHeight ? getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) : 0;
 		gcode.valueF = MOTOR_X_MAX_FEEDRATE;
 		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_F_OFFSET;
 		move(gcode, SAVE_CHANGES_TASK);
@@ -1293,7 +1318,7 @@ void Motors::moveToZ0() {
 		// Save current Z as last Z0
 		lastZ0 = currentValues[Z];
 		
-		// Move slightly up
+		// Move up by 2mm
 		moveToHeight(currentValues[Z] + 2);
 	}
 	
@@ -1312,14 +1337,14 @@ void Motors::moveToZ0() {
 
 void Motors::calibrateBedCenterZ0() {
 
-	// Move to height 3mm
-	moveToHeight(3);
+	// Move up by 3mm
+	moveToHeight(currentValues[Z] + 3);
 	
 	// Check if emergency stop hasn't occured
 	if(!emergencyStopOccured) {
 
 		// Home XY
-		homeXY();
+		homeXY(false);
 	
 		// Check if emergency stop hasn't occured
 		if(!emergencyStopOccured) {
