@@ -26,8 +26,8 @@ extern "C" {
 // Global variables
 char serialNumber[EEPROM_SERIAL_NUMBER_LENGTH];
 Gcode requests[REQUEST_BUFFER_SIZE];
-bool allowWaitResponse = true;
-uint16_t waitCounter = 0;
+bool allowWaitResponse;
+uint16_t waitCounter;
 bool emergencyStopOccured = false;
 Fan fan;
 Heater heater;
@@ -61,6 +61,12 @@ Name: Enable sending wait responses
 Purpose: Enabled sending wait responses every second
 */
 void enableSendingWaitResponses();
+
+/*
+Name: Save and reset
+Purpose: Saves state and resets the microcontroller
+*/
+void saveAndReset();
 
 
 // Main function
@@ -111,14 +117,10 @@ int main() {
 	tc_set_overflow_interrupt_callback(&WAIT_TIMER, []() -> void {
 	
 		// Check if power has been disconnected
-		if(power.stableSupplyVoltage - power.getSupplyVoltage() >= 0.01) {
+		//if(power.stableSupplyVoltage - power.getSupplyVoltage() >= 0.01)
 		
-			// Save state
-			//motors.saveState();
-			
-			// Perform software reset
-			//reset_do_soft_reset();
-		}
+			// Save and reset
+		//	saveAndReset();
 	
 		// Check if time to send wait
 		if(allowWaitResponse && ++waitCounter >= sysclk_get_cpu_hz() / WAIT_TIMER_PERIOD) {
@@ -340,8 +342,8 @@ int main() {
 											// Check if command is to reset
 											if(requests[currentProcessingRequest].valueS == 628)
 				
-												// Perform software reset
-												reset_do_soft_reset();
+												// Save and reset
+												saveAndReset();
 				
 											// Otherwise
 											else {
@@ -739,4 +741,13 @@ void enableSendingWaitResponses() {
 	waitCounter = 0;
 	allowWaitResponse = true;
 	tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_LO);
+}
+
+void saveAndReset() {
+
+	// Save state
+	motors.saveState();
+	
+	// Perform software reset
+	reset_do_soft_reset();
 }

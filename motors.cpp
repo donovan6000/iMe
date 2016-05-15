@@ -450,10 +450,6 @@ void Motors::initialize() {
 	
 	// Update bed changes
 	updateBedChanges(false);
-	
-	// Initialize bed leveling G-code
-	bedLevelingGcode.valueG = 0;
-	bedLevelingGcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET;
 }
 
 void Motors::turnOn() {
@@ -533,18 +529,18 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Set current value
 				currentValues[i] = newValue;
 		
-				// Set steps per mm, motor direction, speed limit, min/max feed rates, and saved value offset
+				// Set steps per mm, motor direction, speed limit, and min/max feed rates
 				float stepsPerMm;
 				float speedLimit;
 				float maxFeedRate;
 				float minFeedRate;
-				eeprom_addr_t savedValueOffset = EEPROM_SIZE;
+				bool savesValidValue = true;
 				switch(i) {
 				
 					case X:
 						
 						// Check if direction changed
-						if(ioport_get_pin_level(MOTOR_X_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT))
+						if(currentMotorDirections[X] != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT))
 						
 							// Set backlash direction X
 							backlashDirectionX = lowerNewValue ? NEGATIVE : POSITIVE;
@@ -554,14 +550,12 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_X_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_X_LENGTH);
 						maxFeedRate = MOTOR_X_MAX_FEEDRATE;
 						minFeedRate = MOTOR_X_MIN_FEEDRATE;
-						
-						savedValueOffset = EEPROM_SAVED_X_STATE_OFFSET;
 					break;
 					
 					case Y:
 					
 						// Check if direction changed
-						if(ioport_get_pin_level(MOTOR_Y_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD))
+						if(currentMotorDirections[Y] != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD))
 						
 							// Set backlash direction Y
 							backlashDirectionY = lowerNewValue ? NEGATIVE : POSITIVE;
@@ -571,8 +565,6 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Y_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Y_LENGTH);
 						maxFeedRate = MOTOR_Y_MAX_FEEDRATE;
 						minFeedRate = MOTOR_Y_MIN_FEEDRATE;
-						
-						savedValueOffset = EEPROM_SAVED_Y_STATE_OFFSET;
 					break;
 					
 					case Z:
@@ -582,8 +574,6 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Z_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Z_LENGTH);
 						maxFeedRate = MOTOR_Z_MAX_FEEDRATE;
 						minFeedRate = MOTOR_Z_MIN_FEEDRATE;
-						
-						savedValueOffset = EEPROM_SAVED_Z_STATE_OFFSET;
 					break;
 					
 					default:
@@ -599,13 +589,16 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 							maxFeedRate = MOTOR_E_MAX_FEEDRATE_EXTRUSION;
 						}
 						minFeedRate = MOTOR_E_MIN_FEEDRATE;
+						
+						// Clear saves valid value
+						savesValidValue = false;
 				}
 				
 				// Check if motor moves
 				if((motorMoves[i] = round(distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP))) {
 				
-					// Check if saving changes and motor has a saved state
-					if(tasks & SAVE_CHANGES_TASK && savedValueOffset < EEPROM_SIZE) {
+					// Check if saving changes and saves if motor's state is valid
+					if(tasks & SAVE_CHANGES_TASK && savesValidValue) {
 				
 						// Save if value is valid
 						validValues[i] = currentStateOfValues[i];
@@ -740,9 +733,6 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		// Start motors step timer
 		tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
 		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
-		
-		// Get next segment values
-		getNextSegmentValues();
 	
 		// Wait until all motors step interrupts have stopped or an emergency stop occurs
 		while(MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm) && !emergencyStopOccured) {
@@ -913,15 +903,42 @@ void Motors::compensateForBedLeveling() {
 	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
 		valueChanges[i] = horizontalDistance ? valueChanges[i] / horizontalDistance : 0;
 	
-	// Go through all segments
-	for(numberOfSegments = max(1, ceil(horizontalDistance / SEGMENT_LENGTH)), segmentCounter = 0; segmentCounter <= numberOfSegments;) {
+	// Initialize G-code
+	Gcode gcode;
+	gcode.valueG = 0;
+	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET;
 	
-		// Set initial segment values
-		if(!segmentCounter)
-			getNextSegmentValues();
+	// Go through all segments
+	for(uint32_t numberOfSegments = max(1, ceil(horizontalDistance / SEGMENT_LENGTH)), segmentCounter = 1; segmentCounter <= numberOfSegments; segmentCounter++) {
+	
+		// Go through all motors
+		for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
+	
+			// Set segment value
+			float segmentValue = segmentCounter != numberOfSegments ? startValues[i] + segmentCounter * SEGMENT_LENGTH * valueChanges[i] : endValues[i];
+	
+			// Set G-code parameter
+			switch(i) {
+		
+				case X:
+					gcode.valueX = segmentValue;
+				break;
+			
+				case Y:
+					gcode.valueY = segmentValue;
+				break;
+			
+				case Z:
+					gcode.valueZ = segmentValue + getHeightAdjustmentRequired(gcode.valueX, gcode.valueY);
+				break;
+			
+				default:
+					gcode.valueE = segmentValue;
+			}
+		}
 		
 		// Move to end of current segment
-		move(bedLevelingGcode, NO_TASK);
+		move(gcode, NO_TASK);
 	}
 	
 	// Restore Z value
@@ -932,6 +949,9 @@ void Motors::compensateForBedLeveling() {
 }
 
 void Motors::updateBedChanges(bool adjustHeight) {
+
+	// Initialize bed height offset
+	static float bedHeightOffset;
 
 	// Set previous height adjustment
 	float previousHeightAdjustment = getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) + bedHeightOffset;
@@ -1000,45 +1020,13 @@ void Motors::updateBedChanges(bool adjustHeight) {
 		currentValues[Z] += previousHeightAdjustment - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) - bedHeightOffset;
 }
 
-void Motors::getNextSegmentValues() {
-
-	// Increment segment counter
-	segmentCounter++;
-	
-	// Go through all motors
-	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
-	
-		// Set segment value
-		float segmentValue = segmentCounter != numberOfSegments ? startValues[i] + segmentCounter * SEGMENT_LENGTH * valueChanges[i] : endValues[i];
-	
-		// Set G-code parameter
-		switch(i) {
-		
-			case X:
-				bedLevelingGcode.valueX = segmentValue;
-			break;
-			
-			case Y:
-				bedLevelingGcode.valueY = segmentValue;
-			break;
-			
-			case Z:
-				bedLevelingGcode.valueZ = segmentValue + getHeightAdjustmentRequired(bedLevelingGcode.valueX, bedLevelingGcode.valueY);
-			break;
-			
-			default:
-				bedLevelingGcode.valueE = segmentValue;
-		}
-	}
-}
-
 bool Motors::gantryClipsDetected() {
 
 	// Return false
 	return false;
 }
 
-void Motors::saveState() {
+void Motors::changeState(bool save) {
 
 	// Go through X, Y, and Z motors
 	for(uint8_t i = 0; i < 3; i++) {
@@ -1068,32 +1056,38 @@ void Motors::saveState() {
 				savedStateOffset = EEPROM_SAVED_Z_STATE_OFFSET;
 		}
 		
-		// Save current value
-		nvm_eeprom_erase_and_write_buffer(savedValueOffset, &currentValues[i], savedValueLength);
+		// Check if saving state
+		if(save) {
+		
+			// Save current value
+			nvm_eeprom_erase_and_write_buffer(savedValueOffset, &currentValues[i], savedValueLength);
 
-		// Save if value is valid
-		nvm_eeprom_write_byte(savedStateOffset, currentStateOfValues[i]);
+			// Save if value is valid
+			nvm_eeprom_write_byte(savedStateOffset, currentStateOfValues[i]);
 		
-		// Check if direction is saved
-		if(savedDirectionOffset < EEPROM_SIZE)
+			// Check if direction is saved
+			if(savedDirectionOffset < EEPROM_SIZE)
 		
-			// Save direction
-			nvm_eeprom_write_byte(savedDirectionOffset, currentMotorDirections[i]);
+				// Save direction
+				nvm_eeprom_write_byte(savedDirectionOffset, currentMotorDirections[i]);
+		}
+		
+		// Otherwise assume restoring state
+		else {
+		
+			// Restore current value
+			nvm_eeprom_read_buffer(savedValueOffset, &currentValues[i], savedValueLength);
+
+			// Restore current state
+			currentStateOfValues[i] = nvm_eeprom_read_byte(savedStateOffset);
+		
+			// Check if direction is saved
+			if(savedDirectionOffset < EEPROM_SIZE)
+		
+				// Restore current direction
+				currentMotorDirections[i] = nvm_eeprom_read_byte(savedDirectionOffset);
+		}
 	}
-}
-
-void Motors::restoreState() {
-
-	nvm_eeprom_read_buffer(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, &currentValues[X], EEPROM_LAST_RECORDED_X_VALUE_LENGTH);
-	nvm_eeprom_read_buffer(EEPROM_LAST_RECORDED_Y_VALUE_OFFSET, &currentValues[Y], EEPROM_LAST_RECORDED_Y_VALUE_LENGTH);
-	nvm_eeprom_read_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
-	
-	currentStateOfValues[X] = nvm_eeprom_read_byte(EEPROM_SAVED_X_STATE_OFFSET);
-	currentStateOfValues[Y] = nvm_eeprom_read_byte(EEPROM_SAVED_Y_STATE_OFFSET);
-	currentStateOfValues[Z] = nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET);
-	
-	currentMotorDirections[X] = nvm_eeprom_read_byte(EEPROM_LAST_RECORDED_X_DIRECTION_OFFSET);
-	currentMotorDirections[Y] = nvm_eeprom_read_byte(EEPROM_LAST_RECORDED_Y_DIRECTION_OFFSET);
 }
 
 void Motors::homeXY(bool adjustHeight) {

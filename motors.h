@@ -13,6 +13,8 @@
 #define MOTORS_VREF_TIMER TCD0
 #define MOTORS_VREF_TIMER_PERIOD 0x27F
 #define NUMBER_OF_MOTORS 4
+#define saveState() changeState(true)
+#define restoreState() changeState(false)
 
 // Tasks
 #define NO_TASK 0
@@ -66,8 +68,8 @@ class Motors {
 		// Gantry clips detected
 		bool gantryClipsDetected();
 		
-		// Save state
-		void saveState();
+		// Change state
+		void changeState(bool save);
 		
 		// Reset
 		void reset();
@@ -88,9 +90,6 @@ class Motors {
 	
 	// Private
 	private:
-	
-		// Restore state
-		void restoreState();
 		
 		// Move to height
 		void moveToHeight(float height);
@@ -111,19 +110,10 @@ class Motors {
 		adc_config currentSenseAdcController;
 		adc_channel_config currentSenseAdcChannel;
 		
-		// Bed height offset
-		float bedHeightOffset;
-		
-		// Get next segment values
-		void getNextSegmentValues();
-		
 		// Segment values
-		Gcode bedLevelingGcode;
 		float startValues[NUMBER_OF_MOTORS];
 		float endValues[NUMBER_OF_MOTORS];
 		float valueChanges[NUMBER_OF_MOTORS];
-		uint32_t numberOfSegments;
-		uint32_t segmentCounter;
 		
 		// Vectors
 		Vector backRightVector;
