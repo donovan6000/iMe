@@ -117,7 +117,7 @@ int main() {
 			//motors.saveState();
 			
 			// Perform software reset
-			//reset_do_soft_reset();
+			reset_do_soft_reset();
 		}
 	
 		// Check if time to send wait

@@ -4,7 +4,6 @@ extern "C" {
 }
 #include <string.h>
 #include <ctype.h>
-#include <math.h>
 #include "common.h"
 
 

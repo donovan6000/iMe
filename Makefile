@@ -47,6 +47,7 @@ CPPSRCS = accelerometer.cpp \
 	led.cpp \
 	main.cpp \
 	motors.cpp \
+	power.cpp \
 	vector.cpp
 
 # Include paths

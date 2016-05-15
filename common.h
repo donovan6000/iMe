@@ -5,6 +5,7 @@
 
 // Header files
 #include <stdint.h>
+#include <math.h>
 
 
 // Definitions
@@ -13,6 +14,20 @@
 #define NUMBER_OF_DECIMAL_PLACES 4
 #define INT_BUFFER_SIZE sizeof("18446744073709551615")
 #define FLOAT_BUFFER_SIZE (sizeof("4294967296") + sizeof('.') + NUMBER_OF_DECIMAL_PLACES)
+
+// 12-bit integer limits
+#define UINT12_MAX (pow(2, 12) - 1)
+#define INT12_MAX (pow(2, 12 - 1) - 1)
+
+// ADC
+#define ADC_MODULE ADCA
+#define ADC_VREF_PIN IOPORT_CREATE_PIN(PORTA, 0)
+#define ADC_VCC_REFRENCE_DIVISION_FACTOR 1.6
+
+// Voltages
+#define MICROCONTROLLER_VOLTAGE 3.3
+#define ADC_VREF_VOLTAGE 2.6
+#define BANDGAP_VOLTAGE 1.1
 
 
 // Function prototypes

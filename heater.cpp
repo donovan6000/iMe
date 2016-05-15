@@ -3,7 +3,6 @@ extern "C" {
 	#include <asf.h>
 }
 #include <string.h>
-#include <math.h>
 #include "heater.h"
 #include "eeprom.h"
 #include "common.h"
@@ -11,6 +10,7 @@ extern "C" {
 
 // Definitions
 #define UPDATE_TEMPERATURE_PER_SECOND 2
+#define HEATER_READ_ADC ADC_MODULE
 #define HEATER_VOLTAGE_TO_TEMPERATURE_SCALAR 2.177778
 #define HEATER_READ_ADC_FREQUENCY 200000
 #define HEATER_READ_ADC_SAMPLE_SIZE 50
@@ -86,7 +86,7 @@ void Heater::initialize() {
 	// Reset
 	reset();
 	
-	// Set ADC heater controller to use signed, 12bit, bandgap refrence, and manual trigger
+	// Set ADC heater controller to use signed, 12-bit, bandgap refrence, and manual trigger
 	adc_read_configuration(&HEATER_READ_ADC, &heaterReadAdcController);
 	adc_set_conversion_parameters(&heaterReadAdcController, ADC_SIGN_ON, ADC_RES_12, ADC_REF_BANDGAP);
 	adc_set_conversion_trigger(&heaterReadAdcController, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
@@ -96,7 +96,7 @@ void Heater::initialize() {
 	adcch_read_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
 	adcch_set_input(&heaterReadAdcChannel, HEATER_READ_POSITIVE_INPUT, HEATER_READ_NEGATIVE_INPUT, 0);
 	
-	// Set ADC resistance controller to use unsigned, 12bit, bandgap refrence, and manual trigger
+	// Set ADC resistance controller to use unsigned, 12-bit, bandgap refrence, and manual trigger
 	adc_read_configuration(&HEATER_READ_ADC, &resistanceReadAdcController);
 	adc_set_conversion_parameters(&resistanceReadAdcController, ADC_SIGN_OFF, ADC_RES_12, ADC_REF_BANDGAP);
 	adc_set_conversion_trigger(&resistanceReadAdcController, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
@@ -106,11 +106,8 @@ void Heater::initialize() {
 	adcch_read_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &resistanceReadAdcChannel);
 	adcch_set_input(&resistanceReadAdcChannel, RESISTANCE_READ_INPUT, ADCCH_NEG_NONE, 1);
 	
-	// Enable ADC controller
-	adc_enable(&HEATER_READ_ADC);
-	
 	// Set if heater is working
-	isWorking = getHeaterValue() < (pow(2, 12 - 1) - 1) / 2;
+	isWorking = getHeaterValue() < INT12_MAX / 2;
 	
 	// Configure update temperature timer
 	tc_enable(&TEMPERATURE_TIMER);

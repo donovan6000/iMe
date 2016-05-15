@@ -6,7 +6,6 @@
 // Header files
 #include "accelerometer.h"
 #include "gcode.h"
-#include "heater.h"
 #include "vector.h"
 
 
@@ -64,17 +63,19 @@ class Motors {
 		// Update bed changes
 		void updateBedChanges(bool adjustHeight = true);
 		
-		// Save value
-		void saveValue(AXES motor);
-		
 		// Gantry clips detected
 		bool gantryClipsDetected();
+		
+		// Save state
+		void saveState();
 		
 		// Reset
 		void reset();
 		
-		// Current values
+		// State values
 		float currentValues[5];
+		bool currentMotorDirections[2];
+		bool currentStateOfValues[3];
 		
 		// Mode
 		MODES mode;
@@ -87,6 +88,9 @@ class Motors {
 	
 	// Private
 	private:
+	
+		// Restore state
+		void restoreState();
 		
 		// Move to height
 		void moveToHeight(float height);

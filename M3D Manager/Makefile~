@@ -2,7 +2,7 @@
 PROGRAM_NAME = M3D\ Manager
 VERSION = 0.01
 TARGET_PLATFORM = LINUX64
-USE_GUI = TRUE
+USE_GUI = FALSE
 IME_ROM_VERSION_STRING = 1900000007
 
 SRCS = main.cpp printer.cpp gcode.cpp common.cpp
