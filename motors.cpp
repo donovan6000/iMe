@@ -8,6 +8,7 @@ extern "C" {
 #include "eeprom.h"
 #include "heater.h"
 #include "common.h"
+#include "fan.h"
 
 
 // Definitions
@@ -46,6 +47,8 @@ extern "C" {
 #define MOTORS_STEP_TIMER_PERIOD 0x400
 #define MOTORS_CURRENT_SENSE_RESISTANCE 0.1
 #define MOTORS_CURRENT_TO_VOLTAGE_SCALAR (5 * MOTORS_CURRENT_SENSE_RESISTANCE)
+#define MOTORS_SAVE_TIMER FAN_TIMER
+#define MOTORS_SAVE_TIMER_PERIOD FAN_TIMER_PERIOD
 
 // Motor X settings
 #define MOTOR_X_DIRECTION_PIN IOPORT_CREATE_PIN(PORTC, 2)
@@ -115,6 +118,7 @@ extern "C" {
 
 
 // Global variables
+Motors *self;
 uint32_t motorsDelaySkips[NUMBER_OF_MOTORS];
 uint32_t motorsDelaySkipsCounter[NUMBER_OF_MOTORS];
 uint32_t motorsStepDelay[NUMBER_OF_MOTORS];
@@ -295,8 +299,11 @@ void stepTimerInterrupt(AXES motor) {
 
 void Motors::initialize() {
 
+	// Set self
+	self = this;
+
 	// Restore state
-	restoreState();
+	changeState();
 
 	// Set mode
 	mode = ABSOLUTE;
@@ -450,6 +457,28 @@ void Motors::initialize() {
 	
 	// Update bed changes
 	updateBedChanges(false);
+	
+	// Configure motors save interrupt
+	tc_set_overflow_interrupt_callback(&MOTORS_SAVE_TIMER, []() -> void {
+	
+		// Initialize variables
+		static uint8_t motorsSaveTimerCounter = 0;
+		static AXES currentSaveMotor = Z;
+	
+		// Check if one third of a second has passed
+		if(++motorsSaveTimerCounter >= sysclk_get_cpu_hz() / MOTORS_SAVE_TIMER_PERIOD / 64 / 3) {
+		
+			// Reset motors save timer counter
+			motorsSaveTimerCounter = 0;
+
+			// Set current save motor to next motor
+			currentSaveMotor = currentSaveMotor == Z ? X : static_cast<AXES>(currentSaveMotor + 1);
+	
+			// Save motor's state
+			self->changeState(true, currentSaveMotor);
+		}
+	});
+	tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
 }
 
 void Motors::turnOn() {
@@ -764,7 +793,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Get ideal motor E voltage
 				float idealVoltage = static_cast<float>(tc_read_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL)) / MOTORS_VREF_TIMER_PERIOD * MICROCONTROLLER_VOLTAGE;
 				
-				// Adjust motor E Vref to maintain a constant motor current
+				// Adjust motor E voltage to maintain a constant motor current
 				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round((motorVoltageE + idealVoltage - actualVoltage) / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 			}
 		}
@@ -1026,10 +1055,10 @@ bool Motors::gantryClipsDetected() {
 	return false;
 }
 
-void Motors::changeState(bool save) {
+void Motors::changeState(bool save, AXES motor) {
 
 	// Go through X, Y, and Z motors
-	for(uint8_t i = 0; i < 3; i++) {
+	for(uint8_t i = motor; i <= (save ? motor : 2); i++) {
 	
 		// Get value, state, and direction offsets
 		eeprom_addr_t savedValueOffset, savedStateOffset, savedDirectionOffset = EEPROM_SIZE;
@@ -1059,33 +1088,41 @@ void Motors::changeState(bool save) {
 		// Check if saving state
 		if(save) {
 		
-			// Save current value
-			nvm_eeprom_erase_and_write_buffer(savedValueOffset, &currentValues[i], savedValueLength);
-
-			// Save if value is valid
-			nvm_eeprom_write_byte(savedStateOffset, currentStateOfValues[i]);
-		
-			// Check if direction is saved
-			if(savedDirectionOffset < EEPROM_SIZE)
+			// Check if direction is saved and it's not up to date
+			if(savedDirectionOffset < EEPROM_SIZE && nvm_eeprom_read_byte(savedDirectionOffset) != currentMotorDirections[i])
 		
 				// Save direction
 				nvm_eeprom_write_byte(savedDirectionOffset, currentMotorDirections[i]);
+			
+			// Check if value's validity is not up to date
+			if(nvm_eeprom_read_byte(savedStateOffset) != currentStateOfValues[i])
+			
+				// Save if value is valid
+				nvm_eeprom_write_byte(savedStateOffset, currentStateOfValues[i]);
+		
+			// Check if current value is not up to date
+			float value;
+			nvm_eeprom_read_buffer(savedValueOffset, &value, savedValueLength);
+			if(value != currentValues[i])
+			
+				// Save current value
+				nvm_eeprom_erase_and_write_buffer(savedValueOffset, &currentValues[i], savedValueLength);
 		}
 		
 		// Otherwise assume restoring state
 		else {
-		
-			// Restore current value
-			nvm_eeprom_read_buffer(savedValueOffset, &currentValues[i], savedValueLength);
-
-			// Restore current state
-			currentStateOfValues[i] = nvm_eeprom_read_byte(savedStateOffset);
 		
 			// Check if direction is saved
 			if(savedDirectionOffset < EEPROM_SIZE)
 		
 				// Restore current direction
 				currentMotorDirections[i] = nvm_eeprom_read_byte(savedDirectionOffset);
+			
+			// Restore current state
+			currentStateOfValues[i] = nvm_eeprom_read_byte(savedStateOffset);
+			
+			// Restore current value
+			nvm_eeprom_read_buffer(savedValueOffset, &currentValues[i], savedValueLength);
 		}
 	}
 }

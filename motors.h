@@ -13,8 +13,6 @@
 #define MOTORS_VREF_TIMER TCD0
 #define MOTORS_VREF_TIMER_PERIOD 0x27F
 #define NUMBER_OF_MOTORS 4
-#define saveState() changeState(true)
-#define restoreState() changeState(false)
 
 // Tasks
 #define NO_TASK 0
@@ -68,9 +66,6 @@ class Motors {
 		// Gantry clips detected
 		bool gantryClipsDetected();
 		
-		// Change state
-		void changeState(bool save);
-		
 		// Reset
 		void reset();
 		
@@ -90,6 +85,9 @@ class Motors {
 	
 	// Private
 	private:
+	
+		// Change state
+		void changeState(bool save = false, AXES motor = X);
 		
 		// Move to height
 		void moveToHeight(float height);

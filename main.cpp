@@ -11,7 +11,6 @@ extern "C" {
 #include "heater.h"
 #include "led.h"
 #include "motors.h"
-#include "power.h"
 
 
 // Definitions
@@ -26,14 +25,12 @@ extern "C" {
 // Global variables
 char serialNumber[EEPROM_SERIAL_NUMBER_LENGTH];
 Gcode requests[REQUEST_BUFFER_SIZE];
-bool allowWaitResponse;
-uint16_t waitCounter;
+uint16_t waitTimerCounter;
 bool emergencyStopOccured = false;
 Fan fan;
 Heater heater;
 Led led;
 Motors motors;
-Power power;
 
 
 // Function prototypes
@@ -61,12 +58,6 @@ Name: Enable sending wait responses
 Purpose: Enabled sending wait responses every second
 */
 void enableSendingWaitResponses();
-
-/*
-Name: Save and reset
-Purpose: Saves state and resets the microcontroller
-*/
-void saveAndReset();
 
 
 // Main function
@@ -107,7 +98,6 @@ int main() {
 	heater.initialize();
 	led.initialize();
 	motors.initialize();
-	power.initialize();
 	
 	// Configure unknown pin
 	ioport_set_pin_dir(UNKNOWN_PIN, IOPORT_DIR_OUTPUT);
@@ -116,17 +106,11 @@ int main() {
 	// Configure send wait interrupt
 	tc_set_overflow_interrupt_callback(&WAIT_TIMER, []() -> void {
 	
-		// Check if power has been disconnected
-		//if(power.stableSupplyVoltage - power.getSupplyVoltage() >= 0.01)
+		// Check if one second has passed
+		if(++waitTimerCounter >= sysclk_get_cpu_hz() / WAIT_TIMER_PERIOD) {
 		
-			// Save and reset
-		//	saveAndReset();
-	
-		// Check if time to send wait
-		if(allowWaitResponse && ++waitCounter >= sysclk_get_cpu_hz() / WAIT_TIMER_PERIOD) {
-		
-			// Reset wait counter
-			waitCounter = 0;
+			// Reset wait timer counter
+			waitTimerCounter = 0;
 			
 			// Send wait
 			sendDataToUsb("wait\n", true);
@@ -342,8 +326,8 @@ int main() {
 											// Check if command is to reset
 											if(requests[currentProcessingRequest].valueS == 628)
 				
-												// Save and reset
-												saveAndReset();
+												// Reset
+												reset_do_soft_reset();
 				
 											// Otherwise
 											else {
@@ -730,24 +714,13 @@ void disableSendingWaitResponses() {
 
 	// Disable sending wait responses
 	tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_OFF);
-	allowWaitResponse = false;
-	tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_LO);
 }
 
 void enableSendingWaitResponses() {
 
-	// Enable sending wait responses
-	tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_OFF);
-	waitCounter = 0;
-	allowWaitResponse = true;
-	tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_LO);
-}
-
-void saveAndReset() {
-
-	// Save state
-	motors.saveState();
+	// Reset wait timer counter
+	waitTimerCounter = 0;
 	
-	// Perform software reset
-	reset_do_soft_reset();
+	// Enable sending wait responses
+	tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_LO);
 }

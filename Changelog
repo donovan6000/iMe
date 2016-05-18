@@ -1,5 +1,11 @@
 Changelog:
-	
+
+V00.00.00.07 May 18, 2016
+
+	* Prevents X and Y movements from going out of bounds
+	* Writing to the EEPROM has been moved to a timer interrupt to reduce how much it bottlenecked the movement speed
+	* Fixed serial port detection in the OS X version of M3D Manager
+
 V00.00.00.06 May 12, 2016
 
 	* Initial release
