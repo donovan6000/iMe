@@ -1,9 +1,9 @@
 # Target platform options: WINDOWS32, WINDOWS64, OSX32, OSX64, LINUX32, LINUX64
 PROGRAM_NAME = M3D\ Manager
-VERSION = 0.01
+VERSION = 0.02
 TARGET_PLATFORM = LINUX64
 USE_GUI = TRUE
-IME_ROM_VERSION_STRING = 1900000006
+IME_ROM_VERSION_STRING = 1900000007
 
 SRCS = main.cpp printer.cpp gcode.cpp common.cpp
 CFLAGS = -Wall -std=c++11 -O3 -D VERSION=$(VERSION) -D IME_ROM_VERSION_STRING=$(IME_ROM_VERSION_STRING) -D IME_HEADER="iMe $(IME_ROM_VERSION_STRING)_hex.h" -D IME_HEX_SIZE=iMe$(IME_ROM_VERSION_STRING)_hexSize -D IME_HEX_DATA=iMe$(IME_ROM_VERSION_STRING)_hexData
@@ -42,7 +42,7 @@ ifeq ($(TARGET_PLATFORM), OSX32)
 	PLATFORM = OSX
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = clang++
-	CFLAGS += -stdlib=libc++ -m32
+	CFLAGS += -framework IOKit -framework CoreFoundation -stdlib=libc++ -m32
 	ARCHIVE = "M3D Manager OS X.zip"
 	BUNDLE = "M3D Manager.app"
 	ifeq ($(USE_GUI), TRUE)
@@ -55,7 +55,7 @@ ifeq ($(TARGET_PLATFORM), OSX64)
 	PLATFORM = OSX
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = clang++
-	CFLAGS += -stdlib=libc++ -m64
+	CFLAGS += -framework IOKit -framework CoreFoundation -stdlib=libc++ -m64
 	ARCHIVE = "M3D Manager OS X.zip"
 	BUNDLE = "M3D Manager.app"
 	ifeq ($(USE_GUI), TRUE)

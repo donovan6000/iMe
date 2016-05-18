@@ -4,7 +4,6 @@ extern "C" {
 }
 #include <string.h>
 #include <ctype.h>
-#include <math.h>
 #include "common.h"
 
 
@@ -163,4 +162,10 @@ void sendDataToUsb(const char *data, bool checkBufferSize) {
 	
 		// Send data
 		udi_cdc_write_buf(data, length);
+}
+
+float getValueInRange(float value, float minValue, float maxValue) {
+
+	// Return value limited by range
+	return min(maxValue, max(minValue, value));
 }

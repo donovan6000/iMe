@@ -6,7 +6,6 @@
 // Header files
 #include "accelerometer.h"
 #include "gcode.h"
-#include "heater.h"
 #include "vector.h"
 
 
@@ -50,7 +49,7 @@ class Motors {
 		void move(const Gcode &gcode, uint8_t tasks = BACKLASH_TASK | BED_LEVELING_TASK | SAVE_CHANGES_TASK);
 		
 		// Home XY
-		void homeXY();
+		void homeXY(bool adjustHeight = true);
 		
 		// Save Z as bed center Z0
 		void saveZAsBedCenterZ0();
@@ -64,17 +63,16 @@ class Motors {
 		// Update bed changes
 		void updateBedChanges(bool adjustHeight = true);
 		
-		// Save value
-		void saveValue(AXES motor);
-		
 		// Gantry clips detected
 		bool gantryClipsDetected();
 		
 		// Reset
 		void reset();
 		
-		// Current values
+		// State values
 		float currentValues[5];
+		bool currentMotorDirections[2];
+		bool currentStateOfValues[3];
 		
 		// Mode
 		MODES mode;
@@ -87,6 +85,9 @@ class Motors {
 	
 	// Private
 	private:
+	
+		// Change state
+		void changeState(bool save = false, AXES motor = X);
 		
 		// Move to height
 		void moveToHeight(float height);
@@ -107,19 +108,10 @@ class Motors {
 		adc_config currentSenseAdcController;
 		adc_channel_config currentSenseAdcChannel;
 		
-		// Bed height offset
-		float bedHeightOffset;
-		
-		// Get next segment values
-		void getNextSegmentValues();
-		
 		// Segment values
-		Gcode bedLevelingGcode;
 		float startValues[NUMBER_OF_MOTORS];
 		float endValues[NUMBER_OF_MOTORS];
 		float valueChanges[NUMBER_OF_MOTORS];
-		uint32_t numberOfSegments;
-		uint32_t segmentCounter;
 		
 		// Vectors
 		Vector backRightVector;

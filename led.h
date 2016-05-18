@@ -7,7 +7,7 @@
 #define LED_MAX_BRIGHTNESS 100
 
 
-// Led class
+// LED class
 class Led {
 
 	// Public

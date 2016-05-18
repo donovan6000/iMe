@@ -7,19 +7,18 @@ extern "C" {
 #include "motors.h"
 #include "eeprom.h"
 #include "heater.h"
+#include "common.h"
+#include "fan.h"
 
 
 // Definitions
-#define MICROCONTROLLER_VOLTAGE 3.3
 #define SEGMENT_LENGTH 2
-#define ADC_VREF_PIN IOPORT_CREATE_PIN(PORTA, 0)
-#define ADC_VREF_VOLTAGE 2.6
 
 // Bed dimensions
 #define BED_CENTER_X 54
 #define BED_CENTER_Y 50
-#define BED_CENTER_X_DISTANCE_FROM_HOMING_CORNER 54
-#define BED_CENTER_Y_DISTANCE_FROM_HOMING_CORNER 50
+#define BED_CENTER_X_DISTANCE_FROM_HOMING_CORNER 55
+#define BED_CENTER_Y_DISTANCE_FROM_HOMING_CORNER 55
 #define CORNER_DISTANCE_FROM_CENTER 45
 #define BED_LOW_MAX_X 106.0
 #define BED_LOW_MIN_X -2.0
@@ -48,6 +47,8 @@ extern "C" {
 #define MOTORS_STEP_TIMER_PERIOD 0x400
 #define MOTORS_CURRENT_SENSE_RESISTANCE 0.1
 #define MOTORS_CURRENT_TO_VOLTAGE_SCALAR (5 * MOTORS_CURRENT_SENSE_RESISTANCE)
+#define MOTORS_SAVE_TIMER FAN_TIMER
+#define MOTORS_SAVE_TIMER_PERIOD FAN_TIMER_PERIOD
 
 // Motor X settings
 #define MOTOR_X_DIRECTION_PIN IOPORT_CREATE_PIN(PORTC, 2)
@@ -86,7 +87,7 @@ extern "C" {
 #define MOTOR_E_DIRECTION_PIN IOPORT_CREATE_PIN(PORTC, 3)
 #define MOTOR_E_VREF_PIN IOPORT_CREATE_PIN(PORTD, 0)
 #define MOTOR_E_STEP_PIN IOPORT_CREATE_PIN(PORTC, 4)
-#define MOTOR_E_CURRENT_SENSE_ADC HEATER_READ_ADC
+#define MOTOR_E_CURRENT_SENSE_ADC ADC_MODULE
 #define MOTOR_E_CURRENT_SENSE_PIN IOPORT_CREATE_PIN(PORTA, 7)
 #define MOTOR_E_CURRENT_SENSE_ADC_FREQUENCY 200000
 #define MOTOR_E_CURRENT_SENSE_ADC_SAMPLE_SIZE 50
@@ -117,6 +118,7 @@ extern "C" {
 
 
 // Global variables
+Motors *self;
 uint32_t motorsDelaySkips[NUMBER_OF_MOTORS];
 uint32_t motorsDelaySkipsCounter[NUMBER_OF_MOTORS];
 uint32_t motorsStepDelay[NUMBER_OF_MOTORS];
@@ -297,13 +299,16 @@ void stepTimerInterrupt(AXES motor) {
 
 void Motors::initialize() {
 
+	// Set self
+	self = this;
+
+	// Restore state
+	changeState();
+
 	// Set mode
 	mode = ABSOLUTE;
 	
-	// Set current values
-	nvm_eeprom_read_buffer(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, &currentValues[X], EEPROM_LAST_RECORDED_X_VALUE_LENGTH);
-	nvm_eeprom_read_buffer(EEPROM_LAST_RECORDED_Y_VALUE_OFFSET, &currentValues[Y], EEPROM_LAST_RECORDED_Y_VALUE_LENGTH);
-	nvm_eeprom_read_buffer(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, &currentValues[Z], EEPROM_LAST_RECORDED_Z_VALUE_LENGTH);
+	// Set initial values
 	currentValues[E] = 0;
 	currentValues[F] = MOTOR_X_MAX_FEEDRATE;
 	
@@ -338,13 +343,13 @@ void Motors::initialize() {
 	// Configure motor X Vref, direction, and step
 	ioport_set_pin_dir(MOTOR_X_VREF_PIN, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_dir(MOTOR_X_DIRECTION_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, nvm_eeprom_read_byte(EEPROM_LAST_RECORDED_X_DIRECTION_OFFSET));
+	ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, currentMotorDirections[X]);
 	ioport_set_pin_dir(MOTOR_X_STEP_PIN, IOPORT_DIR_OUTPUT);
 	
 	// Configure motor Y Vref, direction, and step
 	ioport_set_pin_dir(MOTOR_Y_VREF_PIN, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_dir(MOTOR_Y_DIRECTION_PIN, IOPORT_DIR_OUTPUT);
-	ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, nvm_eeprom_read_byte(EEPROM_LAST_RECORDED_Y_DIRECTION_OFFSET));
+	ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, currentMotorDirections[Y]);
 	ioport_set_pin_dir(MOTOR_Y_STEP_PIN, IOPORT_DIR_OUTPUT);
 	
 	// Configure motor Z VREF, direction, and step
@@ -430,11 +435,7 @@ void Motors::initialize() {
 		stepTimerInterrupt(E);
 	});
 	
-	// Configure ADC Vref pin
-	ioport_set_pin_dir(ADC_VREF_PIN, IOPORT_DIR_INPUT);
-	ioport_set_pin_mode(ADC_VREF_PIN, IOPORT_MODE_PULLDOWN);
-	
-	// Set ADC controller to use unsigned, 12bit, Vref refrence, and manual trigger
+	// Set ADC controller to use unsigned, 12-bit, Vref refrence, and manual trigger
 	adc_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &currentSenseAdcController);
 	adc_set_conversion_parameters(&currentSenseAdcController, ADC_SIGN_OFF, ADC_RES_12, ADC_REF_AREFA);
 	adc_set_conversion_trigger(&currentSenseAdcController, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
@@ -457,9 +458,27 @@ void Motors::initialize() {
 	// Update bed changes
 	updateBedChanges(false);
 	
-	// Initialize bed leveling G-code
-	bedLevelingGcode.valueG = 0;
-	bedLevelingGcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET;
+	// Configure motors save interrupt
+	tc_set_overflow_interrupt_callback(&MOTORS_SAVE_TIMER, []() -> void {
+	
+		// Initialize variables
+		static uint8_t motorsSaveTimerCounter = 0;
+		static AXES currentSaveMotor = Z;
+	
+		// Check if one third of a second has passed
+		if(++motorsSaveTimerCounter >= sysclk_get_cpu_hz() / MOTORS_SAVE_TIMER_PERIOD / 64 / 3) {
+		
+			// Reset motors save timer counter
+			motorsSaveTimerCounter = 0;
+
+			// Set current save motor to next motor
+			currentSaveMotor = currentSaveMotor == Z ? X : static_cast<AXES>(currentSaveMotor + 1);
+	
+			// Save motor's state
+			self->changeState(true, currentSaveMotor);
+		}
+	});
+	tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
 }
 
 void Motors::turnOn() {
@@ -539,18 +558,18 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Set current value
 				currentValues[i] = newValue;
 		
-				// Set steps per mm, motor direction, speed limit, min/max feed rates, and saved value offset
+				// Set steps per mm, motor direction, speed limit, and min/max feed rates
 				float stepsPerMm;
 				float speedLimit;
 				float maxFeedRate;
 				float minFeedRate;
-				eeprom_addr_t savedValueOffset = EEPROM_SIZE;
+				bool savesValidValue = true;
 				switch(i) {
 				
 					case X:
 						
 						// Check if direction changed
-						if(ioport_get_pin_level(MOTOR_X_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT))
+						if(currentMotorDirections[X] != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT))
 						
 							// Set backlash direction X
 							backlashDirectionX = lowerNewValue ? NEGATIVE : POSITIVE;
@@ -560,14 +579,12 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_X_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_X_LENGTH);
 						maxFeedRate = MOTOR_X_MAX_FEEDRATE;
 						minFeedRate = MOTOR_X_MIN_FEEDRATE;
-						
-						savedValueOffset = EEPROM_SAVED_X_STATE_OFFSET;
 					break;
 					
 					case Y:
 					
 						// Check if direction changed
-						if(ioport_get_pin_level(MOTOR_Y_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD))
+						if(currentMotorDirections[Y] != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD))
 						
 							// Set backlash direction Y
 							backlashDirectionY = lowerNewValue ? NEGATIVE : POSITIVE;
@@ -577,8 +594,6 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Y_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Y_LENGTH);
 						maxFeedRate = MOTOR_Y_MAX_FEEDRATE;
 						minFeedRate = MOTOR_Y_MIN_FEEDRATE;
-						
-						savedValueOffset = EEPROM_SAVED_Y_STATE_OFFSET;
 					break;
 					
 					case Z:
@@ -588,8 +603,6 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Z_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Z_LENGTH);
 						maxFeedRate = MOTOR_Z_MAX_FEEDRATE;
 						minFeedRate = MOTOR_Z_MIN_FEEDRATE;
-						
-						savedValueOffset = EEPROM_SAVED_Z_STATE_OFFSET;
 					break;
 					
 					default:
@@ -605,27 +618,29 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 							maxFeedRate = MOTOR_E_MAX_FEEDRATE_EXTRUSION;
 						}
 						minFeedRate = MOTOR_E_MIN_FEEDRATE;
+						
+						// Clear saves valid value
+						savesValidValue = false;
 				}
 				
 				// Check if motor moves
 				if((motorMoves[i] = round(distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP))) {
 				
-					// Check if saving changes and motor has a saved state
-					if(tasks & SAVE_CHANGES_TASK && savedValueOffset < EEPROM_SIZE) {
+					// Check if saving changes and saves if motor's state is valid
+					if(tasks & SAVE_CHANGES_TASK && savesValidValue) {
 				
-						// Set if value was valid
-						validValues[i] = nvm_eeprom_read_byte(savedValueOffset);
+						// Save if value is valid
+						validValues[i] = currentStateOfValues[i];
 
-						// Save that value is invalid
-						nvm_eeprom_write_byte(savedValueOffset, INVALID);
+						// Set that value is invalid
+						currentStateOfValues[i] = INVALID;
 					}
 				
 					// Set motor feedrate
 					float motorFeedRate = min(currentValues[F], speedLimit);
 				
 					// Enforce min/max feed rates
-					motorFeedRate = min(motorFeedRate, maxFeedRate);
-					motorFeedRate = max(motorFeedRate, minFeedRate);
+					motorFeedRate = getValueInRange(motorFeedRate, minFeedRate, maxFeedRate);
 		
 					// Set motor total time
 					uint32_t motorTotalTime = round(distanceTraveled / motorFeedRate * 60 * sysclk_get_cpu_hz() / MOTORS_STEP_TIMER_PERIOD);
@@ -644,10 +659,35 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		compensateForBacklash(backlashDirectionX, backlashDirectionY);
 	
 	// Check if set to compensate for bed leveling
-	if(tasks & BED_LEVELING_TASK)
+	if(tasks & BED_LEVELING_TASK) {
+	
+		// Limit X and Y from moving out of bounds
+		float minValues[2], maxValues[2];
+		if(currentValues[Z] < BED_LOW_MAX_Z) {
+			minValues[X] = BED_LOW_MIN_X;
+			minValues[Y] = BED_LOW_MIN_Y;
+			maxValues[X] = BED_LOW_MAX_X;
+			maxValues[Y] = BED_LOW_MAX_Y;
+		}
+		else if(currentValues[Z] < BED_MEDIUM_MAX_Z) {
+			minValues[X] = BED_MEDIUM_MIN_X;
+			minValues[Y] = BED_MEDIUM_MIN_Y;
+			maxValues[X] = BED_MEDIUM_MAX_X;
+			maxValues[Y] = BED_MEDIUM_MAX_Y;
+		}
+		else {
+			minValues[X] = BED_HIGH_MIN_X;
+			minValues[Y] = BED_HIGH_MIN_Y;
+			maxValues[X] = BED_HIGH_MAX_X;
+			maxValues[Y] = BED_HIGH_MAX_Y;
+		}
+		
+		currentValues[X] = getValueInRange(currentValues[X], minValues[X], maxValues[X]);
+		currentValues[Y] = getValueInRange(currentValues[Y], minValues[Y], maxValues[Y]);
 		
 		// Compensate for bed leveling
 		compensateForBedLeveling();
+	}
 	
 	// Otherwise check if an emergency stop didn't happen
 	else if(!emergencyStopOccured) {
@@ -722,9 +762,6 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		// Start motors step timer
 		tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);
 		tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
-		
-		// Get next segment values
-		getNextSegmentValues();
 	
 		// Wait until all motors step interrupts have stopped or an emergency stop occurs
 		while(MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm) && !emergencyStopOccured) {
@@ -751,12 +788,12 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				
 				// Set average actual motor E voltage
 				value /= MOTOR_E_CURRENT_SENSE_ADC_SAMPLE_SIZE;
-				float actualVoltage = ADC_VREF_VOLTAGE / (pow(2, 12) - 1) * value;
+				float actualVoltage = ADC_VREF_VOLTAGE / UINT12_MAX * value;
 		
 				// Get ideal motor E voltage
 				float idealVoltage = static_cast<float>(tc_read_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL)) / MOTORS_VREF_TIMER_PERIOD * MICROCONTROLLER_VOLTAGE;
 				
-				// Adjust motor E Vref to maintain a constant motor current
+				// Adjust motor E voltage to maintain a constant motor current
 				tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round((motorVoltageE + idealVoltage - actualVoltage) / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 			}
 		}
@@ -777,47 +814,23 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		// Check if motor X direction changed
 		if(backlashDirectionX != NONE)
 		
-			// Save motor X direction
-			nvm_eeprom_write_byte(EEPROM_LAST_RECORDED_X_DIRECTION_OFFSET, backlashDirectionX == NEGATIVE ? DIRECTION_LEFT : DIRECTION_RIGHT);
+			// Set motor X direction
+			currentMotorDirections[X] = backlashDirectionX == NEGATIVE ? DIRECTION_LEFT : DIRECTION_RIGHT;
 		
 		// Check if motor Y direction changed
 		if(backlashDirectionY != NONE)
 		
-			// Save motor Y direction
-			nvm_eeprom_write_byte(EEPROM_LAST_RECORDED_Y_DIRECTION_OFFSET, backlashDirectionY == NEGATIVE ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
+			// Set motor Y direction
+			currentMotorDirections[Y] = backlashDirectionY == NEGATIVE ? DIRECTION_FORWARD : DIRECTION_BACKWARD;
 		
 		// Go through X, Y, and Z motors
 		for(uint8_t i = 0; i < 3; i++)
 		
-			// Check if motor moved
-			if(motorMoves[i]) {
-			
-				// Save value
-				saveValue(static_cast<AXES>(i));
-
-				// Check if value was previously valid and an emergency stop didn't happen
-				if(validValues[i] && !emergencyStopOccured) {
+			// Check if motor moved, value was previously valid, and an emergency stop didn't happen
+			if(motorMoves[i] && validValues[i] && !emergencyStopOccured)
 				
-					// Save get saved value offset
-					eeprom_addr_t savedValueOffset;
-					switch(i) {
-				
-						case X:
-							savedValueOffset = EEPROM_SAVED_X_STATE_OFFSET;
-						break;
-					
-						case Y:
-							savedValueOffset = EEPROM_SAVED_Y_STATE_OFFSET;
-						break;
-					
-						default:
-							savedValueOffset = EEPROM_SAVED_Z_STATE_OFFSET;
-					}
-	
-					// Save that Z is valid
-					nvm_eeprom_write_byte(savedValueOffset, VALID);
-				}
-			}
+				// Set that Z is valid
+				currentStateOfValues[i] = VALID;
 	}
 }
 
@@ -919,15 +932,42 @@ void Motors::compensateForBedLeveling() {
 	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
 		valueChanges[i] = horizontalDistance ? valueChanges[i] / horizontalDistance : 0;
 	
-	// Go through all segments
-	for(numberOfSegments = max(1, ceil(horizontalDistance / SEGMENT_LENGTH)), segmentCounter = 0; segmentCounter <= numberOfSegments;) {
+	// Initialize G-code
+	Gcode gcode;
+	gcode.valueG = 0;
+	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET;
 	
-		// Set initial segment values
-		if(!segmentCounter)
-			getNextSegmentValues();
+	// Go through all segments
+	for(uint32_t numberOfSegments = max(1, ceil(horizontalDistance / SEGMENT_LENGTH)), segmentCounter = 1; segmentCounter <= numberOfSegments; segmentCounter++) {
+	
+		// Go through all motors
+		for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
+	
+			// Set segment value
+			float segmentValue = segmentCounter != numberOfSegments ? startValues[i] + segmentCounter * SEGMENT_LENGTH * valueChanges[i] : endValues[i];
+	
+			// Set G-code parameter
+			switch(i) {
+		
+				case X:
+					gcode.valueX = segmentValue;
+				break;
+			
+				case Y:
+					gcode.valueY = segmentValue;
+				break;
+			
+				case Z:
+					gcode.valueZ = segmentValue + getHeightAdjustmentRequired(gcode.valueX, gcode.valueY);
+				break;
+			
+				default:
+					gcode.valueE = segmentValue;
+			}
+		}
 		
 		// Move to end of current segment
-		move(bedLevelingGcode, NO_TASK);
+		move(gcode, NO_TASK);
 	}
 	
 	// Restore Z value
@@ -938,6 +978,9 @@ void Motors::compensateForBedLeveling() {
 }
 
 void Motors::updateBedChanges(bool adjustHeight) {
+
+	// Initialize bed height offset
+	static float bedHeightOffset;
 
 	// Set previous height adjustment
 	float previousHeightAdjustment = getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) + bedHeightOffset;
@@ -1000,76 +1043,10 @@ void Motors::updateBedChanges(bool adjustHeight) {
 	nvm_eeprom_read_buffer(EEPROM_BED_HEIGHT_OFFSET_OFFSET, &bedHeightOffset, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
 	
 	// Check if adjusting height
-	if(adjustHeight) {
+	if(adjustHeight)
 	
 		// Set current Z
 		currentValues[Z] += previousHeightAdjustment - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) - bedHeightOffset;
-
-		// Save current Z
-		saveValue(Z);
-	}
-}
-
-void Motors::saveValue(AXES motor) {
-
-	// Get offset, length, and value
-	eeprom_addr_t eepromOffset;
-	uint8_t eepromLength;
-	float *value;
-	switch(motor) {
-	
-		case X:
-			eepromOffset = EEPROM_LAST_RECORDED_X_VALUE_OFFSET;
-			eepromLength = EEPROM_LAST_RECORDED_X_VALUE_LENGTH;
-			value = &currentValues[X];
-		break;
-		
-		case Y:
-			eepromOffset = EEPROM_LAST_RECORDED_Y_VALUE_OFFSET;
-			eepromLength = EEPROM_LAST_RECORDED_Y_VALUE_LENGTH;
-			value = &currentValues[Y];
-		break;
-		
-		default:
-			eepromOffset = EEPROM_LAST_RECORDED_Z_VALUE_OFFSET;
-			eepromLength = EEPROM_LAST_RECORDED_Z_VALUE_LENGTH;
-			value = &currentValues[Z];
-	}
-	
-	// Save current value
-	nvm_eeprom_erase_and_write_buffer(eepromOffset, value, eepromLength);
-}
-
-void Motors::getNextSegmentValues() {
-
-	// Increment segment counter
-	segmentCounter++;
-	
-	// Go through all motors
-	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
-	
-		// Set segment value
-		float segmentValue = segmentCounter != numberOfSegments ? startValues[i] + segmentCounter * SEGMENT_LENGTH * valueChanges[i] : endValues[i];
-	
-		// Set G-code parameter
-		switch(i) {
-		
-			case X:
-				bedLevelingGcode.valueX = segmentValue;
-			break;
-			
-			case Y:
-				bedLevelingGcode.valueY = segmentValue;
-			break;
-			
-			case Z:
-				bedLevelingGcode.valueZ = segmentValue + getHeightAdjustmentRequired(bedLevelingGcode.valueX, bedLevelingGcode.valueY);
-			break;
-			
-			default:
-				bedLevelingGcode.valueE = segmentValue;
-		}
-	}
 }
 
 bool Motors::gantryClipsDetected() {
@@ -1078,11 +1055,82 @@ bool Motors::gantryClipsDetected() {
 	return false;
 }
 
-void Motors::homeXY() {
+void Motors::changeState(bool save, AXES motor) {
 
-	// Save that X and Y are invalid
-	nvm_eeprom_write_byte(EEPROM_SAVED_X_STATE_OFFSET, INVALID);
-	nvm_eeprom_write_byte(EEPROM_SAVED_Y_STATE_OFFSET, INVALID);
+	// Go through X, Y, and Z motors
+	for(uint8_t i = motor; i <= (save ? motor : 2); i++) {
+	
+		// Get value, state, and direction offsets
+		eeprom_addr_t savedValueOffset, savedStateOffset, savedDirectionOffset = EEPROM_SIZE;
+		uint8_t savedValueLength;
+		switch(i) {
+	
+			case X:
+				savedValueOffset = EEPROM_LAST_RECORDED_X_VALUE_OFFSET;
+				savedValueLength = EEPROM_LAST_RECORDED_X_VALUE_LENGTH;
+				savedStateOffset = EEPROM_SAVED_X_STATE_OFFSET;
+				savedDirectionOffset = EEPROM_LAST_RECORDED_X_DIRECTION_OFFSET;
+			break;
+		
+			case Y:
+				savedValueOffset = EEPROM_LAST_RECORDED_Y_VALUE_OFFSET;
+				savedValueLength = EEPROM_LAST_RECORDED_Y_VALUE_LENGTH;
+				savedStateOffset = EEPROM_SAVED_Y_STATE_OFFSET;
+				savedDirectionOffset = EEPROM_LAST_RECORDED_Y_DIRECTION_OFFSET;
+			break;
+		
+			default:
+				savedValueOffset = EEPROM_LAST_RECORDED_Z_VALUE_OFFSET;
+				savedValueLength = EEPROM_LAST_RECORDED_Z_VALUE_LENGTH;
+				savedStateOffset = EEPROM_SAVED_Z_STATE_OFFSET;
+		}
+		
+		// Check if saving state
+		if(save) {
+		
+			// Check if direction is saved and it's not up to date
+			if(savedDirectionOffset < EEPROM_SIZE && nvm_eeprom_read_byte(savedDirectionOffset) != currentMotorDirections[i])
+		
+				// Save direction
+				nvm_eeprom_write_byte(savedDirectionOffset, currentMotorDirections[i]);
+			
+			// Check if value's validity is not up to date
+			if(nvm_eeprom_read_byte(savedStateOffset) != currentStateOfValues[i])
+			
+				// Save if value is valid
+				nvm_eeprom_write_byte(savedStateOffset, currentStateOfValues[i]);
+		
+			// Check if current value is not up to date
+			float value;
+			nvm_eeprom_read_buffer(savedValueOffset, &value, savedValueLength);
+			if(value != currentValues[i])
+			
+				// Save current value
+				nvm_eeprom_erase_and_write_buffer(savedValueOffset, &currentValues[i], savedValueLength);
+		}
+		
+		// Otherwise assume restoring state
+		else {
+		
+			// Check if direction is saved
+			if(savedDirectionOffset < EEPROM_SIZE)
+		
+				// Restore current direction
+				currentMotorDirections[i] = nvm_eeprom_read_byte(savedDirectionOffset);
+			
+			// Restore current state
+			currentStateOfValues[i] = nvm_eeprom_read_byte(savedStateOffset);
+			
+			// Restore current value
+			nvm_eeprom_read_buffer(savedValueOffset, &currentValues[i], savedValueLength);
+		}
+	}
+}
+
+void Motors::homeXY(bool adjustHeight) {
+
+	// Set that X and Y are invalid
+	currentStateOfValues[X] = currentStateOfValues[Y] = INVALID;
 	
 	// Go through X and Y motors
 	for(int8_t i = 1; i >= 0 && !emergencyStopOccured; i--) {
@@ -1179,7 +1227,7 @@ void Motors::homeXY() {
 		gcode.valueG = 0;
 		gcode.valueX = -BED_CENTER_X_DISTANCE_FROM_HOMING_CORNER;
 		gcode.valueY = -BED_CENTER_Y_DISTANCE_FROM_HOMING_CORNER;
-		gcode.valueZ = getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+		gcode.valueZ = adjustHeight ? getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) : 0;
 		gcode.valueF = MOTOR_X_MAX_FEEDRATE;
 		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_F_OFFSET;
 		move(gcode, SAVE_CHANGES_TASK);
@@ -1192,17 +1240,11 @@ void Motors::homeXY() {
 		currentValues[Y] = BED_CENTER_Y;
 		currentValues[Z] = savedZ;
 		
-		// Save current X, Y, and Z
-		for(uint8_t i = 0; i < 3; i++)
-			saveValue(static_cast<AXES>(i));
-		
 		// Check if an emergency stop didn't happen
-		if(!emergencyStopOccured) {
+		if(!emergencyStopOccured)
 
-			// Save that X and Y are valid
-			nvm_eeprom_write_byte(EEPROM_SAVED_X_STATE_OFFSET, VALID);
-			nvm_eeprom_write_byte(EEPROM_SAVED_Y_STATE_OFFSET, VALID);
-		}
+			// Set that X and Y are valid
+			currentStateOfValues[X] = currentStateOfValues[Y] = VALID;
 	}
 }
 
@@ -1210,21 +1252,18 @@ void Motors::saveZAsBedCenterZ0() {
 
 	// Set current Z
 	currentValues[Z] = 0;
-
-	// Save current Z
-	saveValue(Z);
 	
-	// Save that Z is valid
-	nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, VALID);
+	// Set that Z is valid
+	currentStateOfValues[Z] = VALID;
 }
 
 void Motors::moveToZ0() {
 	
-	// Check if Z is valid
-	bool validZ = nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET);
+	// Save if Z is valid
+	bool validZ = currentStateOfValues[Z];
 	
-	// Save that Z is invalid
-	nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, INVALID);
+	// Set that Z is invalid
+	currentStateOfValues[Z] = INVALID;
 	
 	// Find Z0
 	float lastZ0 = currentValues[Z];
@@ -1293,33 +1332,30 @@ void Motors::moveToZ0() {
 		// Save current Z as last Z0
 		lastZ0 = currentValues[Z];
 		
-		// Move slightly up
+		// Move up by 2mm
 		moveToHeight(currentValues[Z] + 2);
 	}
 	
 	// Set motor Z Vref to idle
 	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-	
-	// Save current Z
-	saveValue(Z);
 
 	// Check if Z was previously valid and an emergency stop didn't happen
 	if(validZ && !emergencyStopOccured)
 	
-		// Save that Z is valid
-		nvm_eeprom_write_byte(EEPROM_SAVED_Z_STATE_OFFSET, VALID);
+		// Set that Z is valid
+		currentStateOfValues[Z] = VALID;
 }
 
 void Motors::calibrateBedCenterZ0() {
 
-	// Move to height 3mm
-	moveToHeight(3);
+	// Move up by 3mm
+	moveToHeight(currentValues[Z] + 3);
 	
 	// Check if emergency stop hasn't occured
 	if(!emergencyStopOccured) {
 
 		// Home XY
-		homeXY();
+		homeXY(false);
 	
 		// Check if emergency stop hasn't occured
 		if(!emergencyStopOccured) {

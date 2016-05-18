@@ -25,7 +25,7 @@ extern "C" {
 // Global variables
 char serialNumber[EEPROM_SERIAL_NUMBER_LENGTH];
 Gcode requests[REQUEST_BUFFER_SIZE];
-uint16_t waitCounter;
+uint16_t waitTimerCounter;
 bool emergencyStopOccured = false;
 Fan fan;
 Heater heater;
@@ -46,6 +46,18 @@ Name: CDC disconnect callback
 Purpose: Callback for when USB is disconnected from host
 */
 void cdcDisconnectCallback(uint8_t port);
+
+/*
+Name: Disable sending wait responses
+Purpose: Disables sending wait responses every second
+*/
+void disableSendingWaitResponses();
+
+/*
+Name: Enable sending wait responses
+Purpose: Enabled sending wait responses every second
+*/
+void enableSendingWaitResponses();
 
 
 // Main function
@@ -74,6 +86,13 @@ int main() {
 	char responseBuffer[UINT8_MAX];
 	char numberBuffer[INT_BUFFER_SIZE];
 	
+	// Configure ADC Vref pin
+	ioport_set_pin_dir(ADC_VREF_PIN, IOPORT_DIR_INPUT);
+	ioport_set_pin_mode(ADC_VREF_PIN, IOPORT_MODE_PULLDOWN);
+	
+	// Enable ADC module
+	adc_enable(&ADC_MODULE);
+	
 	// Initialize peripherals
 	fan.initialize();
 	heater.initialize();
@@ -87,11 +106,11 @@ int main() {
 	// Configure send wait interrupt
 	tc_set_overflow_interrupt_callback(&WAIT_TIMER, []() -> void {
 	
-		// Check if time to send wait
-		if(++waitCounter >= sysclk_get_cpu_hz() / WAIT_TIMER_PERIOD) {
+		// Check if one second has passed
+		if(++waitTimerCounter >= sysclk_get_cpu_hz() / WAIT_TIMER_PERIOD) {
 		
-			// Reset wait counter
-			waitCounter = 0;
+			// Reset wait timer counter
+			waitTimerCounter = 0;
 			
 			// Send wait
 			sendDataToUsb("wait\n", true);
@@ -111,9 +130,8 @@ int main() {
 	// Initialize USB
 	udc_start();
 	
-	// Enable send wait interrupt
-	waitCounter = 0;
-	tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_LO);
+	// Enable sending wait responses
+	enableSendingWaitResponses();
 	
 	// Main loop
 	while(true) {
@@ -124,8 +142,8 @@ int main() {
 		// Check if a current processing request is ready
 		if(requests[currentProcessingRequest].commandParameters) {
 		
-			// Disable send wait interrupt
-			tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_OFF);
+			// Disable sending wait responses
+			disableSendingWaitResponses();
 			
 			// Check if an emergency stop hasn't occured
 			if(!emergencyStopOccured) {
@@ -308,7 +326,7 @@ int main() {
 											// Check if command is to reset
 											if(requests[currentProcessingRequest].valueS == 628)
 				
-												// Perform software reset
+												// Reset
 												reset_do_soft_reset();
 				
 											// Otherwise
@@ -325,11 +343,11 @@ int main() {
 						
 											// Set response to valid values
 											strcpy(responseBuffer, "ok XV:");
-											strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_X_STATE_OFFSET) ? "1" : "0");
+											strcat(responseBuffer, motors.currentStateOfValues[X] ? "1" : "0");
 											strcat(responseBuffer, " YV:");
-											strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_Y_STATE_OFFSET) ? "1" : "0");
+											strcat(responseBuffer, motors.currentStateOfValues[Y] ? "1" : "0");
 											strcat(responseBuffer, " ZV:");
-											strcat(responseBuffer, nvm_eeprom_read_byte(EEPROM_SAVED_Z_STATE_OFFSET) ? "1" : "0");
+											strcat(responseBuffer, motors.currentStateOfValues[Z] ? "1" : "0");
 										break;
 										
 										// M404
@@ -563,15 +581,10 @@ int main() {
 													}
 													
 													// Set parameter is provided
-													if(requests[currentProcessingRequest].commandParameters & parameterOffset) {
+													if(requests[currentProcessingRequest].commandParameters & parameterOffset)
 													
 														// Set motors current value
 														motors.currentValues[i] = *value;
-														
-														// Save current X, Y, and Z
-														if(i != E)
-															motors.saveValue(static_cast<AXES>(i));
-													}
 												}
 				
 												// Set response to confirmation
@@ -579,7 +592,7 @@ int main() {
 											}
 									}
 								}
-				
+								
 								// Otherwise check if command has parameter T
 								else if(requests[currentProcessingRequest].commandParameters & PARAMETER_T_OFFSET)
 				
@@ -621,16 +634,15 @@ int main() {
 			// Increment current processing request
 			currentProcessingRequest = currentProcessingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentProcessingRequest + 1;
 			
-			// Enable send wait interrupt
-			waitCounter = 0;
-			tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_LO);
+			// Enable sending wait responses
+			enableSendingWaitResponses();
 		}
 		
 		// Otherwise check if an emergency stop has occured
 		else if(emergencyStopOccured) {
 		
-			// Disable send wait interrupt
-			tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_OFF);
+			// Disable sending wait responses
+			disableSendingWaitResponses();
 		
 			// Reset all peripherals
 			fan.setSpeed(0);
@@ -644,9 +656,8 @@ int main() {
 			// Send confirmation
 			sendDataToUsb("ok\n");
 			
-			// Enable send wait interrupt
-			waitCounter = 0;
-			tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_LO);
+			// Enable sending wait responses
+			enableSendingWaitResponses();
 		}
 	}
 	
@@ -697,4 +708,19 @@ void cdcDisconnectCallback(uint8_t port) {
 	// Prepare to reattach to the host
 	udc_detach();
 	udc_attach();
+}
+
+void disableSendingWaitResponses() {
+
+	// Disable sending wait responses
+	tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_OFF);
+}
+
+void enableSendingWaitResponses() {
+
+	// Reset wait timer counter
+	waitTimerCounter = 0;
+	
+	// Enable sending wait responses
+	tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_LO);
 }

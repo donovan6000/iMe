@@ -13,6 +13,13 @@
 #else
 	#include <termios.h>
 #endif
+#ifdef OSX
+	#include <CoreFoundation/CoreFoundation.h>
+	#include <IOKit/IOKitLib.h>
+	#include <IOKit/serial/IOSerialKeys.h>
+	#include <IOKit/IOBSD.h>
+	#include <sys/param.h>
+#endif
 #include "printer.h"
 
 using namespace std;
@@ -87,9 +94,7 @@ void sleepUs(uint64_t microSeconds) {
 		// Return true
 		return true;
 	}
-#endif
-
-#ifdef WINDOWS
+	
 	static DWORD WINAPI staticThreadStart(void *parameter) {
 	
 		// Update status
@@ -1215,39 +1220,70 @@ void Printer::updateAvailableSerialPorts() {
 	
 	// Otherwise check if using OS X
 	#ifdef OSX
-	
-		// Check if getting ports was successful
-		FILE* ports = popen("python -c \"import serial.tools.list_ports;print list(serial.tools.list_ports.comports())\"", "r");
-		if(ports) {
 		
-			// Read ports
-			int character;
-			string allPorts, temp;
-			while((character = fgetc(ports)) != EOF) {
-				allPorts.push_back(character);
-				temp.push_back(toupper(character));
+		// Check if establish connection to IOKit was successful
+		mach_port_t masterPort;
+		if(IOMasterPort(MACH_PORT_NULL, &masterPort) == KERN_SUCCESS) {
+			
+			// Check if creating matching dictionary for IOKit devices was successful
+			CFMutableDictionaryRef classesToMatch = IOServiceMatching(kIOSerialBSDServiceValue);
+			if(classesToMatch) {
+			
+				// Set dictionary to match modem devices
+				CFDictionarySetValue(classesToMatch, CFSTR(kIOSerialBSDTypeKey), CFSTR(kIOSerialBSDModemType));
+				
+				// Check if getting list of devices was successful
+				io_iterator_t serialPortIterator;
+				if(IOServiceGetMatchingServices(masterPort, classesToMatch, &serialPortIterator) == KERN_SUCCESS) {
+					
+					// Iterate through all devices
+					io_object_t modemService;
+					while((modemService = IOIteratorNext(serialPortIterator))) {
+
+						// Check if device has a VID
+						CFTypeRef vidType = IORegistryEntrySearchCFProperty(modemService, kIOServicePlane, CFSTR("idVendor"), kCFAllocatorDefault, kIORegistryIterateRecursively | kIORegistryIterateParents);
+						if(vidType) {
+
+							// Check if device has a PID
+							CFTypeRef pidType = IORegistryEntrySearchCFProperty(modemService, kIOServicePlane, CFSTR("idProduct"), kCFAllocatorDefault, kIORegistryIterateRecursively | kIORegistryIterateParents);
+							if(pidType) {
+						
+								// Check if device has the printer's PID and VID
+								int pid, vid;
+								if(CFNumberGetValue(reinterpret_cast<CFNumberRef>(vidType), kCFNumberIntType, &vid) && CFNumberGetValue(reinterpret_cast<CFNumberRef>(pidType), kCFNumberIntType, &pid) && vid == 0x03EB && pid == 0x2404) {
+							
+									// Check if device has a file path
+									CFTypeRef deviceFilePathAsCFString = IORegistryEntryCreateCFProperty(modemService, CFSTR(kIOCalloutDeviceKey), kCFAllocatorDefault, 0);
+									if(deviceFilePathAsCFString) {
+									
+										// Check if getting device's file path was successful
+										char deviceFilePath[MAXPATHLEN] = {};
+										if(CFStringGetCString(reinterpret_cast<CFStringRef>(deviceFilePathAsCFString), deviceFilePath, sizeof(deviceFilePath), kCFStringEncodingASCII))
+									
+											// Append serial port to list
+											availableSerialPorts.push_back(deviceFilePath);
+									
+										// release device's file path
+										CFRelease(deviceFilePathAsCFString);
+									}
+								}
+
+								// Release PID
+								CFRelease(pidType);
+							}
+
+							// Release VID
+							CFRelease(vidType);
+						}
+						
+						// Release current device
+						IOObjectRelease(modemService);
+					}
+					
+					// Release list of devices
+					IOObjectRelease(serialPortIterator);
+				}
 			}
-		
-			// Go through all ports with the printer's PID and VID
-			size_t offset = 0;
-			while((offset = temp.find("USB VID:PID=3EB:2404", offset)) != string::npos) {
-		
-				// Get current port
-				size_t portOffset = allPorts.substr(0, offset).find_last_of('[') + 2;
-			
-				string currentPort;
-				while(allPorts[portOffset] != '\'')
-					currentPort.push_back(allPorts[portOffset++]);
-			
-				// Append serial port to list
-				availableSerialPorts.push_back(currentPort);
-			
-				// Increment offset
-				offset++;	
-			}
-			
-			// Close ports
-			pclose(ports);
 		}
 	#endif
 	
