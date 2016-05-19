@@ -199,7 +199,7 @@ Printer::updateStatus() {
 		releaseLock();
 		
 		// Sleep
-		sleepUs(100000);
+		sleepUs(100);
 	}
 	
 	// Check if using Windows
