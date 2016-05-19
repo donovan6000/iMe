@@ -24,7 +24,7 @@ class Vector {
 		
 		// Subtraction operator
 		Vector operator-(const Vector &subtrahend) const;
-		Vector &operator-=(const Vector &addend);
+		Vector &operator-=(const Vector &subtrahend);
 		
 		// Multiplication operator
 		Vector operator*(float multiplier) const;

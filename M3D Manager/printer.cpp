@@ -1221,7 +1221,7 @@ void Printer::updateAvailableSerialPorts() {
 	// Otherwise check if using OS X
 	#ifdef OSX
 		
-		// Check if establish connection to IOKit was successful
+		// Check if establishing connection to IOKit was successful
 		mach_port_t masterPort;
 		if(IOMasterPort(MACH_PORT_NULL, &masterPort) == KERN_SUCCESS) {
 			

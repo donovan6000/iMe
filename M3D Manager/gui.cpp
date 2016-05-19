@@ -1,6 +1,7 @@
 // Header files
 #include <fstream>
 #include <wx/artprov.h>
+#include <wx/mstream.h>
 #include "gui.h"
 #ifdef WINDOWS
 	#include <setupapi.h>
@@ -13,9 +14,19 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	wxFrame(nullptr, wxID_ANY, title, pos, size, style)
 {
 
-	// Add icon
+	// Set icon
 	#ifdef WINDOWS
 		SetIcon(wxICON(MAINICON));
+	#endif
+	
+	#ifdef LINUX
+		wxMemoryInputStream imageStream(icon_pngData, icon_pngSize);
+		wxImage image;
+		wxInitAllImageHandlers();
+		image.LoadFile(imageStream, wxBITMAP_TYPE_PNG);
+		wxIcon icon;
+		icon.CopyFromBitmap(wxBitmap(image)); 
+		SetIcon(icon);
 	#endif
 
 	// Add menu bar

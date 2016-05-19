@@ -447,10 +447,11 @@ int main() {
 											}
 										break;
 						
-										// M21, M84, or M110
+										// M21, M84, M110, or M999
 										case 21:
 										case 84:
 										case 110:
+										case 999:
 				
 											// Set response to confirmation
 											strcpy(responseBuffer, "ok");
