@@ -60,6 +60,12 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		void close(wxCloseEvent& event);
 		
 		/*
+		Name: Show
+		Purpose: Event that's called when frame is shown
+		*/
+		void show(wxShowEvent &event);
+		
+		/*
 		Name: Connect to printer
 		Purpose: Connects to the printer
 		*/
@@ -134,12 +140,14 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		wxButton *refreshSerialPortsButton;
 		wxButton *connectButton;
 		wxStaticText *versionText;
-		wxStaticText *connectionText;
+		wxStaticText *statusText;
 		wxButton *installFirmwareFromFileButton;
 		wxButton *installImeFirmwareButton;
 		wxButton *switchToFirmwareModeButton;
 		wxTimer *statusTimer;
-		wxTextEntry* commandInput;
+		wxTextCtrl* commandInput;
+		wxTextCtrl* consoleOutput;
+		wxButton *sendCommandButton;
 		
 		// Critical lock
 		wxCriticalSection criticalLock;

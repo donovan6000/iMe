@@ -224,11 +224,11 @@ bool Printer::connect(const string &serialPort) {
 	// Disconnect if already connected
 	disconnect();
         
-        // Attempt to connect for 2 seconds
-        for(uint8_t i = 0; i < 2000000 / 250000; i++) {
+        // Attempt to connect for half a seconds
+        for(uint8_t i = 0; i < 500000 / 100000; i++) {
         
-        	// Wait 250 milliseconds
-		sleepUs(250000);
+        	// Wait 100 milliseconds
+		sleepUs(100000);
 		
 		// Get current serial port
 		currentSerialPort = serialPort.length() ? serialPort : getNewSerialPort();
@@ -399,7 +399,7 @@ bool Printer::connect(const string &serialPort) {
 	if(status == "Connecting" || status == "Reconnecting") {
 	
 		if(!currentSerialPort.length())
-			status = "Device not found";
+			status = serialPort.length() ? "Device not found" : "No devices found";
 		else
 			status = "Failed to connect to the device";
 	}
@@ -740,16 +740,18 @@ bool Printer::sendRequestAscii(const char *data, bool checkForModeSwitching) {
 		bool returnValue = write(fd, data, strlen(data)) == static_cast<signed int>(strlen(data));
 	#endif
 	
-	// Release lock
-	releaseLock();
-	
 	// Reconnect if data was successfully sent and switching into bootloader mode
-	if(returnValue && checkForModeSwitching && (!strcmp(data, "M115 S628") || !strcmp(data, "Q")))
+	if(returnValue && checkForModeSwitching && (!strcmp(data, "M115 S628") || !strcmp(data, "Q"))) {
+		sleepUs(1000000);
 		connect();
+	}
 	
 	// Disconnect if sending request failed
 	if(!returnValue || !isConnected())
 		disconnect();
+	
+	// Release lock
+	releaseLock();
 	
 	// Return if request was successfully sent
 	return returnValue && isConnected();
@@ -776,16 +778,18 @@ bool Printer::sendRequestAscii(char data, bool checkForModeSwitching) {
 		bool returnValue = write(fd, &data, 1) == 1;
 	#endif
 	
-	// Release lock
-	releaseLock();
-	
 	// Reconnect if data was successfully sent and switching into bootloader mode
-	if(returnValue && checkForModeSwitching && data == 'Q')
+	if(returnValue && checkForModeSwitching && data == 'Q') {
+		sleepUs(1000000);
 		connect();
+	}
 	
 	// Disconnect if sending request failed
 	if(!returnValue || !isConnected())
 		disconnect();
+	
+	// Release lock
+	releaseLock();
 	
 	// Return if request was successfully sent
 	return returnValue && isConnected();
@@ -827,16 +831,18 @@ bool Printer::sendRequestBinary(const Gcode &data) {
 		bool returnValue = write(fd, request.data(), request.size()) == static_cast<signed int>(request.size());		
 	#endif
 	
-	// Release lock
-	releaseLock();
-	
 	// Reconnect if data was successfully sent and switching into bootloader mode
-	if(returnValue && data.getValue('M') == "115" && data.getValue('S') == "628")
+	if(returnValue && data.getValue('M') == "115" && data.getValue('S') == "628") {
+		sleepUs(1000000);
 		connect();
+	}
 	
 	// Disconnect if sending request failed
 	if(!returnValue || !isConnected())
 		disconnect();
+	
+	// Release lock
+	releaseLock();
 	
 	// Return if request was successfully sent
 	return returnValue && isConnected();

@@ -27,6 +27,7 @@ using namespace std;
 
 // Packed files
 #include "icon_png.h"
+#include "refresh_png.h"
 #include TOSTRING(IME_HEADER)
 #include "M3D_cat.h"
 #include "M3D_inf.h"

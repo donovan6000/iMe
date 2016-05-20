@@ -1,6 +1,6 @@
 # Target platform options: WINDOWS32, WINDOWS64, OSX32, OSX64, LINUX32, LINUX64
 PROGRAM_NAME = M3D\ Manager
-VERSION = 0.02
+VERSION = 0.03
 TARGET_PLATFORM = LINUX64
 USE_GUI = TRUE
 IME_ROM_VERSION_STRING = 1900000008
@@ -94,16 +94,17 @@ all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(SRCS)
 	$(CC) $(CFLAGS) "bin2h.cpp" -o "bin2h"
-	./bin2h "resources/icon.png"
+	./bin2h "resources/images/icon.png"
+	./bin2h "resources/images/refresh.png"
 	./bin2h "../iMe $(IME_ROM_VERSION_STRING).hex"
 	./bin2h "resources/Linux/90-m3d-local.rules"
 	./bin2h "resources/Windows/M3D.cat"
 	./bin2h "resources/Windows/M3D.inf"
 	$(CC) -o $(EXECUTABLE) $(SRCS) $(LIBS) -D $(PLATFORM) $(CFLAGS)
-	rm -f "resource.o" "bin2h" "icon_png.h" "iMe $(IME_ROM_VERSION_STRING)_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
+	rm -f "resource.o" "bin2h" "icon_png.h" "refresh_png.h" "iMe $(IME_ROM_VERSION_STRING)_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
 
 clean:
-	rm -rf $(EXECUTABLE) $(BUNDLE) $(ARCHIVE) "resource.o" "applet.iconset" "icon.ico" "bin2h" "icon_png.h" "iMe $(IME_ROM_VERSION_STRING)_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
+	rm -rf $(EXECUTABLE) $(BUNDLE) $(ARCHIVE) "resource.o" "applet.iconset" "icon.ico" "bin2h" "icon_png.h" "refresh_png.h" "iMe $(IME_ROM_VERSION_STRING)_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
 
 run:
 	./$(EXECUTABLE)
@@ -113,7 +114,7 @@ install:
 
 resourceFile:
 	rm -f "resource.o" "icon.ico"
-	convert "resources/icon.png" -define icon:auto-resize="256,128,64,48,32,24,16" "icon.ico"
+	convert "resources/images/icon.png" -define icon:auto-resize="256,128,64,48,32,24,16" "icon.ico"
 	$(WINDRES) "resources/Windows/resource.rc" -o "resource.o"
 	rm -f "icon.ico"
 
@@ -122,16 +123,16 @@ app:
 	cp -r "resources/OS X/M3D Manager.app" .
 	mv $(EXECUTABLE) "M3D Manager.app/Contents/MacOS"
 	mkdir "applet.iconset"
-	sips -z 16 16 "resources/icon.png" --out "applet.iconset/icon_16x16.png"
-	sips -z 32 32 "resources/icon.png" --out "applet.iconset/icon_16x16@2x.png"
-	sips -z 32 32 "resources/icon.png" --out "applet.iconset/icon_32x32.png"
-	sips -z 64 64 "resources/icon.png" --out "applet.iconset/icon_32x32@2x.png"
-	sips -z 128 128 "resources/icon.png" --out "applet.iconset/icon_128x128.png"
-	sips -z 256 256 "resources/icon.png" --out "applet.iconset/icon_128x128@2x.png"
-	sips -z 256 256 "resources/icon.png" --out "applet.iconset/icon_256x256.png"
-	sips -z 512 512 "resources/icon.png" --out "applet.iconset/icon_256x256@2x.png"
-	sips -z 512 512 "resources/icon.png" --out "applet.iconset/icon_512x512.png"
-	sips -z 1024 1024 "resources/icon.png" --out "applet.iconset/icon_512x512@2x.png"
+	sips -z 16 16 "resources/images/icon.png" --out "applet.iconset/icon_16x16.png"
+	sips -z 32 32 "resources/images/icon.png" --out "applet.iconset/icon_16x16@2x.png"
+	sips -z 32 32 "resources/images/icon.png" --out "applet.iconset/icon_32x32.png"
+	sips -z 64 64 "resources/images/icon.png" --out "applet.iconset/icon_32x32@2x.png"
+	sips -z 128 128 "resources/images/icon.png" --out "applet.iconset/icon_128x128.png"
+	sips -z 256 256 "resources/images/icon.png" --out "applet.iconset/icon_128x128@2x.png"
+	sips -z 256 256 "resources/images/icon.png" --out "applet.iconset/icon_256x256.png"
+	sips -z 512 512 "resources/images/icon.png" --out "applet.iconset/icon_256x256@2x.png"
+	sips -z 512 512 "resources/images/icon.png" --out "applet.iconset/icon_512x512.png"
+	sips -z 1024 1024 "resources/images/icon.png" --out "applet.iconset/icon_512x512@2x.png"
 	iconutil --convert icns "applet.iconset"
 	rm -rf "applet.iconset"
 	mv "applet.icns" "M3D Manager.app/Contents/Resources"
