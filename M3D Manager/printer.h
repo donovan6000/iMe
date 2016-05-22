@@ -15,6 +15,12 @@
 using namespace std;
 
 
+// Definitions
+
+// Firmware types
+enum firmwareTypes {M3D, M3D_MOD, IME, UNKNOWN};
+
+
 // Class
 class Printer {
 
@@ -37,7 +43,7 @@ class Printer {
 		Name: Connect
 		Purpose: Connects or reconnects to the printer
 		*/
-		bool connect(const string &serialPort = "");
+		bool connect(const string &serialPort = "", bool getEeprom = true);
 		
 		/*
 		Name: Disconnect
@@ -82,6 +88,9 @@ class Printer {
 		bool sendRequestBinary(const Gcode &data);
 		bool sendRequestBinary(const char *data);
 		bool sendRequestBinary(const string &data);
+		bool sendRequest(const Gcode &data);
+		bool sendRequest(const char *data);
+		bool sendRequest(const string &data);
 		
 		/*
 		Name: Receive Response
@@ -118,6 +127,24 @@ class Printer {
 			void
 		#endif
 		updateStatus();
+		
+		/*
+		Name: Get serial number
+		Purpose: Returns the printer's serial number
+		*/
+		string getSerialNumber();
+		
+		/*
+		Name: Get firmware type
+		Purpose: Returns the printer's firmware type
+		*/
+		string getFirmwareType();
+		
+		/*
+		Name: Get firmware version
+		Purpose: Returns the printer's firmware version
+		*/
+		string getFirmwareVersion();
 	
 	// Private
 	private:
@@ -127,6 +154,30 @@ class Printer {
 		
 		// Release lock
 		void releaseLock();
+		
+		// EEPROM
+		string eeprom;
+		
+		// Firmware version
+		uint32_t firmwareVersion;
+		
+		// Serial number
+		string serialNumber;
+		
+		// Firmware type
+		firmwareTypes firmwareType;
+		
+		// Read EEPROM
+		bool readEeprom();
+		
+		// EEPROM get int
+		uint32_t eepromGetInt(uint16_t offset, uint8_t length);
+		
+		// EEPROM get float
+		float eepromGetFloat(uint16_t offset, uint8_t length);
+		
+		// EEPROM get string
+		string eepromGetString(uint16_t offset, uint8_t length);
 	
 		// Write to EEPROM
 		bool writeToEeprom(uint16_t address, const uint8_t *data, uint16_t length);

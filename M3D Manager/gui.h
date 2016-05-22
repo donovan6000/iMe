@@ -6,6 +6,7 @@
 // Header files
 #include <string>
 #include <functional>
+#include <queue>
 #include <wx/sysopt.h>
 #include "common.h"
 #include "printer.h"
@@ -13,11 +14,11 @@
 using namespace std;
 
 
-struct ThreadMessage {
+// Thread task response struct
+struct ThreadTaskResponse {
 	string message;
 	int style;
 };
-
 
 // My app class
 class MyApp: public wxApp {
@@ -48,13 +49,19 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		wxThread::ExitCode Entry();
 		
 		/*
-		Name: On thread complete
-		Purpose: Event that's called when thread finishes performing a task
+		Name: Thread task start
+		Purpose: Event that's called when background thread starts a task
 		*/
-		void threadComplete(wxThreadEvent& event);
+		void threadTaskStart(wxThreadEvent& event);
 		
 		/*
-		Name: On close
+		Name: Thread task complete
+		Purpose: Event that's called when background thread completes a task
+		*/
+		void threadTaskComplete(wxThreadEvent& event);
+		
+		/*
+		Name: Close
 		Purpose: Event that's called when frame closes
 		*/
 		void close(wxCloseEvent& event);
@@ -133,7 +140,10 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 	private:
 	
 		// Install firmware
-		void installFirmware(const string &firmwareLocation);
+		ThreadTaskResponse installFirmware(const string &firmwareLocation);
+		
+		// Log to console
+		void logToConsole(const string &text);
 	
 		// Controls
 		wxChoice *serialPortChoice;
@@ -148,18 +158,15 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		wxTextCtrl* commandInput;
 		wxTextCtrl* consoleOutput;
 		wxButton *sendCommandButton;
+		wxButton *installDriversButton;
 		
 		// Critical lock
 		wxCriticalSection criticalLock;
 		
-		// Thread task
-		string threadTask;
-		
-		// Thread message
-		ThreadMessage threadMessage;
-		
-		// Thread complete callback
-		function<void()> threadCompleteCallback;
+		// Thread start, task, and complete queues
+		queue<function<void()>> threadStartCallbackQueue;
+		queue<function<ThreadTaskResponse()>> threadTaskQueue;
+		queue<function<void(ThreadTaskResponse response)>> threadCompleteCallbackQueue;
 		
 		// Printer
 		Printer printer;

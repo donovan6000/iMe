@@ -21,6 +21,7 @@
 	#include <sys/param.h>
 #endif
 #include "printer.h"
+#include "../eeprom.h"
 
 using namespace std;
 
@@ -199,7 +200,7 @@ Printer::updateStatus() {
 		releaseLock();
 		
 		// Sleep
-		sleepUs(100);
+		sleepUs(50);
 	}
 	
 	// Check if using Windows
@@ -210,7 +211,7 @@ Printer::updateStatus() {
 	#endif
 }
 
-bool Printer::connect(const string &serialPort) {
+bool Printer::connect(const string &serialPort, bool getEeprom) {
 
 	// Acquire lock
 	acquireLock();
@@ -272,11 +273,35 @@ bool Printer::connect(const string &serialPort) {
 						// Check if setting port timeouts was successful
 						if(SetCommTimeouts(fd, &serialPortTimeouts)) {
 						
-							// Release lock
-							releaseLock();
+							// Check if not getting EEPROM
+							if(!getEeprom) {
 						
-							// Return true
-							return true;
+								// Release lock
+								releaseLock();
+
+								// Return true
+								return true;
+							}
+						
+							// Otherwise
+							else {
+					
+								// Check if reading EEPROM was successful
+								if(readEeprom()) {
+							
+									// Release lock
+									releaseLock();
+
+									// Return true
+									return true;
+								}
+							
+								// Otherwise
+								else
+		
+									// Disconnect
+									disconnect();
+							}
 						}
 		
 						// Otherwise
@@ -350,12 +375,36 @@ bool Printer::connect(const string &serialPort) {
 
 					// Check if setting port settings was successful
 					if(tcsetattr(fd, TCSANOW, &settings) != -1) {
-				
-						// Release lock
-						releaseLock();
+					
+						// Check if not getting EEPROM
+						if(!getEeprom) {
+						
+							// Release lock
+							releaseLock();
 
-						// Return true
-						return true;
+							// Return true
+							return true;
+						}
+						
+						// Otherwise
+						else {
+					
+							// Check if reading EEPROM was successful
+							if(readEeprom()) {
+							
+								// Release lock
+								releaseLock();
+
+								// Return true
+								return true;
+							}
+							
+							// Otherwise
+							else
+		
+								// Disconnect
+								disconnect();
+						}
 					}
 				
 					// Otherwise
@@ -406,6 +455,60 @@ bool Printer::connect(const string &serialPort) {
 	
 	// Release lock
 	releaseLock();
+	
+	// Return false
+	return false;
+}
+
+bool Printer::readEeprom() {
+
+	// Switch to bootloader mode if not already in it
+	if(!inBootloaderMode())
+		switchToBootloaderMode();
+
+	// Check if printer is still connected
+	if(isConnected())
+
+		// Check if request EEPROM was successful
+		if(sendRequestAscii('S')) {
+	
+			// Check if response was correctly received
+			string response = receiveResponseAscii();
+			if(response.length() == 0x301 && response[0x300] == '\r') {
+		
+				// Set EEPROM
+				eeprom = response.substr(0, 0x300);
+				
+				// Set firmware version
+				firmwareVersion = eepromGetInt(EEPROM_FIRMWARE_VERSION_OFFSET, EEPROM_FIRMWARE_VERSION_LENGTH);
+				
+				// Set firmware type
+				switch(firmwareVersion / 100000000) {
+				
+					case 19:
+						firmwareType = IME;
+					break;
+					
+					case 20:
+						firmwareType = M3D;
+					break;
+					
+					case 21:
+						firmwareType = M3D_MOD;
+					break;
+					
+					default:
+						firmwareType = UNKNOWN;
+				}
+				
+				// Set serial number
+				serialNumber = eepromGetString(EEPROM_SERIAL_NUMBER_OFFSET, EEPROM_SERIAL_NUMBER_LENGTH);
+				serialNumber = serialNumber.substr(0, 2) + '-' + serialNumber.substr(2, 2) + '-' + serialNumber.substr(4, 2) + '-' + serialNumber.substr(6, 2) + '-' + serialNumber.substr(8, 2) + '-' + serialNumber.substr(10, 3) + '-' + serialNumber.substr(13, 13);
+
+				// Return true
+				return true;
+			}
+		}
 	
 	// Return false
 	return false;
@@ -743,7 +846,7 @@ bool Printer::sendRequestAscii(const char *data, bool checkForModeSwitching) {
 	// Reconnect if data was successfully sent and switching into bootloader mode
 	if(returnValue && checkForModeSwitching && (!strcmp(data, "M115 S628") || !strcmp(data, "Q"))) {
 		sleepUs(1000000);
-		connect();
+		connect("", false);
 	}
 	
 	// Disconnect if sending request failed
@@ -781,7 +884,7 @@ bool Printer::sendRequestAscii(char data, bool checkForModeSwitching) {
 	// Reconnect if data was successfully sent and switching into bootloader mode
 	if(returnValue && checkForModeSwitching && data == 'Q') {
 		sleepUs(1000000);
-		connect();
+		connect("", false);
 	}
 	
 	// Disconnect if sending request failed
@@ -834,7 +937,7 @@ bool Printer::sendRequestBinary(const Gcode &data) {
 	// Reconnect if data was successfully sent and switching into bootloader mode
 	if(returnValue && data.getValue('M') == "115" && data.getValue('S') == "628") {
 		sleepUs(1000000);
-		connect();
+		connect("", false);
 	}
 	
 	// Disconnect if sending request failed
@@ -866,6 +969,51 @@ bool Printer::sendRequestBinary(const string &data) {
 
 	// Send request
 	return sendRequestBinary(data.c_str());
+}
+
+bool Printer::sendRequest(const Gcode &data) {
+
+	// Send request
+	switch(firmwareType) {
+	
+		case M3D:
+		case M3D_MOD:
+			return sendRequestBinary(data);
+		break;
+		
+		default:
+			return sendRequestAscii(data);
+	}
+}
+
+bool Printer::sendRequest(const char *data) {
+
+	// Send request
+	switch(firmwareType) {
+	
+		case M3D:
+		case M3D_MOD:
+			return sendRequestBinary(data);
+		break;
+		
+		default:
+			return sendRequestAscii(data);
+	}
+}
+
+bool Printer::sendRequest(const string &data) {
+
+	// Send request
+	switch(firmwareType) {
+	
+		case M3D:
+		case M3D_MOD:
+			return sendRequestBinary(data);
+		break;
+		
+		default:
+			return sendRequestAscii(data);
+	}
 }
 
 string Printer::receiveResponseAscii() {
@@ -1457,4 +1605,89 @@ void Printer::releaseLock() {
 		// Release lock
 		mutex.unlock();
 	#endif
+}
+
+uint32_t Printer::eepromGetInt(uint16_t offset, uint8_t length) {
+
+	// Initialize value
+	uint32_t value = 0;
+	
+	// Get value from EEPROM
+	for(int16_t i = offset + length - 1; i >= offset; i--) {
+		value <<= 8;
+		value += static_cast<uint8_t>(eeprom[i]);
+	}
+	
+	// return value
+	return value;
+}
+
+float Printer::eepromGetFloat(uint16_t offset, uint8_t length) {
+
+	// Get value
+	uint32_t value = eepromGetInt(offset, length);
+	
+	// Return value as float
+	float *valueAsFloat = reinterpret_cast<float *>(&value);
+	return *valueAsFloat;
+}
+
+string Printer::eepromGetString(uint16_t offset, uint8_t length) {
+
+	// Initialize value
+	string value;
+	
+	// Get value from EEPROM
+	for(uint16_t i = offset; i < offset + length; i++) {
+	
+		if(!eeprom[i])
+			break;
+		
+		value.push_back(eeprom[i]);
+	}
+	
+	// return value
+	return value;
+}
+
+string Printer::getSerialNumber() {
+
+	// Return serial number
+	return serialNumber;
+}
+
+string Printer::getFirmwareType() {
+
+	// Return firmware type
+	switch(firmwareType) {
+	
+		case IME:
+			return "iMe";
+		
+		case M3D:
+			return "M3D";
+		
+		case M3D_MOD:
+			return "M3D Mod";
+		
+		default:
+			return "unknown";
+	}
+}
+
+string Printer::getFirmwareVersion() {
+
+	// Return firmware version
+	switch(firmwareType) {
+	
+		case M3D:
+			return to_string(firmwareVersion);
+		
+		case M3D_MOD:
+			return to_string(firmwareVersion  - 100000000);
+		
+		default:
+			string temp = to_string(firmwareVersion);
+			return temp.substr(2, 2) + '.' + temp.substr(4, 2) + '.' + temp.substr(6, 2) + '.' + temp.substr(8, 2);
+	}
 }
