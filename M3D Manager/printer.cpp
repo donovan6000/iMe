@@ -48,24 +48,19 @@ const uint32_t crc32Table[] = {0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA, 0
 
 
 // Supporting function implementation
-void sleepUs(uint64_t microSeconds) {
+void sleepUs(uint64_t microseconds) {
 
 	// Check if using Windows
 	#ifdef WINDOWS
 	
 		// Sleep
-		LARGE_INTEGER totalTime;
-		totalTime.QuadPart = -10 * microSeconds;
-		HANDLE timer = CreateWaitableTimer(nullptr, true, nullptr);
-		SetWaitableTimer(timer, &totalTime, 0, nullptr, nullptr, 0);
-		WaitForSingleObject(timer, INFINITE);
-		CloseHandle(timer);
+		Sleep(static_cast<float>(microseconds) / 1000);
 	
 	// Otherwise
 	#else
 	
 		// Sleep
-		usleep(microSeconds);
+		usleep(microseconds);
 	#endif
 }
 
@@ -200,7 +195,7 @@ Printer::updateStatus() {
 		releaseLock();
 		
 		// Sleep
-		sleepUs(50);
+		sleepUs(10000);
 	}
 	
 	// Check if using Windows
@@ -264,11 +259,11 @@ bool Printer::connect(const string &serialPort, bool getEeprom) {
 						// Configure port timeouts
 						COMMTIMEOUTS serialPortTimeouts;
 						SecureZeroMemory(&serialPortTimeouts, sizeof(serialPortTimeouts));
-						serialPortTimeouts.ReadIntervalTimeout = 50;
-						serialPortTimeouts.ReadTotalTimeoutConstant = 50;
+						serialPortTimeouts.ReadIntervalTimeout = 100;
+						serialPortTimeouts.ReadTotalTimeoutConstant = 100;
 						serialPortTimeouts.ReadTotalTimeoutMultiplier = 10;
-						serialPortTimeouts.WriteTotalTimeoutConstant = 50;
-						serialPortTimeouts.WriteTotalTimeoutMultiplier = 10;
+						serialPortTimeouts.WriteTotalTimeoutConstant = 0;
+						serialPortTimeouts.WriteTotalTimeoutMultiplier = 0;
 						
 						// Check if setting port timeouts was successful
 						if(SetCommTimeouts(fd, &serialPortTimeouts)) {

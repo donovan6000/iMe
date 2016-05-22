@@ -340,20 +340,17 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef LINUX
 		426, -1
 	#endif
-	));
+	), wxTE_PROCESS_ENTER);
 	commandInput->SetHint("Command");
-	commandInput->Bind(wxEVT_KEY_DOWN, [=](wxKeyEvent& event) {
+	commandInput->Bind(wxEVT_TEXT_ENTER, [=](wxCommandEvent& event) {
 	
-		// Check if return was pressed
-		if(event.GetKeyCode() == WXK_RETURN && sendCommandButton->IsEnabled()) {
+		// Check if commands can be sent
+		if(sendCommandButton->IsEnabled()) {
 		
 			// Send command
 			wxCommandEvent sendCommandEvent(wxEVT_BUTTON, sendCommandButton->GetId());
 			wxPostEvent(sendCommandButton, sendCommandEvent);
 		}
-		
-		// Allow key press to propagate
-		event.Skip();
 	});
 	
 	// Create send command button
