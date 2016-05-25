@@ -6,11 +6,26 @@
 string getTemporaryLocation() {
 
 	// Return temp location
-	char* tempPath = getenv("TEMP");
-	if(!tempPath)
-		 tempPath = getenv("TMP");
-	if(!tempPath)
-		 tempPath = getenv("TMPDIR");
+	char* path = getenv("TEMP");
+	if(!path)
+		 path = getenv("TMP");
+	if(!path)
+		path = getenv("TMPDIR");
 	
-	return tempPath ? tempPath : P_tmpdir;
+	string tempPath = path ? path : P_tmpdir;
+	
+	// Make sure path ends with a path seperator
+	char pathSeperator =
+	#ifdef WINDOWS
+		'\\'
+	#else
+		'/'
+	#endif
+	;
+	
+	if(tempPath.back() != pathSeperator)
+		tempPath.push_back(pathSeperator);
+	
+	// Return temp path
+	return tempPath;
 }

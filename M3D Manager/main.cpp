@@ -89,14 +89,14 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 				if(!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
 		
 					// Display help
-					cout << "Usage: \"M3D Manager\" -d -s -i -m protocol -r firmware.rom serialport" << endl;
+					cout << "Usage: \"M3D Manager\" -d -s -i -m -r firmware.rom serialport" << endl;
 					#ifndef OSX
 						cout << "-d | --drivers: Install device drivers" << endl;
 					#endif
 					cout << "-s | --start: Switches printer into firmware mode" << endl;
 					cout << "-i | --ime: Installs iMe firmware" << endl;
 					cout << "-r | --rom: Installs the provided firmware" << endl;
-					cout << "-m | --manual: Allows manually sending commands to the printer using the protocol Repetier or RepRap" << endl;
+					cout << "-m | --manual: Allows manually sending commands to the printer" << endl;
 					cout << "serialport: The printer's serial port or it will automatically find the printer if not specified" << endl << endl;
 			
 					// Return
@@ -116,7 +116,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 						#ifdef WINDOWS
 			
 							// Check if creating drivers file failed
-							ofstream fout(getTemporaryLocation() + "/M3D.cat", ios::binary);
+							ofstream fout(getTemporaryLocation() + "M3D.cat", ios::binary);
 							if(fout.fail()) {
 					
 								// Display error
@@ -132,7 +132,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 							fout.close();
 					
 							// Check if creating drivers file failed
-							fout.open(getTemporaryLocation() + "/M3D.inf", ios::binary);
+							fout.open(getTemporaryLocation() + "M3D.inf", ios::binary);
 							if(fout.fail()) {
 					
 								// Display error
@@ -165,7 +165,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 							SecureZeroMemory(&processInfo, sizeof(processInfo));
 						
 							TCHAR command[MAX_PATH];
-							_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + getTemporaryLocation() + "\\M3D.inf\"").c_str());
+							_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + getTemporaryLocation() + "M3D.inf\"").c_str());
 						
 							if(!CreateProcess(nullptr, command, nullptr, nullptr, false, CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &processInfo)) {
 
@@ -309,7 +309,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 					cout << "Installing iMe firmware" << endl;
 		
 					// Set firmware location
-					string firmwareLocation = getTemporaryLocation() + "/iMe " TOSTRING(IME_ROM_VERSION_STRING) ".hex";
+					string firmwareLocation = getTemporaryLocation() + "iMe " TOSTRING(IME_ROM_VERSION_STRING) ".hex";
 		
 					// Check if creating iMe firmware ROM failed
 					ofstream fout(firmwareLocation, ios::binary);
@@ -382,29 +382,6 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 					// Display message
 					cout << "Starting manual mode" << endl;
 		
-					// Check if protocol parameter doesn't exist
-					if(i >= argc - 1) {
-		
-						// Display error
-						cout << "No protocol provided" << endl;
-					
-						// Return
-						return EXIT_FAILURE;
-					}
-			
-					// Set protocol
-					string protocol = static_cast<string>(argv[++i]);
-			
-					// Check if protocol is invalid
-					if(protocol != "Repetier" && protocol != "RepRap") {
-		
-						// Display error
-						cout << "Invalid protocol" << endl;
-					
-						// Return
-						return EXIT_FAILURE;
-					}
-		
 					// Set serial port
 					string serialPort;
 					if(i < argc - 1)
@@ -449,9 +426,12 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 					
 							// Break;
 							break;
+						
+						// Set changed mode
+						bool changedMode = (line == "Q" && printer.getOperatingMode() == BOOTLOADER) || (line == "M115 S628" && printer.getOperatingMode() == FIRMWARE);
 				
 						// Check if failed to send command to the printer
-						if(protocol == "Repetier" ? !printer.sendRequestBinary(line) : !printer.sendRequestAscii(line)) {
+						if(!printer.sendRequest(line)) {
 	
 							// Display error
 							cout << (printer.isConnected() ? "Sending command failed" : "Printer disconnected") << endl << endl;
@@ -464,11 +444,11 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 						cout << "Send: " << line << endl;
 				
 						// Wait until command receives a response
-						for(string response; line != "Q" && line != "M115 S628" && response.substr(0, 2) != "ok" && response.substr(0, 2) != "rs" && response.substr(0, 4) != "skip" && response.substr(0, 5) != "Error";) {
+						for(string response; !changedMode && response.substr(0, 2) != "ok" && response.substr(0, 2) != "rs" && response.substr(0, 4) != "skip" && response.substr(0, 5) != "Error";) {
 		
 							// Get response
 							do {
-								response = printer.receiveResponseBinary();
+								response = printer.receiveResponse();
 							} while(response.empty() && printer.isConnected());
 						
 							// Check if printer isn't connected
@@ -484,6 +464,12 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 							// Display response
 							if(response != "wait")
 								cout << "Receive: " << response << endl;
+							
+							// Check if printer is in bootloader mode
+							if(printer.getOperatingMode() == BOOTLOADER)
+						
+								// Break
+								break;
 						}
 						cout << endl;
 					}

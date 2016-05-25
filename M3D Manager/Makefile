@@ -68,12 +68,12 @@ ifeq ($(TARGET_PLATFORM), LINUX32)
 	PLATFORM = LINUX
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = g++
-	CFLAGS += -lGL -pthread -static-libgcc -static-libstdc++ -m32
+	CFLAGS += -pthread -static-libgcc -static-libstdc++ -m32
 	ARCHIVE = "M3D Manager Linux.zip"
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
-		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --gl-libs --static`
+		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --gl-libs --static` -lGL
 	endif
 endif
 
@@ -81,12 +81,12 @@ ifeq ($(TARGET_PLATFORM), LINUX64)
 	PLATFORM = LINUX
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = g++
-	CFLAGS += -lGL -pthread -static-libgcc -static-libstdc++ -m64
+	CFLAGS += -pthread -static-libgcc -static-libstdc++ -m64
 	ARCHIVE = "M3D Manager Linux.zip"
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
-		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --gl-libs --static`
+		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --gl-libs --static` -lGL
 	endif
 endif
 

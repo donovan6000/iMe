@@ -8,6 +8,7 @@
 #include <functional>
 #include <queue>
 #include <wx/sysopt.h>
+#include <wx/glcanvas.h>
 #include "common.h"
 #include "printer.h"
 
@@ -26,7 +27,10 @@ class MyApp: public wxApp {
 	// Public
 	public:
 
-		// On init
+		/*
+		Name: On init
+		Purpose: Run when program starts
+		*/
 		virtual bool OnInit();
 };
 
@@ -96,6 +100,19 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		*/
 		void installDrivers(wxCommandEvent& event);
 		
+		
+		/*
+		Name: Log to console
+		Purpose: Queues message to be displayed in the console
+		*/
+		void logToConsole(const string &message);
+		
+		/*
+		Name: Update log
+		Purpose: Appends queued messages to console
+		*/
+		void updateLog(wxTimerEvent& event);
+		
 		/*
 		Name: Update status
 		Purpose: Updates status text
@@ -126,6 +143,12 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		*/
 		void sendCommand(wxCommandEvent& event);
 		
+		/*
+		Name: Install firmware
+		Purpose: Flashes the printer's firmware to the provided file
+		*/
+		ThreadTaskResponse installFirmware(const string &firmwareLocation);
+		
 		// Check if using Windows
 		#ifdef WINDOWS
 		
@@ -138,13 +161,7 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 	
 	// Private
 	private:
-	
-		// Install firmware
-		ThreadTaskResponse installFirmware(const string &firmwareLocation);
 		
-		// Log to console
-		void logToConsole(const string &text);
-	
 		// Controls
 		wxChoice *serialPortChoice;
 		wxButton *refreshSerialPortsButton;
@@ -167,6 +184,9 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		queue<function<void()>> threadStartCallbackQueue;
 		queue<function<ThreadTaskResponse()>> threadTaskQueue;
 		queue<function<void(ThreadTaskResponse response)>> threadCompleteCallbackQueue;
+		
+		// Log queue
+		queue<string> logQueue;
 		
 		// Printer
 		Printer printer;

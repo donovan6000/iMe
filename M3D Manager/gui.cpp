@@ -1,5 +1,7 @@
 // Header files
 #include <fstream>
+#include <iomanip>
+#include <sstream>
 #include <wx/mstream.h>
 #include "gui.h"
 #ifdef WINDOWS
@@ -31,6 +33,13 @@ wxBitmap loadImage(const unsigned char *data, unsigned long long size, int width
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, long style) :
 	wxFrame(nullptr, wxID_ANY, title, pos, size, style)
 {
+
+	// Set printer's log function
+	printer.setLogFunction([=](const string &message) -> void {
+	
+		// Log message to console
+		logToConsole(message);
+	});
 
 	// Initialize PNG image handler
 	wxImage::AddHandler(new wxPNGHandler);
@@ -173,6 +182,11 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 	), wxSize(300, -1));
 	statusText->SetForegroundColour(wxColour(255, 0, 0));
+	
+	// Create log timer
+	wxTimer *logTimer = new wxTimer(this, wxID_ANY);
+	Bind(wxEVT_TIMER, &MyFrame::updateLog, this, logTimer->GetId());
+	logTimer->Start(100);
 	
 	// Create status timer
 	statusTimer = new wxTimer(this, wxID_ANY);
@@ -342,16 +356,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 	), wxTE_PROCESS_ENTER);
 	commandInput->SetHint("Command");
-	commandInput->Bind(wxEVT_TEXT_ENTER, [=](wxCommandEvent& event) {
-	
-		// Check if commands can be sent
-		if(sendCommandButton->IsEnabled()) {
-		
-			// Send command
-			wxCommandEvent sendCommandEvent(wxEVT_BUTTON, sendCommandButton->GetId());
-			wxPostEvent(sendCommandButton, sendCommandEvent);
-		}
-	});
+	commandInput->Bind(wxEVT_TEXT_ENTER, &MyFrame::sendCommand, this);
 	
 	// Create send command button
 	sendCommandButton = new wxButton(panel, wxID_ANY, "Send", wxPoint(
@@ -486,11 +491,7 @@ wxThread::ExitCode MyFrame::Entry() {
 		}
 		
 		// Delay
-		#ifdef WINDOWS
-			Sleep(100);
-		#else
-			usleep(100000);
-		#endif
+		sleepUs(10000);
 	}
 	
 	// Return
@@ -545,6 +546,9 @@ void MyFrame::threadTaskComplete(wxThreadEvent& event) {
 
 void MyFrame::close(wxCloseEvent& event) {
 
+	// Stop status timer
+	statusTimer->Stop();
+
 	// Disconnect printer
 	printer.disconnect();
 	
@@ -559,6 +563,9 @@ void MyFrame::close(wxCloseEvent& event) {
 }
 
 void MyFrame::connectToPrinter(wxCommandEvent& event) {
+	
+	// Disable button that triggered event
+	FindWindowById(event.GetId())->Enable(false);
 
 	// Check if connecting to printer
 	if(connectButton->GetLabel() == "Connect") {
@@ -618,9 +625,6 @@ void MyFrame::connectToPrinter(wxCommandEvent& event) {
 				
 				// Change connect button to disconnect	
 				connectButton->SetLabel("Disconnect");
-				
-				// Log connection details to console
-				logToConsole("Connected to " + printer.getSerialNumber() + " at " + printer.getCurrentSerialPort() + " running " + printer.getFirmwareType() + " firmware V" + printer.getFirmwareVersion());
 			}
 			
 			// Otherwise
@@ -672,6 +676,7 @@ void MyFrame::connectToPrinter(wxCommandEvent& event) {
 			connectButton->SetLabel("Connect");
 		
 			// Enable connection controls
+			connectButton->Enable(true);
 			serialPortChoice->Enable(true);
 			refreshSerialPortsButton->Enable(true);
 		
@@ -682,6 +687,9 @@ void MyFrame::connectToPrinter(wxCommandEvent& event) {
 }
 
 void MyFrame::switchToFirmwareMode(wxCommandEvent& event) {
+
+	// Disable button that triggered event
+	FindWindowById(event.GetId())->Enable(false);
 
 	// Lock
 	wxCriticalSectionLocker lock(criticalLock);
@@ -755,6 +763,9 @@ void MyFrame::switchToFirmwareMode(wxCommandEvent& event) {
 
 void MyFrame::installIMe(wxCommandEvent& event) {
 
+	// Disable button that triggered event
+	FindWindowById(event.GetId())->Enable(false);
+
 	// Lock
 	wxCriticalSectionLocker lock(criticalLock);
 
@@ -784,7 +795,7 @@ void MyFrame::installIMe(wxCommandEvent& event) {
 	threadTaskQueue.push([=]() -> ThreadTaskResponse {
 	
 		// Set firmware location
-		string firmwareLocation = getTemporaryLocation() + "/iMe " TOSTRING(IME_ROM_VERSION_STRING) ".hex";
+		string firmwareLocation = getTemporaryLocation() + "iMe " TOSTRING(IME_ROM_VERSION_STRING) ".hex";
 
 		// Check if creating iMe ROM failed
 		ofstream fout(firmwareLocation, ios::binary);
@@ -842,6 +853,9 @@ void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
 	
 		// Set firmware location
 		string firmwareLocation = static_cast<string>(openFileDialog->GetPath());
+		
+		// Disable button that triggered event
+		FindWindowById(event.GetId())->Enable(false);
 
 		// Lock
 		wxCriticalSectionLocker lock(criticalLock);
@@ -904,6 +918,9 @@ void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
 
 void MyFrame::installDrivers(wxCommandEvent& event) {
 
+	// Disable button that triggered event
+	FindWindowById(event.GetId())->Enable(false);
+
 	// Lock
 	wxCriticalSectionLocker lock(criticalLock);
 
@@ -921,7 +938,7 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 		#ifdef WINDOWS
 
 			// Check if creating drivers file failed
-			ofstream fout(getTemporaryLocation() + "/M3D.cat", ios::binary);
+			ofstream fout(getTemporaryLocation() + "M3D.cat", ios::binary);
 			if(fout.fail())
 			
 				// Return message
@@ -936,7 +953,7 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 				fout.close();
 
 				// Check if creating drivers file failed
-				fout.open(getTemporaryLocation() + "/M3D.inf", ios::binary);
+				fout.open(getTemporaryLocation() + "M3D.inf", ios::binary);
 				if(fout.fail())
 				
 					// Return message
@@ -968,7 +985,7 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 					SecureZeroMemory(&processInfo, sizeof(processInfo));
 
 					TCHAR command[MAX_PATH];
-					_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + getTemporaryLocation() + "\\M3D.inf\"").c_str());
+					_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + getTemporaryLocation() + "M3D.inf\"").c_str());
 
 					if(!CreateProcess(nullptr, command, nullptr, nullptr, false, CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &processInfo))
 					
@@ -1061,51 +1078,112 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 	});
 }
 
-void MyFrame::updateStatus(wxTimerEvent& event) {
+void MyFrame::logToConsole(const string &message) {
 
-	// Get printer status
-	string status = printer.getStatus();
+	// Lock
+	wxCriticalSectionLocker lock(criticalLock);
+
+	// Append message to log queue
+	logQueue.push(message);
+}
+
+void MyFrame::updateLog(wxTimerEvent& event) {
+
+	// Loop forever
+	while(true) {
 	
-	// Check if printer is connected
-	if(status == "Connected") {
+		// Initialize message
+		string message;
 	
-		// Change connect button to disconnect
-		connectButton->SetLabel("Disconnect");
-		
-		// Disable connection controls
-		serialPortChoice->Enable(false);
-		refreshSerialPortsButton->Enable(false);
-		
-		// Set status text color
-		statusText->SetForegroundColour(wxColour(0, 255, 0));
-	}
-	
-	// Otherwise
-	else {
-	
-		// Check if printer was just disconnected
-		if(status == "Disconnected" && (statusText->GetLabel() != status || connectButton->GetLabel() == "Disconnect")) {
-	
-			// Disable printer controls
-			installFirmwareFromFileButton->Enable(false);
-			installImeFirmwareButton->Enable(false);
-			switchToFirmwareModeButton->Enable(false);
-			sendCommandButton->Enable(false);
+		{
+			// Lock
+			wxCriticalSectionLocker lock(criticalLock);
 			
-			// Change connect button to connect
-			connectButton->SetLabel("Connect");
+			// Check if no messages exists in log queue
+			if(logQueue.empty())
 			
-			// Enable connection controls
-			serialPortChoice->Enable(true);
-			refreshSerialPortsButton->Enable(true);
+				// Break
+				break;
+			
+			// Set message to next message in log queue
+			message = logQueue.front();
+			logQueue.pop();
 		}
 		
-		// Set status text color
-		statusText->SetForegroundColour(wxColour(255, 0, 0));
+		// Check if message exists
+		if(!message.empty()) {
+		
+			// Check if message is to remove last line
+			if(message == "Remove last line") {
+		
+				// Remove last line
+				size_t end = consoleOutput->GetValue().Length();
+				size_t start = consoleOutput->GetValue().find_last_of('\n');
+				consoleOutput->Remove(start != string::npos ? start : 0, end);
+			}
+		
+			// Otherwise
+			else
+		
+				// Append message to console's output
+				consoleOutput->AppendText(static_cast<string>(consoleOutput->GetValue().IsEmpty() ? "" : "\n") + ">> " + message);
+		
+			// Scroll to bottom
+			consoleOutput->ShowPosition(consoleOutput->GetLastPosition());
+		}
 	}
+}
 
-	// Update status text
-	statusText->SetLabel(status);
+void MyFrame::updateStatus(wxTimerEvent& event) {
+
+	// Check if getting printer status was successful
+	string status = printer.getStatus();
+	if(!status.empty()) {
+	
+		// Check if printer is connected
+		if(status == "Connected") {
+	
+			// Change connect button to disconnect
+			connectButton->SetLabel("Disconnect");
+		
+			// Disable connection controls
+			serialPortChoice->Enable(false);
+			refreshSerialPortsButton->Enable(false);
+		
+			// Set status text color
+			statusText->SetForegroundColour(wxColour(0, 255, 0));
+		}
+	
+		// Otherwise
+		else {
+	
+			// Check if printer was just disconnected
+			if(status == "Disconnected" && (statusText->GetLabel() != status || connectButton->GetLabel() == "Disconnect")) {
+	
+				// Disable printer controls
+				installFirmwareFromFileButton->Enable(false);
+				installImeFirmwareButton->Enable(false);
+				switchToFirmwareModeButton->Enable(false);
+				sendCommandButton->Enable(false);
+			
+				// Change connect button to connect
+				connectButton->SetLabel("Connect");
+			
+				// Enable connection controls
+				serialPortChoice->Enable(true);
+				refreshSerialPortsButton->Enable(true);
+			
+				// Log disconnection
+				logToConsole("Printer has been disconnected");
+			}
+		
+			// Set status text color
+			statusText->SetForegroundColour(wxColour(255, 0, 0));
+		}
+
+		// Update status text
+		statusText->SetLabel(status);
+	}
 }
 
 wxArrayString MyFrame::getAvailableSerialPorts() {
@@ -1124,6 +1202,9 @@ wxArrayString MyFrame::getAvailableSerialPorts() {
 }
 
 void MyFrame::refreshSerialPorts(wxCommandEvent& event) {
+
+	// Disable button that triggered event
+	FindWindowById(event.GetId())->Enable(false);
 	
 	// Lock
 	wxCriticalSectionLocker lock(criticalLock);
@@ -1141,11 +1222,7 @@ void MyFrame::refreshSerialPorts(wxCommandEvent& event) {
 	threadTaskQueue.push([=]() -> ThreadTaskResponse {
 	
 		// Delay
-		#ifdef WINDOWS
-			Sleep(300);
-		#else
-			usleep(300000);
-		#endif
+		sleepUs(300000);
 	
 		// Get available serial ports
 		wxArrayString serialPorts = getAvailableSerialPorts();
@@ -1233,54 +1310,81 @@ ThreadTaskResponse MyFrame::installFirmware(const string &firmwareLocation) {
 				return {"Failed to update firmware", wxOK | wxICON_ERROR | wxCENTRE};
 
 			// Otherwise
-			else {
+			else
 
-				// Put printer into firmware mode
-				printer.switchToFirmwareMode();
-
-				// Check if printer isn't connected
-				if(!printer.isConnected())
-				
-					// Return message
-					return {"Failed to update firmware", wxOK | wxICON_ERROR | wxCENTRE};
-	
-				// Otherwise
-				else
-				
-					// Return message
-					return {"Firmware successfully installed", wxOK | wxICON_INFORMATION | wxCENTRE};
-			}
+				// Return message
+				return {"Firmware successfully installed", wxOK | wxICON_INFORMATION | wxCENTRE};
 		}
 	}
 }
 
 void MyFrame::sendCommand(wxCommandEvent& event) {
+
+	// Check if commands can be sent
+	if(sendCommandButton->IsEnabled()) {
 	
-	// Append thread task to send command to queue
-	string command = static_cast<string>(commandInput->GetValue());
-	commandInput->SetValue("");
-	
-	// Lock
-	wxCriticalSectionLocker lock(criticalLock);
-	
-	// Append thread task to queue
-	threadTaskQueue.push([=]() -> ThreadTaskResponse {
-	
-		// Send command
-		if(printer.inFirmwareMode())
-			printer.sendRequest(command);
-		else
-			printer.sendRequestAscii(command);
+		// Check if command exists
+		string command = static_cast<string>(commandInput->GetValue());
+		if(!command.empty()) {
 		
-		// Return empty response
-		return {"", 0};
-	});
-}
-
-void MyFrame::logToConsole(const string &text) {
-
-	// Append text to console
-	consoleOutput->AppendText(static_cast<string>(consoleOutput->GetValue().IsEmpty() ? "" : "\n") + text);
+			// Clear command input
+			commandInput->SetValue("");
+			
+			// Log command
+			logToConsole("Send: " + command);
+	
+			// Lock
+			wxCriticalSectionLocker lock(criticalLock);
+	
+			// Append thread task to queue
+			threadTaskQueue.push([=]() -> ThreadTaskResponse {
+			
+				// Set changed mode
+				bool changedMode = (command == "Q" && printer.getOperatingMode() == BOOTLOADER) || (command == "M115 S628" && printer.getOperatingMode() == FIRMWARE);
+	
+				// Check if send command failed
+				if(!printer.sendRequest(command))
+				
+					// Log error
+					logToConsole("Sending command failed");
+				
+				// Otherwise
+				else {
+				
+					// Wait until command receives a response
+					for(string response; !changedMode && response.substr(0, 2) != "ok" && response.substr(0, 2) != "rs" && response.substr(0, 4) != "skip" && response.substr(0, 5) != "Error";) {
+						
+						// Get response
+						do {
+							response = printer.receiveResponse();
+						} while(response.empty() && printer.isConnected());
+				
+						// Check if printer isn't connected
+						if(!printer.isConnected())
+				
+							// Break
+							break;
+		
+						// Log response
+						if(response != "wait")
+							logToConsole("Receive: " + response);
+						
+						// Check if printer is in bootloader mode
+						if(printer.getOperatingMode() == BOOTLOADER)
+						
+							// Break
+							break;
+					}
+					
+					// Delay
+					sleepUs(1000);
+				}
+		
+				// Return empty response
+				return {"", 0};
+			});
+		}
+	}
 }
 
 // Check if using Windows
@@ -1293,15 +1397,20 @@ void MyFrame::logToConsole(const string &text) {
 		
 			// Check if an interface device was removed
 			if(wParam == DBT_DEVICEREMOVECOMPLETE && reinterpret_cast<PDEV_BROADCAST_HDR>(lParam)->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) {
+			
+				// Create device info string
+				stringstream deviceInfoStringStream;
+				deviceInfoStringStream << "VID_" << setfill('0') << setw(4) << hex << uppercase << PRINTER_VENDOR_ID << "&PID_" << setfill('0') << setw(4) << hex << uppercase << PRINTER_PRODUCT_ID;
+				string deviceInfoString = deviceInfoStringStream.str();
 				
 				// Check if device has the printer's PID and VID
 				PDEV_BROADCAST_DEVICEINTERFACE deviceInterface = reinterpret_cast<PDEV_BROADCAST_DEVICEINTERFACE>(lParam);
 				
-				if(!_tcsnicmp(deviceInterface->dbcc_name, _T("\\\\?\\USB#VID_03EB&PID_2404"), strlen("\\\\?\\USB#VID_03EB&PID_2404"))) {
+				if(!_tcsnicmp(deviceInterface->dbcc_name, _T("\\\\?\\USB#" + deviceInfoString), ("\\\\?\\USB#" + deviceInfoString).length())) {
 					
 					// Get device ID
-					wstring deviceId = &deviceInterface->dbcc_name[strlen("\\\\?\\USB#VID_03EB&PID_2404") + 1];
-					deviceId = _T("USB\\VID_03EB&PID_2404\\") + deviceId.substr(0, deviceId.find(_T("#")));
+					wstring deviceId = &deviceInterface->dbcc_name[("\\\\?\\USB#" + deviceInfoString).length() + 1];
+					deviceId = _T("USB\\" + deviceInfoString + "\\") + deviceId.substr(0, deviceId.find(_T("#")));
 					
 					// Check if getting all connected devices was successful
 					HDEVINFO deviceInfo = SetupDiGetClassDevs(nullptr, nullptr, nullptr, DIGCF_ALLCLASSES);
