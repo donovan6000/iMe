@@ -1,5 +1,11 @@
 Changelog:
 
+V00.00.00.08 May 25, 2016
+
+	* Decreased homing accelerometer sensitivity
+	* Added 'ok' response for M999 commands
+	* First stable release of M3D Manager
+
 V00.00.00.07 May 18, 2016
 
 	* Prevents X and Y movements from going out of bounds

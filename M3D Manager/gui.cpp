@@ -121,7 +121,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	serialPortChoice->SetSelection(serialPortChoice->FindString("Auto"));
 	
 	// Create refresh serial ports button
-	refreshSerialPortsButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData), 17, 17), wxPoint(
+	refreshSerialPortsButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData)), wxPoint(
 	#ifdef WINDOWS
 		405, 19
 	#endif
@@ -326,7 +326,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		8
 	#endif
 	#ifdef OSX
-		10
+		11
 	#endif
 	#ifdef LINUX
 		8
@@ -356,7 +356,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 	), wxTE_PROCESS_ENTER);
 	commandInput->SetHint("Command");
-	commandInput->Bind(wxEVT_TEXT_ENTER, &MyFrame::sendCommand, this);
+	commandInput->Bind(wxEVT_TEXT_ENTER, &MyFrame::sendCommandManually, this);
 	
 	// Create send command button
 	sendCommandButton = new wxButton(panel, wxID_ANY, "Send", wxPoint(
@@ -370,7 +370,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		445, 389
 	#endif
 	));
-	sendCommandButton->Bind(wxEVT_BUTTON, &MyFrame::sendCommand, this);
+	sendCommandButton->Bind(wxEVT_BUTTON, &MyFrame::sendCommandManually, this);
 	sendCommandButton->Enable(false);
 	
 	// Create version text
@@ -587,12 +587,6 @@ void MyFrame::connectToPrinter(wxCommandEvent& event) {
 			refreshSerialPortsButton->Enable(false);
 			connectButton->Enable(false);
 
-			// Disable printer controls
-			installFirmwareFromFileButton->Enable(false);
-			installImeFirmwareButton->Enable(false);
-			switchToFirmwareModeButton->Enable(false);
-			sendCommandButton->Enable(false);
-
 			// Set status text
 			statusText->SetLabel("Connecting");
 			statusText->SetForegroundColour(wxColour(255, 180, 0));
@@ -620,7 +614,7 @@ void MyFrame::connectToPrinter(wxCommandEvent& event) {
 				// Enable printer controls
 				installFirmwareFromFileButton->Enable(true);
 				installImeFirmwareButton->Enable(true);
-				switchToFirmwareModeButton->Enable(true);
+				switchToFirmwareModeButton->Enable(printer.inBootloaderMode());
 				sendCommandButton->Enable(true);
 				
 				// Change connect button to disconnect	
@@ -712,30 +706,20 @@ void MyFrame::switchToFirmwareMode(wxCommandEvent& event) {
 	// Append thread task to queue
 	threadTaskQueue.push([=]() -> ThreadTaskResponse {
 	
-		// Check if printer is already in firmware mode
-		if(printer.inFirmwareMode())
+		// Put printer into firmware mode
+		printer.switchToFirmwareMode();
+
+		// Check if printer isn't connected
+		if(!printer.isConnected())
 		
 			// Return message
-			return {"Printer is already in firmware mode", wxOK | wxICON_EXCLAMATION | wxCENTRE};
-
+			return {"Failed to switch printer into firmware mode", wxOK | wxICON_ERROR | wxCENTRE};
+	
 		// Otherwise
-		else {
-
-			// Put printer into firmware mode
-			printer.switchToFirmwareMode();
-
-			// Check if printer isn't connected
-			if(!printer.isConnected())
-			
-				// Return message
-				return {"Failed to switch printer into firmware mode", wxOK | wxICON_ERROR | wxCENTRE};
+		else
 		
-			// Otherwise
-			else
-			
-				// Return message
-				return {"Printer has been successfully switched into firmware mode", wxOK | wxICON_INFORMATION | wxCENTRE};
-		}
+			// Return message
+			return {"Printer has been successfully switched into firmware mode", wxOK | wxICON_INFORMATION | wxCENTRE};
 	});
 	
 	// Append thread complete callback to queue
@@ -752,7 +736,7 @@ void MyFrame::switchToFirmwareMode(wxCommandEvent& event) {
 			// Enable printer controls
 			installFirmwareFromFileButton->Enable(true);
 			installImeFirmwareButton->Enable(true);
-			switchToFirmwareModeButton->Enable(true);
+			switchToFirmwareModeButton->Enable(printer.inBootloaderMode());
 			sendCommandButton->Enable(true);
 		}
 		
@@ -831,7 +815,7 @@ void MyFrame::installIMe(wxCommandEvent& event) {
 			// Enable printer controls
 			installFirmwareFromFileButton->Enable(true);
 			installImeFirmwareButton->Enable(true);
-			switchToFirmwareModeButton->Enable(true);
+			switchToFirmwareModeButton->Enable(printer.inBootloaderMode());
 			sendCommandButton->Enable(true);
 		}
 		
@@ -903,7 +887,7 @@ void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
 				// Enable printer controls
 				installFirmwareFromFileButton->Enable(true);
 				installImeFirmwareButton->Enable(true);
-				switchToFirmwareModeButton->Enable(true);
+				switchToFirmwareModeButton->Enable(printer.inBootloaderMode());
 				sendCommandButton->Enable(true);
 			}
 		
@@ -1152,6 +1136,9 @@ void MyFrame::updateStatus(wxTimerEvent& event) {
 		
 			// Set status text color
 			statusText->SetForegroundColour(wxColour(0, 255, 0));
+			
+			// Enable or disable switch to firmware button depending on the printer's operating mode
+			switchToFirmwareModeButton->Enable(printer.getOperatingMode() == BOOTLOADER);
 		}
 	
 		// Otherwise
@@ -1159,17 +1146,18 @@ void MyFrame::updateStatus(wxTimerEvent& event) {
 	
 			// Check if printer was just disconnected
 			if(status == "Disconnected" && (statusText->GetLabel() != status || connectButton->GetLabel() == "Disconnect")) {
-	
+				
 				// Disable printer controls
 				installFirmwareFromFileButton->Enable(false);
 				installImeFirmwareButton->Enable(false);
 				switchToFirmwareModeButton->Enable(false);
 				sendCommandButton->Enable(false);
-			
+		
 				// Change connect button to connect
 				connectButton->SetLabel("Connect");
-			
+		
 				// Enable connection controls
+				connectButton->Enable(true);
 				serialPortChoice->Enable(true);
 				refreshSerialPortsButton->Enable(true);
 			
@@ -1318,7 +1306,7 @@ ThreadTaskResponse MyFrame::installFirmware(const string &firmwareLocation) {
 	}
 }
 
-void MyFrame::sendCommand(wxCommandEvent& event) {
+void MyFrame::sendCommandManually(wxCommandEvent& event) {
 
 	// Check if commands can be sent
 	if(sendCommandButton->IsEnabled()) {
@@ -1330,61 +1318,89 @@ void MyFrame::sendCommand(wxCommandEvent& event) {
 			// Clear command input
 			commandInput->SetValue("");
 			
-			// Log command
-			logToConsole("Send: " + command);
-	
-			// Lock
-			wxCriticalSectionLocker lock(criticalLock);
-	
-			// Append thread task to queue
-			threadTaskQueue.push([=]() -> ThreadTaskResponse {
-			
-				// Set changed mode
-				bool changedMode = (command == "Q" && printer.getOperatingMode() == BOOTLOADER) || (command == "M115 S628" && printer.getOperatingMode() == FIRMWARE);
-	
-				// Check if send command failed
-				if(!printer.sendRequest(command))
-				
-					// Log error
-					logToConsole("Sending command failed");
-				
-				// Otherwise
-				else {
-				
-					// Wait until command receives a response
-					for(string response; !changedMode && response.substr(0, 2) != "ok" && response.substr(0, 2) != "rs" && response.substr(0, 4) != "skip" && response.substr(0, 5) != "Error";) {
-						
-						// Get response
-						do {
-							response = printer.receiveResponse();
-						} while(response.empty() && printer.isConnected());
-				
-						// Check if printer isn't connected
-						if(!printer.isConnected())
-				
-							// Break
-							break;
-		
-						// Log response
-						if(response != "wait")
-							logToConsole("Receive: " + response);
-						
-						// Check if printer is in bootloader mode
-						if(printer.getOperatingMode() == BOOTLOADER)
-						
-							// Break
-							break;
-					}
-					
-					// Delay
-					sleepUs(1000);
-				}
-		
-				// Return empty response
-				return {"", 0};
-			});
+			// Send command
+			sendCommand(command);
 		}
 	}
+}
+
+void MyFrame::sendCommand(const string &command, function<void()> threadStartCallback, function<void(ThreadTaskResponse response)> threadCompleteCallback) {
+
+	// Log command
+	logToConsole("Send: " + command);
+
+	// Lock
+	wxCriticalSectionLocker lock(criticalLock);
+
+	// Check if a thread start callback exists
+	if(threadStartCallback)
+
+		// Append thread start callback to queue
+		threadStartCallbackQueue.push(threadStartCallback);
+	
+	// Append thread task to queue
+	threadTaskQueue.push([=]() -> ThreadTaskResponse {
+	
+		// Set changed mode
+		bool changedMode = (command == "Q" && printer.getOperatingMode() == BOOTLOADER) || (command == "M115 S628" && printer.getOperatingMode() == FIRMWARE);
+		
+		// Check if send command failed
+		if(!printer.sendRequest(command))
+		
+			// Log error
+			logToConsole("Sending command failed");
+		
+		// Otherwise
+		else {
+		
+			// Wait until command receives a response
+			for(string response; !changedMode && response.substr(0, 2) != "ok" && response.substr(0, 2) != "rs" && response.substr(0, 4) != "skip" && response.substr(0, 5) != "Error";) {
+				
+				// Get response
+				do {
+					response = printer.receiveResponse();
+				} while(response.empty() && printer.isConnected());
+		
+				// Check if printer isn't connected
+				if(!printer.isConnected())
+		
+					// Break
+					break;
+				
+				// Check if printer is in bootloader mode
+				if(printer.getOperatingMode() == BOOTLOADER) {
+				
+					// Convert response to hexadecimal
+					stringstream hexResponse;
+					for(size_t i = 0; i < response.length(); i++)
+						hexResponse << "0x" << hex << setfill('0') << setw(2) << uppercase << (static_cast<uint8_t>(response[i]) & 0xFF) << ' ';
+
+					response = hexResponse.str();
+					if(!response.empty())
+						response.pop_back();
+				}
+				
+				// Log response
+				if(response != "wait")
+					logToConsole("Receive: " + response);
+				
+				// Check if printer is in bootloader mode
+				if(printer.getOperatingMode() == BOOTLOADER)
+				
+					// Break
+					break;
+			}
+		}
+
+		// Return empty response
+		return {"", 0};
+	});
+	
+	// Check if a thread complete callback exists
+	if(threadCompleteCallback)
+
+		// Append thread complete callback to queue
+		threadCompleteCallbackQueue.push(threadCompleteCallback);
 }
 
 // Check if using Windows

@@ -138,10 +138,16 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		void refreshSerialPorts(wxCommandEvent& event);
 		
 		/*
+		Name: Send command manually
+		Purpose: Sends a command manually to the printer
+		*/
+		void sendCommandManually(wxCommandEvent& event);
+		
+		/*
 		Name: Send command
 		Purpose: Sends a command to the printer
 		*/
-		void sendCommand(wxCommandEvent& event);
+		void sendCommand(const string &command, function<void()> threadStartCallback = nullptr, function<void(ThreadTaskResponse response)> threadCompleteCallback = nullptr);
 		
 		/*
 		Name: Install firmware
