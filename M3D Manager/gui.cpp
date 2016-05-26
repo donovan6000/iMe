@@ -1,6 +1,8 @@
 // Header files
 #include <fstream>
-#include <wx/artprov.h>
+#include <iomanip>
+#include <sstream>
+#include <wx/mstream.h>
 #include "gui.h"
 #ifdef WINDOWS
 	#include <setupapi.h>
@@ -8,14 +10,49 @@
 #endif
 
 
+// Custom events
+wxDEFINE_EVENT(wxEVT_THREAD_TASK_START, wxThreadEvent);
+wxDEFINE_EVENT(wxEVT_THREAD_TASK_COMPLETE, wxThreadEvent);
+
+
 // Supporting function implementation
+wxBitmap loadImage(const unsigned char *data, unsigned long long size, int width = -1, int height = -1) {
+	
+	// Load image from data
+	wxMemoryInputStream imageStream(data, size);
+	wxImage image;
+	image.LoadFile(imageStream, wxBITMAP_TYPE_PNG);
+	
+	// Resize image
+	image.Rescale(width == -1 ? image.GetWidth() : width, height == -1 ? image.GetHeight() : height, wxIMAGE_QUALITY_HIGH);
+	
+	// Return bitmap
+	return wxBitmap(image);
+}
+
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, long style) :
 	wxFrame(nullptr, wxID_ANY, title, pos, size, style)
 {
 
-	// Add icon
+	// Set printer's log function
+	printer.setLogFunction([=](const string &message) -> void {
+	
+		// Log message to console
+		logToConsole(message);
+	});
+
+	// Initialize PNG image handler
+	wxImage::AddHandler(new wxPNGHandler);
+	
+	// Set icon
 	#ifdef WINDOWS
 		SetIcon(wxICON(MAINICON));
+	#endif
+	
+	#ifdef LINUX
+		wxIcon icon;
+		icon.CopyFromBitmap(loadImage(icon_pngData, sizeof(icon_pngData))); 
+		SetIcon(icon);
 	#endif
 
 	// Add menu bar
@@ -26,88 +63,368 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	
 	// Close event
 	Bind(wxEVT_CLOSE_WINDOW, &MyFrame::close, this);
+	
+	// Show event
+	Bind(wxEVT_SHOW, &MyFrame::show, this);
 
 	// Create panel
 	wxPanel *panel = new wxPanel(this, wxID_ANY);
-
-	// Create version text
-	string iMeVersion = static_cast<string>(TOSTRING(IME_ROM_VERSION_STRING)).substr(2);
-	for(uint8_t i = 0; i < 3; i++)
-		iMeVersion.insert(i * 2 + 2 + i, ".");
-	versionText = new wxStaticText(panel, wxID_ANY, "M3D Manager V" TOSTRING(VERSION) " - iMe V" + iMeVersion);
-	wxFont font = versionText->GetFont();
-	font.SetPointSize(9);
-	versionText->SetFont(font);
 	
-	// Align version text to the bottom right
-	wxBoxSizer *hbox1 = new wxBoxSizer(wxHORIZONTAL);
-	hbox1->Add(new wxPanel(panel, wxID_ANY));
-	
-	wxBoxSizer *hbox2 = new wxBoxSizer(wxHORIZONTAL);
-	hbox2->Add(versionText);
-	
-	wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
-	vbox->Add(hbox1, 1, wxEXPAND);
-	vbox->Add(hbox2, 0, wxALIGN_RIGHT | wxRIGHT | wxBOTTOM, 1);
-	panel->SetSizer(vbox);
+	// Create connection box
+	new wxStaticBox(panel, wxID_ANY, "Connection", wxPoint(5, 0), wxSize(
+	#ifdef WINDOWS
+		531, 90
+	#endif
+	#ifdef OSX
+		534, 82
+	#endif
+	#ifdef LINUX
+		534, 97
+	#endif
+	));
 	
 	// Create serial port text
-	new wxStaticText(panel, wxID_ANY, "Serial Port", wxPoint(10, 17));
+	new wxStaticText(panel, wxID_ANY, "Serial Port", wxPoint(
+	#ifdef WINDOWS
+		15, 24
+	#endif
+	#ifdef OSX
+		15, 23
+	#endif
+	#ifdef LINUX
+		15, 28
+	#endif
+	));
 	
 	// Create serial port choice
-	serialPortChoice = new wxChoice(panel, wxID_ANY, wxPoint(87, 10), wxSize(311, -1), getAvailableSerialPorts());
+	serialPortChoice = new wxChoice(panel, wxID_ANY, wxPoint(
+	#ifdef WINDOWS
+		82, 20
+	#endif
+	#ifdef OSX
+		87, 20
+	#endif
+	#ifdef LINUX
+		92, 20
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		313, -1
+	#endif
+	#ifdef OSX
+		308, -1
+	#endif
+	#ifdef LINUX
+		313, -1
+	#endif
+	), getAvailableSerialPorts());
 	serialPortChoice->SetSelection(serialPortChoice->FindString("Auto"));
 	
 	// Create refresh serial ports button
-	refreshSerialPortsButton = new wxBitmapButton(panel, wxID_ANY, wxArtProvider::GetBitmap(wxART_FIND), wxPoint(403, 10), wxSize(30, 30));
+	refreshSerialPortsButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData)), wxPoint(
+	#ifdef WINDOWS
+		405, 19
+	#endif
+	#ifdef OSX
+		400, 16
+	#endif
+	#ifdef LINUX
+		410, 22
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		-1, -1
+	#endif
+	#ifdef OSX
+		27, -1
+	#endif
+	#ifdef LINUX
+		-1, -1
+	#endif
+	));
 	refreshSerialPortsButton->Bind(wxEVT_BUTTON, &MyFrame::refreshSerialPorts, this);
 	
 	// Create connect button
-	connectButton = new wxButton(panel, wxID_ANY, "Connect", wxPoint(438, 10));
+	connectButton = new wxButton(panel, wxID_ANY, "Connect", wxPoint(
+	#ifdef WINDOWS
+		439, 18
+	#endif
+	#ifdef OSX
+		435, 18
+	#endif
+	#ifdef LINUX
+		445, 22
+	#endif
+	));
 	connectButton->Bind(wxEVT_BUTTON, &MyFrame::connectToPrinter, this);
 	
-	// Create switch to firmware mode button
-	switchToFirmwareModeButton = new wxButton(panel, wxID_ANY, "Switch to firmware mode", wxPoint(9, 50));
-	switchToFirmwareModeButton->Enable(false);
-	switchToFirmwareModeButton->Bind(wxEVT_BUTTON, &MyFrame::switchToFirmwareMode, this);
-	
-	// Create install iMe firmware button
-	installImeFirmwareButton = new wxButton(panel, wxID_ANY, "Install iMe firmware", wxPoint(195, 50));
-	installImeFirmwareButton->Enable(false);
-	installImeFirmwareButton->Bind(wxEVT_BUTTON, &MyFrame::installIMe, this);
-	
-	// Create install firmware with file button
-	installFirmwareFromFileButton = new wxButton(panel, wxID_ANY, "Install firmware from file", wxPoint(345, 50));
-	installFirmwareFromFileButton->Enable(false);
-	installFirmwareFromFileButton->Bind(wxEVT_BUTTON, &MyFrame::installFirmwareFromFile, this);
-
-	// Create command input
-	commandInput = new wxTextCtrl(panel, wxID_ANY, wxEmptyString, wxPoint(9, 85), wxSize(200, -1));
-	commandInput->SetHint("Command");
-	wxButton *sendCommandButton = new wxButton(panel, wxID_ANY, "Send", wxPoint(214, 85));
-	sendCommandButton->Bind(wxEVT_BUTTON, &MyFrame::sendCommand, this);
-	
-	// Check if not using OS X
-	#ifndef OSX
-	
-		// Create install drivers button
-		wxButton *installDriversButton = new wxButton(panel, wxID_ANY, "Install drivers", wxPoint(420, 85));
-		installDriversButton->Bind(wxEVT_BUTTON, &MyFrame::installDrivers, this);
+	// Create status text
+	new wxStaticText(panel, wxID_ANY, "Status:", wxPoint(
+	#ifdef WINDOWS
+		15, 59
 	#endif
+	#ifdef OSX
+		15, 54
+	#endif
+	#ifdef LINUX
+		15, 64
+	#endif
+	));
+	statusText = new wxStaticText(panel, wxID_ANY, "Not connected", wxPoint(
+	#ifdef WINDOWS
+		53, 59
+	#endif
+	#ifdef OSX
+		62, 54
+	#endif
+	#ifdef LINUX
+		65, 64
+	#endif
+	), wxSize(300, -1));
+	statusText->SetForegroundColour(wxColour(255, 0, 0));
 	
-	// Create connection text
-	new wxStaticText(panel, wxID_ANY, "Connection:", wxPoint(10, 125), wxSize(300, -1));
-	connectionText = new wxStaticText(panel, wxID_ANY, "Not connected", wxPoint(93, 125), wxSize(300, -1));
-	connectionText->SetForegroundColour(wxColour(255, 0, 0));
+	// Create log timer
+	wxTimer *logTimer = new wxTimer(this, wxID_ANY);
+	Bind(wxEVT_TIMER, &MyFrame::updateLog, this, logTimer->GetId());
+	logTimer->Start(100);
 	
 	// Create status timer
 	statusTimer = new wxTimer(this, wxID_ANY);
 	Bind(wxEVT_TIMER, &MyFrame::updateStatus, this, statusTimer->GetId());
 	statusTimer->Start(100);
 	
-	// Thread complete event
-	threadCompleteCallback = nullptr;
-	Bind(wxEVT_THREAD, &MyFrame::threadComplete, this);
+	// Check if not using OS X
+	#ifndef OSX
+	
+		// Create install drivers button
+		installDriversButton = new wxButton(panel, wxID_ANY, "Install drivers", wxPoint(
+		#ifdef WINDOWS
+			437, 54
+		#endif
+		#ifdef LINUX
+			425, 58
+		#endif
+		));
+		installDriversButton->Bind(wxEVT_BUTTON, &MyFrame::installDrivers, this);
+	#endif
+	
+	// Create firmware box
+	new wxStaticBox(panel, wxID_ANY, "Firmware", wxPoint(
+	#ifdef WINDOWS
+		5, 91
+	#endif
+	#ifdef OSX
+		5, 83
+	#endif
+	#ifdef LINUX
+		5, 98
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		531, 58
+	#endif
+	#ifdef OSX
+		534, 59
+	#endif
+	#ifdef LINUX
+		534, 60
+	#endif
+	));
+	
+	// Create switch to firmware mode button
+	switchToFirmwareModeButton = new wxButton(panel, wxID_ANY, "Switch to firmware mode", wxPoint(
+	#ifdef WINDOWS
+		14, 111
+	#endif
+	#ifdef OSX
+		11, 103
+	#endif
+	#ifdef LINUX
+		14, 118
+	#endif
+	));
+	switchToFirmwareModeButton->Enable(false);
+	switchToFirmwareModeButton->Bind(wxEVT_BUTTON, &MyFrame::switchToFirmwareMode, this);
+	
+	// Create install iMe firmware button
+	installImeFirmwareButton = new wxButton(panel, wxID_ANY, "Install iMe firmware", wxPoint(
+	#ifdef WINDOWS
+		209, 111
+	#endif
+	#ifdef OSX
+		195, 103
+	#endif
+	#ifdef LINUX
+		200, 118
+	#endif
+	));
+	installImeFirmwareButton->Enable(false);
+	installImeFirmwareButton->Bind(wxEVT_BUTTON, &MyFrame::installIMe, this);
+	
+	// Create install firmware with file button
+	installFirmwareFromFileButton = new wxButton(panel, wxID_ANY, "Install firmware from file", wxPoint(
+	#ifdef WINDOWS
+		377, 111
+	#endif
+	#ifdef OSX
+		347, 103
+	#endif
+	#ifdef LINUX
+		350, 118
+	#endif
+	));
+	installFirmwareFromFileButton->Enable(false);
+	installFirmwareFromFileButton->Bind(wxEVT_BUTTON, &MyFrame::installFirmwareFromFile, this);
+	
+	// Create console box
+	new wxStaticBox(panel, wxID_ANY, "Console", wxPoint(
+	#ifdef WINDOWS
+		5, 150
+	#endif
+	#ifdef OSX
+		5, 143
+	#endif
+	#ifdef LINUX
+		5, 159
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		531, 247
+	#endif
+	#ifdef OSX
+		534, 267
+	#endif
+	#ifdef LINUX
+		534, 269
+	#endif
+	));
+	
+	// Create console output
+	consoleOutput = new wxTextCtrl(panel, wxID_ANY, wxEmptyString, wxPoint(
+	#ifdef WINDOWS
+		15, 170
+	#endif
+	#ifdef OSX
+		19, 168
+	#endif
+	#ifdef LINUX
+		15, 179
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		511, 182
+	#endif
+	#ifdef OSX
+		508, 198
+	#endif
+	#ifdef LINUX
+		514, 200
+	#endif
+	), wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH);
+	consoleOutput->SetFont(wxFont(
+	#ifdef WINDOWS
+		8
+	#endif
+	#ifdef OSX
+		11
+	#endif
+	#ifdef LINUX
+		8
+	#endif
+	, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+	
+	// Create command input
+	commandInput = new wxTextCtrl(panel, wxID_ANY, wxEmptyString, wxPoint(
+	#ifdef WINDOWS
+		15, 362
+	#endif
+	#ifdef OSX
+		17, 374
+	#endif
+	#ifdef LINUX
+		14, 389
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		415, -1
+	#endif
+	#ifdef OSX
+		416, -1
+	#endif
+	#ifdef LINUX
+		426, -1
+	#endif
+	), wxTE_PROCESS_ENTER);
+	commandInput->SetHint("Command");
+	commandInput->Bind(wxEVT_TEXT_ENTER, &MyFrame::sendCommandManually, this);
+	
+	// Create send command button
+	sendCommandButton = new wxButton(panel, wxID_ANY, "Send", wxPoint(
+	#ifdef WINDOWS
+		439, 360
+	#endif
+	#ifdef OSX
+		435, 371
+	#endif
+	#ifdef LINUX
+		445, 389
+	#endif
+	));
+	sendCommandButton->Bind(wxEVT_BUTTON, &MyFrame::sendCommandManually, this);
+	sendCommandButton->Enable(false);
+	
+	// Create version text
+	string iMeVersion = static_cast<string>(TOSTRING(IME_ROM_VERSION_STRING)).substr(2);
+	for(uint8_t i = 0; i < 3; i++)
+		iMeVersion.insert(i * 2 + 2 + i, ".");
+	versionText = new wxStaticText(panel, wxID_ANY, "M3D Manager V" TOSTRING(VERSION) " - iMe V" + iMeVersion, wxDefaultPosition, wxSize(
+	#ifdef WINDOWS
+		-1, 15
+	#endif
+	#ifdef OSX
+		-1, 14
+	#endif
+	#ifdef LINUX
+		-1, 13
+	#endif
+	), wxALIGN_RIGHT);
+	wxFont font = versionText->GetFont();
+	font.SetPointSize(
+	#ifdef WINDOWS
+		9
+	#endif
+	#ifdef OSX
+		11
+	#endif
+	#ifdef LINUX
+		9
+	#endif
+	);
+	versionText->SetFont(font);
+	
+	// Align version text to the bottom right
+	wxBoxSizer *hbox1 = new wxBoxSizer(wxHORIZONTAL);
+	hbox1->Add(new wxPanel(panel, wxID_ANY));
+	wxBoxSizer *hbox2 = new wxBoxSizer(wxHORIZONTAL);
+	hbox2->Add(versionText);
+	wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
+	vbox->Add(hbox1, 1, wxEXPAND);
+	vbox->Add(hbox2, 0, wxALIGN_RIGHT | wxRIGHT | wxBOTTOM,
+	#ifdef WINDOWS
+		2
+	#endif
+	#ifdef OSX
+		2
+	#endif
+	#ifdef LINUX
+		3
+	#endif
+	);
+	panel->SetSizer(vbox);
+	
+	// Thread task events
+	Bind(wxEVT_THREAD_TASK_START, &MyFrame::threadTaskStart, this);
+	Bind(wxEVT_THREAD_TASK_COMPLETE, &MyFrame::threadTaskComplete, this);
 	
 	// Check if creating thread failed
 	if(CreateThread(wxTHREAD_JOINABLE) != wxTHREAD_NO_ERROR || GetThread()->Run() != wxTHREAD_NO_ERROR)
@@ -127,270 +444,110 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 }
 
+void MyFrame::show(wxShowEvent &event) {
+
+	// Set initial focus
+	#ifdef OSX
+		commandInput->SetFocus();
+	#else
+		SetFocus();
+	#endif
+}
+
 wxThread::ExitCode MyFrame::Entry() {
 
 	// Loop until destroyed
 	while(!GetThread()->TestDestroy()) {
-	
-		// Clear performed task
-		bool performedTask = false;
+		
+		// Initialize thread task
+		function<ThreadTaskResponse()> threadTask;
 		
 		{
 			// Lock
 			wxCriticalSectionLocker lock(criticalLock);
 			
-			// Check if task is to connect to printer
-			if(threadTask.length() >= strlen("Connect:") && threadTask.substr(0, strlen("Connect:")) == "Connect:")
-		
-				// Connect to printer
-				printer.connect(threadTask.substr(strlen("Connect:")));
-			
-			// Otherwise check if task is to switch printer into firmware mode
-			else if(threadTask == "Switch to firmware mode") {
-			
-				// Check if printer is already in firmware mode
-				if(printer.inFirmwareMode())
+			// Check if a thread task exists
+			if(!threadTaskQueue.empty()) {
 	
-					// Set thread message
-					threadMessage = {"Printer is already in firmware mode", wxOK | wxICON_EXCLAMATION | wxCENTRE};
-	
-				// Otherwise
-				else {
-	
-					// Put printer into firmware mode
-					printer.switchToFirmwareMode();
-	
-					// Check if printer isn't connected
-					if(!printer.isConnected())
-					
-						// Set thread message
-						threadMessage = {"Failed to switch printer into firmware mode", wxOK | wxICON_ERROR | wxCENTRE};
-					
-					// Otherwise
-					else
-					
-						// Set thread message
-						threadMessage = {"Printer has been successfully switched into firmware mode", wxOK | wxICON_INFORMATION | wxCENTRE};
-				}
+				// Set thread task to next thread task function
+				threadTask = threadTaskQueue.front();
+				threadTaskQueue.pop();
 			}
-			
-			// Otherwise check if task is install iMe firmware
-			else if(threadTask == "Install iMe firmware") {
-			
-				// Set firmware location
-				string firmwareLocation = getTemporaryLocation() + "/iMe " TOSTRING(IME_ROM_VERSION_STRING) ".hex";
-
-				// Check if creating iMe ROM failed
-				ofstream fout(firmwareLocation, ios::binary);
-				if(fout.fail())
-		
-					// Set thread message
-					threadMessage = {"Failed to unpack iMe firmware", wxOK | wxICON_ERROR | wxCENTRE};
-		
-				// Otherwise
-				else {
-		
-					// Unpack iMe ROM
-					for(uint64_t i = 0; i < IME_HEX_SIZE; i++)
-						fout.put(IME_HEX_DATA[i]);
-					fout.close();
-					
-					// Install firmware
-					installFirmware(firmwareLocation);
-					
-					// Set thread message
-					if(threadMessage.message == "Firmware successfully installed")
-						threadMessage.message = "iMe successfully installed";
-				}
-			}
-			
-			// Otherwise check if task is install from file
-			else if(threadTask.length() >= strlen("Install firmware:") && threadTask.substr(0, strlen("Install firmware:")) == "Install firmware:")
-		
-				// Install firmware
-				installFirmware(threadTask.substr(strlen("Install firmware:")));
-			
-			// Otherwise check if task is to install drivers
-			else if(threadTask == "Install drivers") {
-			
-				// Check if using Windows
-				#ifdef WINDOWS
-
-					// Check if creating drivers file failed
-					ofstream fout(getTemporaryLocation() + "/M3D.cat", ios::binary);
-					if(fout.fail())
-			
-						// Set thread message
-						threadMessage = {"Failed to unpack drivers", wxOK | wxICON_ERROR | wxCENTRE};
-		
-					// Otherwise
-					else {
-		
-						// Unpack drivers
-						for(uint64_t i = 0; i < m3D_catSize; i++)
-							fout.put(m3D_catData[i]);
-						fout.close();
-
-						// Check if creating drivers file failed
-						fout.open(getTemporaryLocation() + "/M3D.inf", ios::binary);
-						if(fout.fail())
-			
-							// Set thread message
-							threadMessage = {"Failed to unpack drivers", wxOK | wxICON_ERROR | wxCENTRE};
-			
-						// Otherwise
-						else {
-			
-							// Unpack drivers
-							for(uint64_t i = 0; i < m3D_infSize; i++)
-								fout.put(m3D_infData[i]);
-							fout.close();
-	
-							// Check if creating process failed
-							TCHAR buffer[MAX_PATH];
-							GetWindowsDirectory(buffer, MAX_PATH);
-							wstring path = buffer;
-
-							string executablePath;
-							ifstream file(path + "\\sysnative\\pnputil.exe", ios::binary);
-							executablePath = file.good() ? "sysnative" : "System32";
-							file.close();
-
-							STARTUPINFO startupInfo;
-							SecureZeroMemory(&startupInfo, sizeof(startupInfo));
-							startupInfo.cb = sizeof(startupInfo);
-		
-							PROCESS_INFORMATION processInfo;
-							SecureZeroMemory(&processInfo, sizeof(processInfo));
-		
-							TCHAR command[MAX_PATH];
-							_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + getTemporaryLocation() + "\\M3D.inf\"").c_str());
-		
-							if(!CreateProcess(nullptr, command, nullptr, nullptr, false, CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &processInfo))
-
-								// Set thread message
-								threadMessage = {"Failed to install drivers", wxOK | wxICON_ERROR | wxCENTRE};
-		
-							// Otherwise
-							else {
-
-								// Wait until process finishes
-								WaitForSingleObject(processInfo.hProcess, INFINITE);
-			
-								// Check if installing drivers failed
-								DWORD exitCode;
-								GetExitCodeProcess(processInfo.hProcess, &exitCode);
-			
-								// Close process and thread handles. 
-								CloseHandle(processInfo.hProcess);
-								CloseHandle(processInfo.hThread);
-			
-								if(!exitCode)
-
-									// Set thread message
-									threadMessage = {"Failed to install drivers", wxOK | wxICON_ERROR | wxCENTRE};
-		
-								// Otherwise
-								else
-
-									// Set thread message
-									threadMessage = {"Drivers successfully installed. You might need to reconnect the printer to the computer for the drivers to take effect.", wxOK | wxICON_INFORMATION | wxCENTRE};
-							}
-						}
-					}
-				#endif
-
-				// Otherwise check if using Linux
-				#ifdef LINUX
-
-					// Check if user is not root
-					if(getuid())
-
-						// Set thread message
-						threadMessage = {"Elevated privileges required", wxOK | wxICON_ERROR | wxCENTRE};
-		
-					// Otherwise
-					else {
-
-						// Check if creating udev rule failed
-						ofstream fout("/etc/udev/rules.d/90-m3d-local.rules", ios::binary);
-						if(fout.fail())
-			
-							// Set thread message
-							threadMessage = {"Failed to unpack udev rule", wxOK | wxICON_ERROR | wxCENTRE};
-			
-						// Otherwise
-						else {
-			
-							// Unpack udev rule
-							for(uint64_t i = 0; i < _90_m3d_local_rulesSize; i++)
-								fout.put(_90_m3d_local_rulesData[i]);
-							fout.close();
-
-							// Check if applying udev rule failed
-							if(system("/etc/init.d/udev restart"))
-	
-								// Set thread message
-								threadMessage = {"Failed to apply udev rule", wxOK | wxICON_ERROR | wxCENTRE};
-				
-							// Otherwise
-							else
-				
-								// Set thread message
-								threadMessage = {"Drivers successfully installed. You might need to reconnect the printer to the computer for the drivers to take effect.", wxOK | wxICON_INFORMATION | wxCENTRE};
-						}
-					}
-				#endif
-			}
-			
-			// Otherwise check if task is send command
-			else if(threadTask.length() >= strlen("Send Command:") && threadTask.substr(0, strlen("Send Command:")) == "Send Command:") {
-		
-				// Send command
-				printer.sendRequestAscii(threadTask.substr(strlen("Send Command:")));
-			}
-			
-			// Set performed task
-			if(!threadTask.empty())
-				performedTask = true;
-		
-			// Clear thread task
-			threadTask.clear();
 		}
 		
-		// Check if a task was performed
-		if(performedTask)
+		// Check if thread task exists
+		if(threadTask) {
 		
-			// Trigger on thread complete event
-			wxQueueEvent(GetEventHandler(), new wxThreadEvent());
+			// Trigger thread start event
+			wxQueueEvent(GetEventHandler(), new wxThreadEvent(wxEVT_THREAD_TASK_START));
+			
+			// Perform thread task
+			ThreadTaskResponse response = threadTask();
+		
+			// Trigger thread complete event
+			wxThreadEvent *event = new wxThreadEvent(wxEVT_THREAD_TASK_COMPLETE);
+			event->SetPayload(response);
+			wxQueueEvent(GetEventHandler(), event);
+		}
 		
 		// Delay
-		#ifdef WINDOWS
-			Sleep(100);
-		#else
-			usleep(100000);
-		#endif
+		sleepUs(10000);
 	}
 	
 	// Return
 	return EXIT_SUCCESS;
 }
 
-void MyFrame::threadComplete(wxThreadEvent& event) {
+void MyFrame::threadTaskStart(wxThreadEvent& event) {
 
-	// Check if thread complete callback is set
-	if(threadCompleteCallback) {
+	// Initialize callback function
+	function<void()> callbackFunction;
 	
-		// Clear thread complete callback
-		function<void()> temp = threadCompleteCallback;
-		threadCompleteCallback = nullptr;
-
-		// Call thread complete callback
-		temp();
+	{
+		// Lock
+		wxCriticalSectionLocker lock(criticalLock);
+		
+		// Check if a thread start callback is specified and one exists
+		if(!threadStartCallbackQueue.empty()) {
+	
+			// Set callback function to next start callback function
+			callbackFunction = threadStartCallbackQueue.front();
+			threadStartCallbackQueue.pop();
+		}
 	}
+
+	// Run callback function if it exists
+	if(callbackFunction)
+		callbackFunction();
+}
+
+void MyFrame::threadTaskComplete(wxThreadEvent& event) {
+
+	// Initialize callback function
+	function<void(ThreadTaskResponse response)> callbackFunction;
+	
+	{
+		// Lock
+		wxCriticalSectionLocker lock(criticalLock);
+		
+		// Check if a thread complete callback is specified and one exists
+		if(!threadCompleteCallbackQueue.empty()) {
+	
+			// Set callback function to next complete callback function
+			callbackFunction = threadCompleteCallbackQueue.front();
+			threadCompleteCallbackQueue.pop();
+		}
+	}
+
+	// Run callback function if it exists
+	if(callbackFunction)
+		callbackFunction(event.GetPayload<ThreadTaskResponse>());
 }
 
 void MyFrame::close(wxCloseEvent& event) {
+
+	// Stop status timer
+	statusTimer->Stop();
 
 	// Disconnect printer
 	printer.disconnect();
@@ -406,74 +563,168 @@ void MyFrame::close(wxCloseEvent& event) {
 }
 
 void MyFrame::connectToPrinter(wxCommandEvent& event) {
+	
+	// Disable button that triggered event
+	FindWindowById(event.GetId())->Enable(false);
 
-	// Stop status timer
-	statusTimer->Stop();
-
-	// Disable connection controls
-	serialPortChoice->Enable(false);
-	refreshSerialPortsButton->Enable(false);
-	connectButton->Enable(false);
-	
-	// Disable printer controls
-	installFirmwareFromFileButton->Enable(false);
-	installImeFirmwareButton->Enable(false);
-	switchToFirmwareModeButton->Enable(false);
-	
-	// Set connection text
-	connectionText->SetLabel(printer.getStatus() == "Connected" ? "Reconnecting" : "Connecting");
-	connectionText->SetForegroundColour(wxColour(255, 180, 0));
-	
-	// Lock
-	wxCriticalSectionLocker lock(criticalLock);
-	
-	// Set thread task to connect to printer
-	wxString currentChoice = serialPortChoice->GetString(serialPortChoice->GetSelection());
-	threadTask = "Connect:" + (currentChoice != "Auto" ? static_cast<string>(currentChoice) : "");
-	
-	// Set thread complete callback
-	threadCompleteCallback = [=]() -> void {
+	// Check if connecting to printer
+	if(connectButton->GetLabel() == "Connect") {
 		
-		// Enable connection controls
-		serialPortChoice->Enable(true);
-		refreshSerialPortsButton->Enable(true);
-		connectButton->Enable(true);
+		// Get current serial port choice
+		string currentChoice = static_cast<string>(serialPortChoice->GetString(serialPortChoice->GetSelection()));
 
-		// Check if connected to printer
-		if(printer.isConnected()) {
+		// Lock
+		wxCriticalSectionLocker lock(criticalLock);
 
-			// Enable printer controls
-			installFirmwareFromFileButton->Enable(true);
-			installImeFirmwareButton->Enable(true);
-			switchToFirmwareModeButton->Enable(true);
-		}
+		// Append thread start callback to queue
+		threadStartCallbackQueue.push([=]() -> void {
+		
+			// Stop status timer
+			statusTimer->Stop();
+		
+			// Disable connection controls
+			serialPortChoice->Enable(false);
+			refreshSerialPortsButton->Enable(false);
+			connectButton->Enable(false);
+
+			// Set status text
+			statusText->SetLabel("Connecting");
+			statusText->SetForegroundColour(wxColour(255, 180, 0));
+		});
+		
+		// Append thread task to queue
+		threadTaskQueue.push([=]() -> ThreadTaskResponse {
+		
+			// Connect to printer
+			printer.connect(currentChoice != "Auto" ? currentChoice : "");
+			
+			// Return empty response
+			return {"", 0};
+		});
+
+		// Append thread complete callback to queue
+		threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
 	
-		// Start status timer
-		statusTimer->Start(100);
-	};
+			// Enable connect button
+			connectButton->Enable(true);
+
+			// Check if connected to printer
+			if(printer.isConnected()) {
+
+				// Enable printer controls
+				installFirmwareFromFileButton->Enable(true);
+				installImeFirmwareButton->Enable(true);
+				switchToFirmwareModeButton->Enable(printer.inBootloaderMode());
+				sendCommandButton->Enable(true);
+				
+				// Change connect button to disconnect	
+				connectButton->SetLabel("Disconnect");
+			}
+			
+			// Otherwise
+			else {
+			
+				// Enable connection controls
+				serialPortChoice->Enable(true);
+				refreshSerialPortsButton->Enable(true);
+			}
+
+			// Start status timer
+			statusTimer->Start(100);
+		});
+	}
+	
+	// Otherwise
+	else {
+		
+		// Lock
+		wxCriticalSectionLocker lock(criticalLock);
+
+		// Append thread start callback to queue
+		threadStartCallbackQueue.push([=]() -> void {
+		
+			// Stop status timer
+			statusTimer->Stop();
+		});
+		
+		// Append thread task to queue
+		threadTaskQueue.push([=]() -> ThreadTaskResponse {
+		
+			// Disconnect printer
+			printer.disconnect();
+			
+			// Return empty response
+			return {"", 0};
+		});
+
+		// Append thread complete callback to queue
+		threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+	
+			// Disable printer controls
+			installFirmwareFromFileButton->Enable(false);
+			installImeFirmwareButton->Enable(false);
+			switchToFirmwareModeButton->Enable(false);
+			sendCommandButton->Enable(false);
+		
+			// Change connect button to connect
+			connectButton->SetLabel("Connect");
+		
+			// Enable connection controls
+			connectButton->Enable(true);
+			serialPortChoice->Enable(true);
+			refreshSerialPortsButton->Enable(true);
+		
+			// Start status timer
+			statusTimer->Start(100);
+		});
+	}
 }
 
 void MyFrame::switchToFirmwareMode(wxCommandEvent& event) {
 
-	// Disable connection controls
-	serialPortChoice->Enable(false);
-	refreshSerialPortsButton->Enable(false);
-	connectButton->Enable(false);
-	
-	// Disable printer controls
-	installFirmwareFromFileButton->Enable(false);
-	installImeFirmwareButton->Enable(false);
-	switchToFirmwareModeButton->Enable(false);
+	// Disable button that triggered event
+	FindWindowById(event.GetId())->Enable(false);
 
 	// Lock
 	wxCriticalSectionLocker lock(criticalLock);
+
+	// Append thread start callback to queue
+	threadStartCallbackQueue.push([=]() -> void {
 	
-	// Set thread task to switch printer to firmware mode
-	threadTask = "Switch to firmware mode";
+		// Disable connection controls
+		serialPortChoice->Enable(false);
+		refreshSerialPortsButton->Enable(false);
+		connectButton->Enable(false);
 	
-	// Set thread complete callback
-	threadCompleteCallback = [=]() -> void {
+		// Disable printer controls
+		installFirmwareFromFileButton->Enable(false);
+		installImeFirmwareButton->Enable(false);
+		switchToFirmwareModeButton->Enable(false);
+		sendCommandButton->Enable(false);
+	});
 	
+	// Append thread task to queue
+	threadTaskQueue.push([=]() -> ThreadTaskResponse {
+	
+		// Put printer into firmware mode
+		printer.switchToFirmwareMode();
+
+		// Check if printer isn't connected
+		if(!printer.isConnected())
+		
+			// Return message
+			return {"Failed to switch printer into firmware mode", wxOK | wxICON_ERROR | wxCENTRE};
+	
+		// Otherwise
+		else
+		
+			// Return message
+			return {"Printer has been successfully switched into firmware mode", wxOK | wxICON_INFORMATION | wxCENTRE};
+	});
+	
+	// Append thread complete callback to queue
+	threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+		
 		// Enable connection controls
 		serialPortChoice->Enable(true);
 		refreshSerialPortsButton->Enable(true);
@@ -485,78 +736,26 @@ void MyFrame::switchToFirmwareMode(wxCommandEvent& event) {
 			// Enable printer controls
 			installFirmwareFromFileButton->Enable(true);
 			installImeFirmwareButton->Enable(true);
-			switchToFirmwareModeButton->Enable(true);
+			switchToFirmwareModeButton->Enable(printer.inBootloaderMode());
+			sendCommandButton->Enable(true);
 		}
-	
-		// Lock
-		wxCriticalSectionLocker lock(criticalLock);
 		
 		// Display message
-		wxMessageBox(threadMessage.message, "M3D Manager", threadMessage.style);
-	};
+		wxMessageBox(response.message, "M3D Manager", response.style);
+	});
 }
 
 void MyFrame::installIMe(wxCommandEvent& event) {
 
-	// Stop status timer
-	statusTimer->Stop();
-
-	// Disable connection controls
-	serialPortChoice->Enable(false);
-	refreshSerialPortsButton->Enable(false);
-	connectButton->Enable(false);
-	
-	// Disable printer controls
-	installFirmwareFromFileButton->Enable(false);
-	installImeFirmwareButton->Enable(false);
-	switchToFirmwareModeButton->Enable(false);
-	
-	// Set connection text
-	connectionText->SetLabel("Installing iMe firmware");
-	connectionText->SetForegroundColour(wxColour(255, 180, 0));
+	// Disable button that triggered event
+	FindWindowById(event.GetId())->Enable(false);
 
 	// Lock
 	wxCriticalSectionLocker lock(criticalLock);
-	
-	// Set thread task to install iMe firmware
-	threadTask = "Install iMe firmware";
-	
-	// Set thread complete callback
-	threadCompleteCallback = [=]() -> void {
-	
-		// Enable connection controls
-		serialPortChoice->Enable(true);
-		refreshSerialPortsButton->Enable(true);
-		connectButton->Enable(true);
-	
-		// Check if connected to printer
-		if(printer.isConnected()) {
-	
-			// Enable printer controls
-			installFirmwareFromFileButton->Enable(true);
-			installImeFirmwareButton->Enable(true);
-			switchToFirmwareModeButton->Enable(true);
-		}
-		
-		// Start status timer
-		statusTimer->Start(100);
-	
-		// Lock
-		wxCriticalSectionLocker lock(criticalLock);
-		
-		// Display message
-		wxMessageBox(threadMessage.message, "M3D Manager", threadMessage.style);
-	};
-}
 
-void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
+	// Append thread start callback to queue
+	threadStartCallbackQueue.push([=]() -> void {
 	
-	// Display file dialog
-	wxFileDialog *openFileDialog = new wxFileDialog(this, "Open firmware file", wxEmptyString, wxEmptyString, "Firmware files|*.hex;*.bin;*.rom|All files|*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
-	
-	// Check if a file was selected
-	if(openFileDialog->ShowModal() == wxID_OK) {
-		
 		// Stop status timer
 		statusTimer->Stop();
 
@@ -569,19 +768,113 @@ void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
 		installFirmwareFromFileButton->Enable(false);
 		installImeFirmwareButton->Enable(false);
 		switchToFirmwareModeButton->Enable(false);
+		sendCommandButton->Enable(false);
 	
-		// Set connection text
-		connectionText->SetLabel("Installing firmware");
-		connectionText->SetForegroundColour(wxColour(255, 180, 0));
+		// Set status text
+		statusText->SetLabel("Installing firmware");
+		statusText->SetForegroundColour(wxColour(255, 180, 0));
+	});
+	
+	// Append thread task to queue
+	threadTaskQueue.push([=]() -> ThreadTaskResponse {
+	
+		// Set firmware location
+		string firmwareLocation = getTemporaryLocation() + "iMe " TOSTRING(IME_ROM_VERSION_STRING) ".hex";
+
+		// Check if creating iMe ROM failed
+		ofstream fout(firmwareLocation, ios::binary);
+		if(fout.fail())
+		
+			// Return message
+			return {"Failed to unpack iMe firmware", wxOK | wxICON_ERROR | wxCENTRE};
+
+		// Otherwise
+		else {
+
+			// Unpack iMe ROM
+			for(uint64_t i = 0; i < IME_HEX_SIZE; i++)
+				fout.put(IME_HEX_DATA[i]);
+			fout.close();
+		
+			// Return install firmware's message
+			return installFirmware(firmwareLocation);
+		}
+	});
+	
+	// Append thread complete callback to queue
+	threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+	
+		// Enable connection controls
+		serialPortChoice->Enable(true);
+		refreshSerialPortsButton->Enable(true);
+		connectButton->Enable(true);
+	
+		// Check if connected to printer
+		if(printer.isConnected()) {
+	
+			// Enable printer controls
+			installFirmwareFromFileButton->Enable(true);
+			installImeFirmwareButton->Enable(true);
+			switchToFirmwareModeButton->Enable(printer.inBootloaderMode());
+			sendCommandButton->Enable(true);
+		}
+		
+		// Start status timer
+		statusTimer->Start(100);
+		
+		// Display message
+		wxMessageBox(response.message, "M3D Manager", response.style);
+	});
+}
+
+void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
+	
+	// Display file dialog
+	wxFileDialog *openFileDialog = new wxFileDialog(this, "Open firmware file", wxEmptyString, wxEmptyString, "Firmware files|*.hex;*.bin;*.rom|All files|*", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+	
+	// Check if a file was selected
+	if(openFileDialog->ShowModal() == wxID_OK) {
+	
+		// Set firmware location
+		string firmwareLocation = static_cast<string>(openFileDialog->GetPath());
+		
+		// Disable button that triggered event
+		FindWindowById(event.GetId())->Enable(false);
 
 		// Lock
 		wxCriticalSectionLocker lock(criticalLock);
+
+		// Append thread start callback to queue
+		threadStartCallbackQueue.push([=]() -> void {
+		
+			// Stop status timer
+			statusTimer->Stop();
+
+			// Disable connection controls
+			serialPortChoice->Enable(false);
+			refreshSerialPortsButton->Enable(false);
+			connectButton->Enable(false);
 	
-		// Set thread task to install firmware from file
-		threadTask = "Install firmware:" + openFileDialog->GetPath();
+			// Disable printer controls
+			installFirmwareFromFileButton->Enable(false);
+			installImeFirmwareButton->Enable(false);
+			switchToFirmwareModeButton->Enable(false);
+			sendCommandButton->Enable(false);
 	
-		// Set thread complete callback
-		threadCompleteCallback = [=]() -> void {
+			// Set status text
+			statusText->SetLabel("Installing firmware");
+			statusText->SetForegroundColour(wxColour(255, 180, 0));
+		});
+		
+		// Append thread task to queue
+		threadTaskQueue.push([=]() -> ThreadTaskResponse {
+		
+			// Return install firmware's message
+			return installFirmware(firmwareLocation);
+		});
+	
+		// Append thread complete callback to queue
+		threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
 	
 			// Enable connection controls
 			serialPortChoice->Enable(true);
@@ -594,69 +887,291 @@ void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
 				// Enable printer controls
 				installFirmwareFromFileButton->Enable(true);
 				installImeFirmwareButton->Enable(true);
-				switchToFirmwareModeButton->Enable(true);
+				switchToFirmwareModeButton->Enable(printer.inBootloaderMode());
+				sendCommandButton->Enable(true);
 			}
 		
 			// Start status timer
 			statusTimer->Start(100);
-	
-			// Lock
-			wxCriticalSectionLocker lock(criticalLock);
 		
 			// Display message
-			wxMessageBox(threadMessage.message, "M3D Manager", threadMessage.style);
-		};
+			wxMessageBox(response.message, "M3D Manager", response.style);
+		});
 	}
 }
 
 void MyFrame::installDrivers(wxCommandEvent& event) {
 
+	// Disable button that triggered event
+	FindWindowById(event.GetId())->Enable(false);
+
 	// Lock
 	wxCriticalSectionLocker lock(criticalLock);
+
+	// Append thread start callback to queue
+	threadStartCallbackQueue.push([=]() -> void {
 	
-	// Set thread task to install drivers
-	threadTask = "Install drivers";
+		// Disable install drivers button
+		installDriversButton->Enable(false);
+	});
 	
-	// Set thread complete callback
-	threadCompleteCallback = [=]() -> void {
+	// Append thread task to queue
+	threadTaskQueue.push([=]() -> ThreadTaskResponse {
 	
-		// Lock
-		wxCriticalSectionLocker lock(criticalLock);
+		// Check if using Windows
+		#ifdef WINDOWS
+
+			// Check if creating drivers file failed
+			ofstream fout(getTemporaryLocation() + "M3D.cat", ios::binary);
+			if(fout.fail())
+			
+				// Return message
+				return {"Failed to unpack drivers", wxOK | wxICON_ERROR | wxCENTRE};
+
+			// Otherwise
+			else {
+
+				// Unpack drivers
+				for(uint64_t i = 0; i < m3D_catSize; i++)
+					fout.put(m3D_catData[i]);
+				fout.close();
+
+				// Check if creating drivers file failed
+				fout.open(getTemporaryLocation() + "M3D.inf", ios::binary);
+				if(fout.fail())
+				
+					// Return message
+					return {"Failed to unpack drivers", wxOK | wxICON_ERROR | wxCENTRE};
+
+				// Otherwise
+				else {
+
+					// Unpack drivers
+					for(uint64_t i = 0; i < m3D_infSize; i++)
+						fout.put(m3D_infData[i]);
+					fout.close();
+
+					// Check if creating process failed
+					TCHAR buffer[MAX_PATH];
+					GetWindowsDirectory(buffer, MAX_PATH);
+					wstring path = buffer;
+
+					string executablePath;
+					ifstream file(path + "\\sysnative\\pnputil.exe", ios::binary);
+					executablePath = file.good() ? "sysnative" : "System32";
+					file.close();
+
+					STARTUPINFO startupInfo;
+					SecureZeroMemory(&startupInfo, sizeof(startupInfo));
+					startupInfo.cb = sizeof(startupInfo);
+
+					PROCESS_INFORMATION processInfo;
+					SecureZeroMemory(&processInfo, sizeof(processInfo));
+
+					TCHAR command[MAX_PATH];
+					_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + getTemporaryLocation() + "M3D.inf\"").c_str());
+
+					if(!CreateProcess(nullptr, command, nullptr, nullptr, false, CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &processInfo))
+					
+						// Return message
+						return {"Failed to install drivers", wxOK | wxICON_ERROR | wxCENTRE};
+
+					// Otherwise
+					else {
+
+						// Wait until process finishes
+						WaitForSingleObject(processInfo.hProcess, INFINITE);
+
+						// Check if installing drivers failed
+						DWORD exitCode;
+						GetExitCodeProcess(processInfo.hProcess, &exitCode);
+
+						// Close process and thread handles. 
+						CloseHandle(processInfo.hProcess);
+						CloseHandle(processInfo.hThread);
+
+						if(!exitCode)
+						
+							// Return message
+							return {"Failed to install drivers", wxOK | wxICON_ERROR | wxCENTRE};
+
+						// Otherwise
+						else
+						
+							// Return message
+							return {"Drivers successfully installed. You might need to reconnect the printer to the computer for the drivers to take effect.", wxOK | wxICON_INFORMATION | wxCENTRE};
+					}
+				}
+			}
+		#endif
+
+		// Otherwise check if using Linux
+		#ifdef LINUX
+
+			// Check if user is not root
+			if(getuid())
+			
+				// Return message
+				return {"Elevated privileges required", wxOK | wxICON_ERROR | wxCENTRE};
+
+			// Otherwise
+			else {
+
+				// Check if creating udev rule failed
+				ofstream fout("/etc/udev/rules.d/90-m3d-local.rules", ios::binary);
+				if(fout.fail())
+				
+					// Return message
+					return {"Failed to unpack udev rule", wxOK | wxICON_ERROR | wxCENTRE};
+
+				// Otherwise
+				else {
+
+					// Unpack udev rule
+					for(uint64_t i = 0; i < _90_m3d_local_rulesSize; i++)
+						fout.put(_90_m3d_local_rulesData[i]);
+					fout.close();
+
+					// Check if applying udev rule failed
+					if(system("/etc/init.d/udev restart"))
+					
+						// Return message
+						return {"Failed to apply udev rule", wxOK | wxICON_ERROR | wxCENTRE};
+	
+					// Otherwise
+					else
+					
+						// Return message
+						return {"Drivers successfully installed. You might need to reconnect the printer to the computer for the drivers to take effect.", wxOK | wxICON_INFORMATION | wxCENTRE};
+				}
+			}
+		#endif
 		
+		// Return empty response
+		return {"", 0};
+	});
+	
+	// Append thread complete callback to queue
+	threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+	
+		// Enable install drivers button
+		installDriversButton->Enable(true);
+	
 		// Display message
-		wxMessageBox(threadMessage.message, "M3D Manager", threadMessage.style);
-	};
+		wxMessageBox(response.message, "M3D Manager", response.style);
+	});
+}
+
+void MyFrame::logToConsole(const string &message) {
+
+	// Lock
+	wxCriticalSectionLocker lock(criticalLock);
+
+	// Append message to log queue
+	logQueue.push(message);
+}
+
+void MyFrame::updateLog(wxTimerEvent& event) {
+
+	// Loop forever
+	while(true) {
+	
+		// Initialize message
+		string message;
+	
+		{
+			// Lock
+			wxCriticalSectionLocker lock(criticalLock);
+			
+			// Check if no messages exists in log queue
+			if(logQueue.empty())
+			
+				// Break
+				break;
+			
+			// Set message to next message in log queue
+			message = logQueue.front();
+			logQueue.pop();
+		}
+		
+		// Check if message exists
+		if(!message.empty()) {
+		
+			// Check if message is to remove last line
+			if(message == "Remove last line") {
+		
+				// Remove last line
+				size_t end = consoleOutput->GetValue().Length();
+				size_t start = consoleOutput->GetValue().find_last_of('\n');
+				consoleOutput->Remove(start != string::npos ? start : 0, end);
+			}
+		
+			// Otherwise
+			else
+		
+				// Append message to console's output
+				consoleOutput->AppendText(static_cast<string>(consoleOutput->GetValue().IsEmpty() ? "" : "\n") + ">> " + message);
+		
+			// Scroll to bottom
+			consoleOutput->ShowPosition(consoleOutput->GetLastPosition());
+		}
+	}
 }
 
 void MyFrame::updateStatus(wxTimerEvent& event) {
 
-	// Get printer status
+	// Check if getting printer status was successful
 	string status = printer.getStatus();
+	if(!status.empty()) {
 	
-	// Check if printer is connected
-	if(status == "Connected")
+		// Check if printer is connected
+		if(status == "Connected") {
 	
-		// Set text color
-		connectionText->SetForegroundColour(wxColour(0, 255, 0));
-	
-	// Otherwise
-	else {
-	
-		// Check if printer was just disconnected
-		if(status == "Disconnected" && connectionText->GetLabel() != status) {
-	
-			// Disable printer controls
-			installFirmwareFromFileButton->Enable(false);
-			installImeFirmwareButton->Enable(false);
-			switchToFirmwareModeButton->Enable(false);
-		}
+			// Change connect button to disconnect
+			connectButton->SetLabel("Disconnect");
 		
-		// Set text color
-		connectionText->SetForegroundColour(wxColour(255, 0, 0));
-	}
+			// Disable connection controls
+			serialPortChoice->Enable(false);
+			refreshSerialPortsButton->Enable(false);
+		
+			// Set status text color
+			statusText->SetForegroundColour(wxColour(0, 255, 0));
+			
+			// Enable or disable switch to firmware button depending on the printer's operating mode
+			switchToFirmwareModeButton->Enable(printer.getOperatingMode() == BOOTLOADER);
+		}
+	
+		// Otherwise
+		else {
+	
+			// Check if printer was just disconnected
+			if(status == "Disconnected" && (statusText->GetLabel() != status || connectButton->GetLabel() == "Disconnect")) {
+				
+				// Disable printer controls
+				installFirmwareFromFileButton->Enable(false);
+				installImeFirmwareButton->Enable(false);
+				switchToFirmwareModeButton->Enable(false);
+				sendCommandButton->Enable(false);
+		
+				// Change connect button to connect
+				connectButton->SetLabel("Connect");
+		
+				// Enable connection controls
+				connectButton->Enable(true);
+				serialPortChoice->Enable(true);
+				refreshSerialPortsButton->Enable(true);
+			
+				// Log disconnection
+				logToConsole("Printer has been disconnected");
+			}
+		
+			// Set status text color
+			statusText->SetForegroundColour(wxColour(255, 0, 0));
+		}
 
-	// Update connection text
-	connectionText->SetLabel(status);
+		// Update status text
+		statusText->SetLabel(status);
+	}
 }
 
 wxArrayString MyFrame::getAvailableSerialPorts() {
@@ -675,25 +1190,67 @@ wxArrayString MyFrame::getAvailableSerialPorts() {
 }
 
 void MyFrame::refreshSerialPorts(wxCommandEvent& event) {
+
+	// Disable button that triggered event
+	FindWindowById(event.GetId())->Enable(false);
 	
-	// Disable connection controls
-	serialPortChoice->Enable(false);
-	refreshSerialPortsButton->Enable(false);
-	connectButton->Enable(false);
+	// Lock
+	wxCriticalSectionLocker lock(criticalLock);
+
+	// Append thread start callback to queue
+	threadStartCallbackQueue.push([=]() -> void {
 	
-	// Update display
-	Refresh();
-	Update();
+		// Disable connection controls
+		serialPortChoice->Enable(false);
+		refreshSerialPortsButton->Enable(false);
+		connectButton->Enable(false);
+	});
 	
-	wxTimer *delayTimer = new wxTimer(this, wxID_ANY);
-	Bind(wxEVT_TIMER, [=](wxTimerEvent& event) {
+	// Append thread task to queue
+	threadTaskQueue.push([=]() -> ThreadTaskResponse {
 	
+		// Delay
+		sleepUs(300000);
+	
+		// Get available serial ports
+		wxArrayString serialPorts = getAvailableSerialPorts();
+		
+		// Combine serial ports into a single response
+		string response;
+		for(size_t i = 0; i < serialPorts.GetCount(); i++) 
+			response += serialPorts[i] + ' ';
+		response.pop_back();
+		
+		// Return serial ports
+		return {response, 0};
+	});
+	
+	// Append thread complete callback to queue
+	threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+	
+		// Enable connection controls
+		serialPortChoice->Enable(true);
+		refreshSerialPortsButton->Enable(true);
+		connectButton->Enable(true);
+		
+		// Get serial ports from response
+		wxArrayString serialPorts;
+		for(size_t i = 0; i < response.message.length(); i++) {
+		
+			size_t startingOffset = i;
+			i = response.message.find(' ', i);
+			serialPorts.Add(response.message.substr(startingOffset, i));
+			
+			if(i == string::npos)
+				break;
+		}
+		
 		// Save current choice
 		wxString currentChoice = serialPortChoice->GetString(serialPortChoice->GetSelection());
 
 		// Refresh choices
 		serialPortChoice->Clear();
-		serialPortChoice->Append(getAvailableSerialPorts());
+		serialPortChoice->Append(serialPorts);
 	
 		// Set choice to auto if previous choice doesn't exist anymore
 		if(serialPortChoice->FindString(currentChoice) == wxNOT_FOUND)
@@ -701,25 +1258,17 @@ void MyFrame::refreshSerialPorts(wxCommandEvent& event) {
 	
 		// Select choice
 		serialPortChoice->SetSelection(serialPortChoice->FindString(currentChoice));
-		
-		// Enable connection controls
-		wxSafeYield();
-		serialPortChoice->Enable(true);
-		refreshSerialPortsButton->Enable(true);
-		connectButton->Enable(true);
-	
-	}, delayTimer->GetId());
-	delayTimer->StartOnce(300);
+	});
 }
 
-void MyFrame::installFirmware(const string &firmwareLocation) {
+ThreadTaskResponse MyFrame::installFirmware(const string &firmwareLocation) {
 
 	// Check if firmware ROM doesn't exists
 	ifstream file(firmwareLocation, ios::binary);
 	if(!file.good())
-
-		// Set thread message
-		threadMessage = {"Firmware ROM doesn't exist", wxOK | wxICON_ERROR | wxCENTRE};
+	
+		// Return message
+		return {"Firmware ROM doesn't exist", wxOK | wxICON_ERROR | wxCENTRE};
 
 	// Otherwise
 	else {
@@ -735,55 +1284,123 @@ void MyFrame::installFirmware(const string &firmwareLocation) {
 		for(; beginningOfNumbers && endOfNumbers > beginningOfNumbers && isdigit(firmwareLocation[endOfNumbers]); endOfNumbers--);
 
 		if(endOfNumbers != beginningOfNumbers)
-
-			// Set thread message
-			threadMessage = {"Invalid firmware name", wxOK | wxICON_ERROR | wxCENTRE};
+		
+			// Return message
+			return {"Invalid firmware name", wxOK | wxICON_ERROR | wxCENTRE};
 
 		// Otherwise
 		else {
 
 			// Check if installing printer's firmware failed
 			if(!printer.installFirmware(firmwareLocation.c_str()))
-
-				// Set thread message
-				threadMessage = {"Failed to update firmware", wxOK | wxICON_ERROR | wxCENTRE};
+			
+				// Return message
+				return {"Failed to update firmware", wxOK | wxICON_ERROR | wxCENTRE};
 
 			// Otherwise
-			else {
+			else
 
-				// Put printer into firmware mode
-				printer.switchToFirmwareMode();
-
-				// Check if printer isn't connected
-				if(!printer.isConnected())
-
-					// Set thread message
-					threadMessage = {"Failed to update firmware", wxOK | wxICON_ERROR | wxCENTRE};
-	
-				// Otherwise
-				else
-	
-					// Set thread message
-					threadMessage = {"Firmware successfully installed", wxOK | wxICON_INFORMATION | wxCENTRE};
-			}
+				// Return message
+				return {"Firmware successfully installed", wxOK | wxICON_INFORMATION | wxCENTRE};
 		}
 	}
 }
 
-void MyFrame::sendCommand(wxCommandEvent& event) {
+void MyFrame::sendCommandManually(wxCommandEvent& event) {
+
+	// Check if commands can be sent
+	if(sendCommandButton->IsEnabled()) {
 	
+		// Check if command exists
+		string command = static_cast<string>(commandInput->GetValue());
+		if(!command.empty()) {
+		
+			// Clear command input
+			commandInput->SetValue("");
+			
+			// Send command
+			sendCommand(command);
+		}
+	}
+}
+
+void MyFrame::sendCommand(const string &command, function<void()> threadStartCallback, function<void(ThreadTaskResponse response)> threadCompleteCallback) {
+
+	// Log command
+	logToConsole("Send: " + command);
+
 	// Lock
 	wxCriticalSectionLocker lock(criticalLock);
+
+	// Check if a thread start callback exists
+	if(threadStartCallback)
+
+		// Append thread start callback to queue
+		threadStartCallbackQueue.push(threadStartCallback);
 	
-	// Set thread task to send command
-	threadTask = "Send Command:" + commandInput->GetValue();
-	commandInput->SetValue("");
+	// Append thread task to queue
+	threadTaskQueue.push([=]() -> ThreadTaskResponse {
 	
-	// Set thread complete callback
-	threadCompleteCallback = [=]() -> void {
+		// Set changed mode
+		bool changedMode = (command == "Q" && printer.getOperatingMode() == BOOTLOADER) || (command == "M115 S628" && printer.getOperatingMode() == FIRMWARE);
+		
+		// Check if send command failed
+		if(!printer.sendRequest(command))
+		
+			// Log error
+			logToConsole("Sending command failed");
+		
+		// Otherwise
+		else {
+		
+			// Wait until command receives a response
+			for(string response; !changedMode && response.substr(0, 2) != "ok" && response.substr(0, 2) != "rs" && response.substr(0, 4) != "skip" && response.substr(0, 5) != "Error";) {
+				
+				// Get response
+				do {
+					response = printer.receiveResponse();
+				} while(response.empty() && printer.isConnected());
+		
+				// Check if printer isn't connected
+				if(!printer.isConnected())
+		
+					// Break
+					break;
+				
+				// Check if printer is in bootloader mode
+				if(printer.getOperatingMode() == BOOTLOADER) {
+				
+					// Convert response to hexadecimal
+					stringstream hexResponse;
+					for(size_t i = 0; i < response.length(); i++)
+						hexResponse << "0x" << hex << setfill('0') << setw(2) << uppercase << (static_cast<uint8_t>(response[i]) & 0xFF) << ' ';
+
+					response = hexResponse.str();
+					if(!response.empty())
+						response.pop_back();
+				}
+				
+				// Log response
+				if(response != "wait")
+					logToConsole("Receive: " + response);
+				
+				// Check if printer is in bootloader mode
+				if(printer.getOperatingMode() == BOOTLOADER)
+				
+					// Break
+					break;
+			}
+		}
+
+		// Return empty response
+		return {"", 0};
+	});
 	
-		cout << "done" << endl;
-	};
+	// Check if a thread complete callback exists
+	if(threadCompleteCallback)
+
+		// Append thread complete callback to queue
+		threadCompleteCallbackQueue.push(threadCompleteCallback);
 }
 
 // Check if using Windows
@@ -796,15 +1413,20 @@ void MyFrame::sendCommand(wxCommandEvent& event) {
 		
 			// Check if an interface device was removed
 			if(wParam == DBT_DEVICEREMOVECOMPLETE && reinterpret_cast<PDEV_BROADCAST_HDR>(lParam)->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) {
+			
+				// Create device info string
+				stringstream deviceInfoStringStream;
+				deviceInfoStringStream << "VID_" << setfill('0') << setw(4) << hex << uppercase << PRINTER_VENDOR_ID << "&PID_" << setfill('0') << setw(4) << hex << uppercase << PRINTER_PRODUCT_ID;
+				string deviceInfoString = deviceInfoStringStream.str();
 				
 				// Check if device has the printer's PID and VID
 				PDEV_BROADCAST_DEVICEINTERFACE deviceInterface = reinterpret_cast<PDEV_BROADCAST_DEVICEINTERFACE>(lParam);
 				
-				if(!_tcsnicmp(deviceInterface->dbcc_name, _T("\\\\?\\USB#VID_03EB&PID_2404"), strlen("\\\\?\\USB#VID_03EB&PID_2404"))) {
+				if(!_tcsnicmp(deviceInterface->dbcc_name, _T("\\\\?\\USB#" + deviceInfoString), ("\\\\?\\USB#" + deviceInfoString).length())) {
 					
 					// Get device ID
-					wstring deviceId = &deviceInterface->dbcc_name[strlen("\\\\?\\USB#VID_03EB&PID_2404") + 1];
-					deviceId = _T("USB\\VID_03EB&PID_2404\\") + deviceId.substr(0, deviceId.find(_T("#")));
+					wstring deviceId = &deviceInterface->dbcc_name[("\\\\?\\USB#" + deviceInfoString).length() + 1];
+					deviceId = _T("USB\\" + deviceInfoString + "\\") + deviceId.substr(0, deviceId.find(_T("#")));
 					
 					// Check if getting all connected devices was successful
 					HDEVINFO deviceInfo = SetupDiGetClassDevs(nullptr, nullptr, nullptr, DIGCF_ALLCLASSES);
@@ -837,7 +1459,7 @@ void MyFrame::sendCommand(wxCommandEvent& event) {
 											string currentPort = printer.getCurrentSerialPort();
 											if(!_tcsicmp(buffer, wstring(currentPort.begin(), currentPort.end()).c_str()))
 											
-												// Disconnect pritner
+												// Disconnect printer
 												printer.disconnect();
 										}
 										

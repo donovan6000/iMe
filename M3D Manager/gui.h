@@ -6,18 +6,20 @@
 // Header files
 #include <string>
 #include <functional>
+#include <queue>
 #include <wx/sysopt.h>
+#include <wx/glcanvas.h>
 #include "common.h"
 #include "printer.h"
 
 using namespace std;
 
 
-struct ThreadMessage {
+// Thread task response struct
+struct ThreadTaskResponse {
 	string message;
 	int style;
 };
-
 
 // My app class
 class MyApp: public wxApp {
@@ -25,7 +27,10 @@ class MyApp: public wxApp {
 	// Public
 	public:
 
-		// On init
+		/*
+		Name: On init
+		Purpose: Run when program starts
+		*/
 		virtual bool OnInit();
 };
 
@@ -48,16 +53,28 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		wxThread::ExitCode Entry();
 		
 		/*
-		Name: On thread complete
-		Purpose: Event that's called when thread finishes performing a task
+		Name: Thread task start
+		Purpose: Event that's called when background thread starts a task
 		*/
-		void threadComplete(wxThreadEvent& event);
+		void threadTaskStart(wxThreadEvent& event);
 		
 		/*
-		Name: On close
+		Name: Thread task complete
+		Purpose: Event that's called when background thread completes a task
+		*/
+		void threadTaskComplete(wxThreadEvent& event);
+		
+		/*
+		Name: Close
 		Purpose: Event that's called when frame closes
 		*/
 		void close(wxCloseEvent& event);
+		
+		/*
+		Name: Show
+		Purpose: Event that's called when frame is shown
+		*/
+		void show(wxShowEvent &event);
 		
 		/*
 		Name: Connect to printer
@@ -82,6 +99,19 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		Purpose: Installs device drivers for the printer
 		*/
 		void installDrivers(wxCommandEvent& event);
+		
+		
+		/*
+		Name: Log to console
+		Purpose: Queues message to be displayed in the console
+		*/
+		void logToConsole(const string &message);
+		
+		/*
+		Name: Update log
+		Purpose: Appends queued messages to console
+		*/
+		void updateLog(wxTimerEvent& event);
 		
 		/*
 		Name: Update status
@@ -108,10 +138,22 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		void refreshSerialPorts(wxCommandEvent& event);
 		
 		/*
+		Name: Send command manually
+		Purpose: Sends a command manually to the printer
+		*/
+		void sendCommandManually(wxCommandEvent& event);
+		
+		/*
 		Name: Send command
 		Purpose: Sends a command to the printer
 		*/
-		void sendCommand(wxCommandEvent& event);
+		void sendCommand(const string &command, function<void()> threadStartCallback = nullptr, function<void(ThreadTaskResponse response)> threadCompleteCallback = nullptr);
+		
+		/*
+		Name: Install firmware
+		Purpose: Flashes the printer's firmware to the provided file
+		*/
+		ThreadTaskResponse installFirmware(const string &firmwareLocation);
 		
 		// Check if using Windows
 		#ifdef WINDOWS
@@ -125,33 +167,32 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 	
 	// Private
 	private:
-	
-		// Install firmware
-		void installFirmware(const string &firmwareLocation);
-	
+		
 		// Controls
 		wxChoice *serialPortChoice;
 		wxButton *refreshSerialPortsButton;
 		wxButton *connectButton;
 		wxStaticText *versionText;
-		wxStaticText *connectionText;
+		wxStaticText *statusText;
 		wxButton *installFirmwareFromFileButton;
 		wxButton *installImeFirmwareButton;
 		wxButton *switchToFirmwareModeButton;
 		wxTimer *statusTimer;
-		wxTextEntry* commandInput;
+		wxTextCtrl* commandInput;
+		wxTextCtrl* consoleOutput;
+		wxButton *sendCommandButton;
+		wxButton *installDriversButton;
 		
 		// Critical lock
 		wxCriticalSection criticalLock;
 		
-		// Thread task
-		string threadTask;
+		// Thread start, task, and complete queues
+		queue<function<void()>> threadStartCallbackQueue;
+		queue<function<ThreadTaskResponse()>> threadTaskQueue;
+		queue<function<void(ThreadTaskResponse response)>> threadCompleteCallbackQueue;
 		
-		// Thread message
-		ThreadMessage threadMessage;
-		
-		// Thread complete callback
-		function<void()> threadCompleteCallback;
+		// Log queue
+		queue<string> logQueue;
 		
 		// Printer
 		Printer printer;

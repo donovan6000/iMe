@@ -2,6 +2,10 @@
 #include <fstream>
 #include <stdexcept>
 #include <cstring>
+#include <cfloat>
+#include <cmath>
+#include <iomanip>
+#include <sstream>
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -21,6 +25,7 @@
 	#include <sys/param.h>
 #endif
 #include "printer.h"
+#include "../eeprom.h"
 
 using namespace std;
 
@@ -47,24 +52,19 @@ const uint32_t crc32Table[] = {0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA, 0
 
 
 // Supporting function implementation
-void sleepUs(uint64_t microSeconds) {
+void sleepUs(uint64_t microseconds) {
 
 	// Check if using Windows
 	#ifdef WINDOWS
 	
 		// Sleep
-		LARGE_INTEGER totalTime;
-		totalTime.QuadPart = -10 * microSeconds;
-		HANDLE timer = CreateWaitableTimer(nullptr, true, nullptr);
-		SetWaitableTimer(timer, &totalTime, 0, nullptr, nullptr, 0);
-		WaitForSingleObject(timer, INFINITE);
-		CloseHandle(timer);
+		Sleep(static_cast<double>(microseconds) / 1000);
 	
 	// Otherwise
 	#else
 	
 		// Sleep
-		usleep(microSeconds);
+		usleep(microseconds);
 	#endif
 }
 
@@ -103,7 +103,7 @@ void sleepUs(uint64_t microSeconds) {
 #endif
 
 Printer::Printer() {
-
+	
 	// Clear file descriptor
 	fd = 0;
 	
@@ -199,7 +199,7 @@ Printer::updateStatus() {
 		releaseLock();
 		
 		// Sleep
-		sleepUs(100000);
+		sleepUs(10000);
 	}
 	
 	// Check if using Windows
@@ -210,7 +210,11 @@ Printer::updateStatus() {
 	#endif
 }
 
-bool Printer::connect(const string &serialPort) {
+bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
+
+	// Log start of connection if connecting to a new printer
+	if(logFunction)
+		logFunction(connectingToNewPrinter ? (serialPort.length() ? "Connecting to " + serialPort : "Autodetecting serial port") : "Reconnecting to " + currentSerialPort);
 
 	// Acquire lock
 	acquireLock();
@@ -221,14 +225,16 @@ bool Printer::connect(const string &serialPort) {
 	else
 		status = "Connecting";
 	
-	// Disconnect if already connected
+	// Disconnect if already connected and save current serial port
+	string savedSerialPort = currentSerialPort;
 	disconnect();
+	currentSerialPort = savedSerialPort;
         
-        // Attempt to connect for 2 seconds
-        for(uint8_t i = 0; i < 2000000 / 250000; i++) {
+        // Attempt to connect for half a seconds
+        for(uint8_t i = 0; i < 500000 / 100000; i++) {
         
-        	// Wait 250 milliseconds
-		sleepUs(250000);
+        	// Wait 100 milliseconds
+		sleepUs(100000);
 		
 		// Get current serial port
 		currentSerialPort = serialPort.length() ? serialPort : getNewSerialPort();
@@ -263,20 +269,54 @@ bool Printer::connect(const string &serialPort) {
 						// Configure port timeouts
 						COMMTIMEOUTS serialPortTimeouts;
 						SecureZeroMemory(&serialPortTimeouts, sizeof(serialPortTimeouts));
-						serialPortTimeouts.ReadIntervalTimeout = 50;
-						serialPortTimeouts.ReadTotalTimeoutConstant = 50;
+						serialPortTimeouts.ReadIntervalTimeout = 100;
+						serialPortTimeouts.ReadTotalTimeoutConstant = 100;
 						serialPortTimeouts.ReadTotalTimeoutMultiplier = 10;
-						serialPortTimeouts.WriteTotalTimeoutConstant = 50;
-						serialPortTimeouts.WriteTotalTimeoutMultiplier = 10;
+						serialPortTimeouts.WriteTotalTimeoutConstant = 0;
+						serialPortTimeouts.WriteTotalTimeoutMultiplier = 0;
 						
 						// Check if setting port timeouts was successful
 						if(SetCommTimeouts(fd, &serialPortTimeouts)) {
 						
-							// Release lock
-							releaseLock();
+							// Check if not connecting to a new printer
+							if(!connectingToNewPrinter) {
 						
-							// Return true
-							return true;
+								// Release lock
+								releaseLock();
+								
+								// Log end of successful reconnection
+								if(logFunction) {
+									logFunction("Reconnected to printer");
+									logFunction(static_cast<string>("Printer is in ") + (operatingMode == BOOTLOADER ? "bootloader" : "firmware") + " mode");
+								}
+
+								// Return true
+								return true;
+							}
+						
+							// Otherwise
+							else {
+					
+								// Check if collecting printer information was successful
+								if(collectPrinterInformation()) {
+							
+									// Release lock
+									releaseLock();
+									
+									// Log end of successful connection
+									if(logFunction)
+										logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareType() + " firmware V" + getFirmwareVersion());
+
+									// Return true
+									return true;
+								}
+							
+								// Otherwise
+								else
+		
+									// Disconnect
+									disconnect();
+							}
 						}
 		
 						// Otherwise
@@ -350,12 +390,45 @@ bool Printer::connect(const string &serialPort) {
 
 					// Check if setting port settings was successful
 					if(tcsetattr(fd, TCSANOW, &settings) != -1) {
-				
-						// Release lock
-						releaseLock();
+					
+						if(!connectingToNewPrinter) {
+						
+							// Release lock
+							releaseLock();
+							
+							// Log end of successful reconnection
+							if(logFunction) {
+								logFunction("Reconnected to printer");
+								logFunction(static_cast<string>("Printer is in ") + (operatingMode == BOOTLOADER ? "bootloader" : "firmware") + " mode");
+							}
 
-						// Return true
-						return true;
+							// Return true
+							return true;
+						}
+						
+						// Otherwise
+						else {
+					
+							// Check if collecting printer information was successful
+							if(collectPrinterInformation()) {
+							
+								// Release lock
+								releaseLock();
+								
+								// Log end of successful connection
+								if(logFunction)
+									logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareType() + " firmware V" + getFirmwareVersion());
+
+								// Return true
+								return true;
+							}
+							
+							// Otherwise
+							else
+		
+								// Disconnect
+								disconnect();
+						}
 					}
 				
 					// Otherwise
@@ -393,15 +466,23 @@ bool Printer::connect(const string &serialPort) {
 				disconnect();
 			}
 		#endif
+		
+		// Log failed connection details
+		if(status != "Connecting" && status != "Reconnecting" && logFunction)
+			logFunction("" + status);
 	}
 	
 	// Update status
 	if(status == "Connecting" || status == "Reconnecting") {
 	
 		if(!currentSerialPort.length())
-			status = "Device not found";
+			status = serialPort.length() ? "Device not found" : "No devices found";
 		else
 			status = "Failed to connect to the device";
+		
+		// Log end of failed connection
+		if(logFunction)
+			logFunction("" + status);
 	}
 	
 	// Release lock
@@ -409,6 +490,602 @@ bool Printer::connect(const string &serialPort) {
 	
 	// Return false
 	return false;
+}
+
+bool Printer::collectPrinterInformation(bool logDetails) {
+
+	// Set changed mode
+	bool changedMode = false;
+
+	// Check if printer isn't in bootloader mode
+	if(!inBootloaderMode()) {
+	
+		// Log printer's mode if logging detailt
+		if(logFunction && logDetails)
+			logFunction("Printer is in firmware mode");
+	
+		// Switch to bootloader mode 
+		switchToBootloaderMode();
+		
+		// Set changed mode
+		changedMode = true;
+	}
+
+	// Check if printer is still connected
+	if(isConnected())
+	
+		// Log printer's mode if mode didn't change and logging details
+		if(logFunction && !changedMode && logDetails)
+			logFunction("Printer is in bootloader mode");
+	
+		// Check if requesting CRC from chip was successful
+		if(sendRequestAscii('C') && sendRequestAscii('A')) {
+
+			// Get response
+			string response = receiveResponseAscii();
+
+			// Get chip CRC
+			uint32_t chipCrc = 0;
+			for(uint8_t i = 0; i < 4; i++) {
+				chipCrc <<= 8;
+				chipCrc += static_cast<uint8_t>(response[i]);
+			}
+			chipCrc = __builtin_bswap32(chipCrc);
+
+			// Check if request EEPROM was successful
+			if(sendRequestAscii('S')) {
+	
+				// Check if response was correctly received
+				string response = receiveResponseAscii();
+				if(response.length() == 0x301 && response[0x300] == '\r') {
+		
+					// Set EEPROM
+					eeprom = response.substr(0, 0x300);
+					
+					// Get EEPROM CRC
+					uint32_t eepromCrc = eepromGetInt(EEPROM_FIRMWARE_CRC_OFFSET, EEPROM_FIRMWARE_CRC_LENGTH);
+					
+					// Set if firmware is valid
+					firmwareValid = chipCrc == eepromCrc;
+					
+					// Log if firmware is valid and logging details
+					if(logFunction && logDetails)
+						logFunction(static_cast<string>("Firmware is ") + (firmwareValid ? "valid" : "invalid"));
+				
+					// Set firmware version
+					firmwareVersion = eepromGetInt(EEPROM_FIRMWARE_VERSION_OFFSET, EEPROM_FIRMWARE_VERSION_LENGTH);
+				
+					// Set firmware type
+					switch(firmwareVersion / 100000000) {
+				
+						case 19:
+							firmwareType = IME;
+						break;
+					
+						case 20:
+							firmwareType = M3D;
+						break;
+					
+						case 21:
+							firmwareType = M3D_MOD;
+						break;
+					
+						default:
+							firmwareType = UNKNOWN_FIRMWARE;
+					}
+				
+					// Set serial number
+					serialNumber = eepromGetString(EEPROM_SERIAL_NUMBER_OFFSET, EEPROM_SERIAL_NUMBER_LENGTH);
+					
+					// Log printer color if logging details
+					if(logFunction && logDetails) {
+					
+						string printerColor;
+						if(serialNumber.substr(0, 2) == "BK")
+							printerColor = "black";
+						else if(serialNumber.substr(0, 2) == "WH")
+							printerColor = "white";
+						else if(serialNumber.substr(0, 2) == "BL")
+							printerColor = "blue";
+						else if(serialNumber.substr(0, 2) == "GR")
+							printerColor = "green";
+						else if(serialNumber.substr(0, 2) == "OR")
+							printerColor = "orange";
+						else if(serialNumber.substr(0, 2) == "CL")
+							printerColor = "clear";
+						else if(serialNumber.substr(0, 2) == "SL")
+							printerColor = "silver";
+						else if(serialNumber.substr(0, 2) == "PL")
+							printerColor = "purple";
+						
+						logFunction("Printer's color is " + printerColor);
+					}
+					
+					// Get fan type
+					fanTypes fanType = static_cast<fanTypes>(eepromGetInt(EEPROM_FAN_TYPE_OFFSET, EEPROM_FAN_TYPE_LENGTH));
+			
+					// Check if fan needs updating
+					if(!fanType || fanType == NO_FAN) {
+		
+						// Set fan type to HengLiXin
+						fanType = HENGLIXIN;
+			
+						// Check if device is newer
+						if(stoi(serialNumber.substr(2, 6)) >= 150602)
+			
+							// Set fan type to Shenzhew
+							fanType = SHENZHEW;
+					}
+					
+					// Check if updating fan calibration failed
+					if(!setFanType(fanType, logDetails))
+					
+						// Return false
+						return false;
+					
+					// Log fan type if logging details
+					if(logFunction && logDetails) {
+					
+						string fanString;
+						switch(fanType) {
+							case HENGLIXIN:
+								fanString = "a HengLiXin";
+							break;
+							
+							case LISTENER:
+								fanString = "a Listener";
+							break;
+							
+							case SHENZHEW:
+								fanString = "a Shenzhew";
+							break;
+							
+							case XINYUJIE:
+								fanString = "a Xinyujie";
+							break;
+							
+							case CUSTOM_FAN :
+								fanString = "a custom";
+							break;
+							
+							case NO_FAN:
+								fanString = "no";
+							break;
+							
+							default:
+								fanString = "an unknown";
+						}
+						
+						logFunction("Using " + fanString + " fan");
+					}
+					
+					// Check if using a printer that can't use extruder currents above 500mA
+					if(serialNumber.substr(0, 13) == "BK15033001100" || serialNumber.substr(0, 13) == "BK15040201050" || serialNumber.substr(0, 13) == "BK15040301050" || serialNumber.substr(0, 13) == "BK15040602050" || serialNumber.substr(0, 13) == "BK15040801050" || serialNumber.substr(0, 13) == "BK15040802100" || serialNumber.substr(0, 13) == "GR15032702100" || serialNumber.substr(0, 13) == "GR15033101100" || serialNumber.substr(0, 13) == "GR15040601100" || serialNumber.substr(0, 13) == "GR15040701100" || serialNumber.substr(0, 13) == "OR15032701100" || serialNumber.substr(0, 13) == "SL15032601050")
+		
+						// Check if setting extruder current to 500mA failed
+						if(!setExtruderCurrent(500, logDetails))
+					
+							// Return false
+							return false;
+					
+					// Get extruder current
+					uint16_t extruderCurrent = eepromGetInt(EEPROM_E_MOTOR_CURRENT_OFFSET, EEPROM_E_MOTOR_CURRENT_LENGTH);
+					
+					// Log extruder current if logging details
+					if(logFunction && logDetails)
+						logFunction("Using " + to_string(extruderCurrent) + "mA extruder current");
+					
+					// Check if using M3D or M3D Mod firmware and it's from before new bed orientation and adjustable backlash speed
+					if((firmwareType == M3D || firmwareType == M3D_MOD) && stoi(getFirmwareVersion()) < 2015080402) {
+					
+						// Check if clearing bed offsets failed
+						if(!eepromWriteInt(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, EEPROM_BED_HEIGHT_OFFSET_LENGTH + EEPROM_BED_HEIGHT_OFFSET_OFFSET - EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, 0)) {
+	
+							// Log error
+							if(logFunction)
+								logFunction("Failed to clear out bed offsets");
+
+							// Return false
+							return false;
+						}
+						
+						// Check if updating backlash speed failed
+						if(!eepromWriteFloat(EEPROM_BACKLASH_SPEED_OFFSET, EEPROM_BACKLASH_SPEED_LENGTH, DEFAULT_BACKLASH_SPEED)) {
+		
+							// Log if logging details
+							if(logFunction && logDetails)
+								logFunction("Updating backlash speed failed");
+
+							// Return false
+							return false;
+						}
+					}
+					
+					// Check if updating backlash X failed
+					if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_X_OFFSET, EEPROM_BACKLASH_X_LENGTH, 0, 2, DEFAULT_BACKLASH_X)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating backlash X failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating backlash Y failed
+					if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_Y_OFFSET, EEPROM_BACKLASH_Y_LENGTH, 0, 2, DEFAULT_BACKLASH_Y)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating backlash Y failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating backlash speed failed
+					if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_SPEED_OFFSET, EEPROM_BACKLASH_SPEED_LENGTH, 1, 5000, DEFAULT_BACKLASH_SPEED)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating backlash speed failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating bed orientation back right failed
+					if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_BACK_RIGHT)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating bed orientation back right failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating bed orientation back left failed
+					if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET, EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_BACK_LEFT)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating bed orientation back left failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating bed orientation front left failed
+					if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_FRONT_LEFT)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating bed orientation front left failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating bed orientation front right failed
+					if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_FRONT_RIGHT)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating bed orientation front right failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating bed offset back right failed
+					if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET, EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_BACK_RIGHT)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating bed offset back right failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating bed offset back left failed
+					if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, EEPROM_BED_OFFSET_BACK_LEFT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_BACK_LEFT)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating bed offset back left failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating bed offset front left failed
+					if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET, EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_FRONT_LEFT)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating bed offset front left failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating bed offset front right failed
+					if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET, EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_FRONT_RIGHT)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating bed offset front right failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating bed height offset failed
+					if(!eepromKeepFloatWithinRange(EEPROM_BED_HEIGHT_OFFSET_OFFSET, EEPROM_BED_HEIGHT_OFFSET_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_HEIGHT_OFFSET)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating bed height offset failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating speed limit X failed
+					if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_X_OFFSET, EEPROM_SPEED_LIMIT_X_LENGTH, 120, 4800, DEFAULT_SPEED_LIMIT_X)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating speed limit X failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating speed limit Y failed
+					if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_Y_OFFSET, EEPROM_SPEED_LIMIT_Y_LENGTH, 120, 4800, DEFAULT_SPEED_LIMIT_Y)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating speed limit Y failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating speed limit Z failed
+					if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_Z_OFFSET, EEPROM_SPEED_LIMIT_Z_LENGTH, 30, 60, DEFAULT_SPEED_LIMIT_Z)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating speed limit Z failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating speed limit E+ failed
+					if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET, EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH, 60, 600, DEFAULT_SPEED_LIMIT_E_POSITIVE)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating speed limit E+ failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating speed limit E- failed
+					if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH, 60, 720, DEFAULT_SPEED_LIMIT_E_NEGATIVE)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating speed limit E- failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if using iMe firmware
+					if(firmwareType == IME) {
+					
+						// Check if updating last recorded X value failed
+						if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, EEPROM_LAST_RECORDED_X_VALUE_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_LAST_RECORDED_X_VALUE)) {
+					
+							// Log if logging details
+							if(logFunction && logDetails)
+								logFunction("Updating last recorded X value failed");
+
+							// Return false
+							return false;
+						}
+					
+						// Check if updating last recorded Y value failed
+						if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_Y_VALUE_OFFSET, EEPROM_LAST_RECORDED_Y_VALUE_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_LAST_RECORDED_Y_VALUE)) {
+					
+							// Log if logging details
+							if(logFunction && logDetails)
+								logFunction("Updating last recorded Y value failed");
+
+							// Return false
+							return false;
+						}
+					}
+					
+					// Check if updating last recorded Z value failed
+					if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_LAST_RECORDED_Z_VALUE)) {
+					
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating last recorded Z value failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Get values
+					float backlashX = eepromGetFloat(EEPROM_BACKLASH_X_OFFSET, EEPROM_BACKLASH_X_LENGTH);
+					float backlashY = eepromGetFloat(EEPROM_BACKLASH_Y_OFFSET, EEPROM_BACKLASH_Y_LENGTH);
+					float backlashSpeed = eepromGetFloat(EEPROM_BACKLASH_SPEED_OFFSET, EEPROM_BACKLASH_SPEED_LENGTH);
+					uint8_t bedOrientationVersion = eepromGetInt(EEPROM_BED_ORIENTATION_VERSION_OFFSET, EEPROM_BED_ORIENTATION_VERSION_LENGTH);
+					float bedOrientationBackRight = eepromGetFloat(EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH);
+					float bedOrientationBackLeft = eepromGetFloat(EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET, EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH);
+					float bedOrientationFrontLeft = eepromGetFloat(EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH);
+					float bedOrientationFrontRight = eepromGetFloat(EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH);
+					float bedOffsetBackRight = eepromGetFloat(EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET, EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH);
+					float bedOffsetBackLeft = eepromGetFloat(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, EEPROM_BED_OFFSET_BACK_LEFT_LENGTH);
+					float bedOffsetFrontLeft = eepromGetFloat(EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET, EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH);
+					float bedOffsetFrontRight = eepromGetFloat(EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET, EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH);
+					float bedHeightOffset = eepromGetFloat(EEPROM_BED_HEIGHT_OFFSET_OFFSET, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
+					float speedLimitX = eepromGetFloat(EEPROM_SPEED_LIMIT_X_OFFSET, EEPROM_SPEED_LIMIT_X_LENGTH);
+					float speedLimitY = eepromGetFloat(EEPROM_SPEED_LIMIT_Y_OFFSET, EEPROM_SPEED_LIMIT_Y_LENGTH);
+					float speedLimitZ = eepromGetFloat(EEPROM_SPEED_LIMIT_Z_OFFSET, EEPROM_SPEED_LIMIT_Z_LENGTH);
+					float speedLimitEPositive = eepromGetFloat(EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET, EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH);
+					float speedLimitENegative = eepromGetFloat(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH);
+					uint8_t heaterCalibrationMode = eepromGetInt(EEPROM_HEATER_CALIBRATION_MODE_OFFSET, EEPROM_HEATER_CALIBRATION_MODE_LENGTH);
+					float heaterTemperatureMeasurementB = eepromGetFloat(EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_OFFSET, EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_LENGTH);
+					float heaterResistanceM = eepromGetFloat(EEPROM_HEATER_RESISTANCE_M_OFFSET, EEPROM_HEATER_RESISTANCE_M_LENGTH);
+					
+					// Log values if logging details
+					if(logFunction && logDetails) {
+						logFunction("Using " + to_string(backlashX) + "mm backlash X");
+						logFunction("Using " + to_string(backlashY) + "mm backlash Y");
+						logFunction("Using " + to_string(backlashSpeed) + "mm/min backlash speed");
+						logFunction("Using bed orientation version " + to_string(bedOrientationVersion));
+						logFunction("Using " + to_string(bedOrientationBackRight) + "mm bed orientation back right");
+						logFunction("Using " + to_string(bedOrientationBackLeft) + "mm bed orientation back left");
+						logFunction("Using " + to_string(bedOrientationFrontLeft) + "mm bed orientation front left");
+						logFunction("Using " + to_string(bedOrientationFrontRight) + "mm bed orientation front right");
+						logFunction("Using " + to_string(bedOffsetBackRight) + "mm bed offset back right");
+						logFunction("Using " + to_string(bedOffsetBackLeft) + "mm bed offset back left");
+						logFunction("Using " + to_string(bedOffsetFrontLeft) + "mm bed offset front left");
+						logFunction("Using " + to_string(bedOffsetFrontRight) + "mm bed offset front right");
+						logFunction("Using " + to_string(bedHeightOffset) + "mm bed height offset");
+						logFunction("Using " + to_string(speedLimitX) + "mm/min speed limit X");
+						logFunction("Using " + to_string(speedLimitY) + "mm/min speed limit Y");
+						logFunction("Using " + to_string(speedLimitZ) + "mm/min speed limit Z");
+						logFunction("Using " + to_string(speedLimitEPositive) + "mm/min speed limit E+");
+						logFunction("Using " + to_string(speedLimitENegative) + "mm/min speed limit E-");
+						logFunction("Using heater calibration mode " + to_string(heaterCalibrationMode));
+						logFunction("Using " + to_string(heaterTemperatureMeasurementB) + " heater temperature measurement B");
+						logFunction("Using " + to_string(heaterResistanceM) + " heater resistance M");
+					}
+					
+					// Return true
+					return true;
+				}
+			}
+		}
+	
+	// Return false
+	return false;
+}
+
+bool Printer::setFanType(fanTypes fanType, bool logDetails) {
+
+	// Set fan offset and scale
+	uint8_t fanOffset;
+	float fanScale;
+	if(fanType == HENGLIXIN) {
+		fanOffset = 200;
+		fanScale = 0.2165354;
+	}
+	else if(fanType == LISTENER) {
+		fanOffset = 145;
+		fanScale = 0.3333333;
+	}
+	else if(fanType == SHENZHEW) {
+		fanOffset = 82;
+		fanScale = 0.3843137;
+	}
+	else if(fanType == XINYUJIE) {
+		fanOffset = 200;
+		fanScale = 0.2165354;
+	}
+	else
+		return true;
+	
+	// Check if fan scale needs to be updated
+	if(eepromGetFloat(EEPROM_FAN_SCALE_OFFSET, EEPROM_FAN_SCALE_LENGTH) != fanScale) {
+	
+		// Check if updating fan scale failed
+		if(!eepromWriteFloat(EEPROM_FAN_SCALE_OFFSET, EEPROM_FAN_SCALE_LENGTH, fanScale)) {
+		
+			// Log if logging details
+			if(logFunction && logDetails)
+				logFunction("Updating fan scale failed");
+
+			// Return false
+			return false;
+		}
+		
+		// Log if logging details
+		if(logFunction && logDetails)
+			logFunction("Successfully update fan scale");
+	}
+	
+	// Check if fan offset needs to be updated
+	if(eepromGetInt(EEPROM_FAN_OFFSET_OFFSET, EEPROM_FAN_OFFSET_LENGTH) != fanOffset) {
+	
+		// Check if updating fan offset failed
+		if(eepromWriteInt(EEPROM_FAN_OFFSET_OFFSET, EEPROM_FAN_OFFSET_LENGTH, fanOffset)) {
+		
+			// Log if logging details
+			if(logFunction && logDetails)
+				logFunction("Updating fan offset failed");
+		
+			// Return false
+			return false;
+		}
+		
+		// Log if logging details
+		if(logFunction && logDetails)
+			logFunction("Successfully update fan offset");
+	}
+
+	// Check if fan type needs to be updated
+	if(eepromGetInt(EEPROM_FAN_TYPE_OFFSET, EEPROM_FAN_TYPE_LENGTH) != fanType) {
+	
+		// Check if updating fan type failed
+		if(eepromWriteInt(EEPROM_FAN_TYPE_OFFSET, EEPROM_FAN_TYPE_LENGTH, fanType)) {
+		
+			// Log if logging details
+			if(logFunction && logDetails)
+				logFunction("Updating fan type failed");
+		
+			// Return false
+			return false;
+		}
+		
+		// Log if logging details
+		if(logFunction && logDetails)
+			logFunction("Successfully update fan type");
+	}
+	
+	// Return true
+	return true;
+}
+
+bool Printer::setExtruderCurrent(uint16_t current, bool logDetails) {
+
+	// Check if extruder current needs to be updated
+	if(eepromGetInt(EEPROM_E_MOTOR_CURRENT_OFFSET, EEPROM_E_MOTOR_CURRENT_LENGTH) != current) {
+	
+		// Check if updating fan type failed
+		if(eepromWriteInt(EEPROM_E_MOTOR_CURRENT_OFFSET, EEPROM_E_MOTOR_CURRENT_LENGTH, current))
+		
+			// Return false
+			return false;
+		
+		// Log if logging details
+		if(logFunction && logDetails)
+			logFunction("Successfully update extruder current");
+	}
+	
+	// Return true
+	return true;
 }
 
 void Printer::disconnect() {
@@ -490,10 +1167,17 @@ bool Printer::isConnected() {
 bool Printer::inBootloaderMode() {
 
 	// Check if printer is connected and sending command was successful
-	if(sendRequestAscii("M115"))
+	if(sendRequestAscii("M115")) {
+	
+		// Get response
+		string response = receiveResponseAscii();
+		
+		// Set operating mode
+		operatingMode = response[0] == 'B' ? BOOTLOADER : FIRMWARE;
 	
 		// Return if in bootloader mode
-		return receiveResponseAscii()[0] == 'B';
+		return operatingMode == BOOTLOADER;
+	}
 	
 	// Return false
 	return false;
@@ -502,10 +1186,17 @@ bool Printer::inBootloaderMode() {
 bool Printer::inFirmwareMode() {
 
 	// Check if printer is connected and sending command was successful
-	if(sendRequestAscii("M115"))
+	if(sendRequestAscii("M115")) {
 	
-		// Return if in bootloader mode
-		return receiveResponseAscii()[0] != 'B';
+		// Get response
+		string response = receiveResponseAscii();
+		
+		// Set operating mode
+		operatingMode = response[0] == 'B' ? BOOTLOADER : FIRMWARE;
+	
+		// Return if in firmware mode
+		return operatingMode == FIRMWARE;
+	}
 	
 	// Return false
 	return false;
@@ -516,9 +1207,14 @@ void Printer::switchToBootloaderMode() {
 	// Check if printer is in firmware mode
 	if(inFirmwareMode()) {
 	
-		// Switch printer into bootloader mode failed
+		// Switch printer with ASCII protocol into bootloader mode
 		sendRequestAscii("M115 S628");
-		sendRequestBinary("M115 S628");
+		
+		// Check if printer is still in firmware mode
+		if(inFirmwareMode())
+		
+			// Switch printer with Repetier protocol into bootloader mode
+			sendRequestRepetier("M115 S628");
 	}
 }
 
@@ -533,15 +1229,28 @@ void Printer::switchToFirmwareMode() {
 
 bool Printer::installFirmware(const string &file) {
 
+	// Log firmware installation
+	if(logFunction)
+		logFunction("Installing firmware with " + file);
+
 	// Switch to bootloader mode
 	switchToBootloaderMode();
 	
 	// Check if ROM doesn't exist
 	ifstream romInput(file, ios::binary);
-	if(!romInput.good())
+	if(!romInput.good()) {
+	
+		// Log file status
+		if(logFunction)
+			logFunction(file + " not found");
 	
 		// Return false
 		return false;
+	}
+	
+	// Log file status
+	if(logFunction)
+		logFunction(file + " exists");
 	
 	// Read in the encrypted ROM
 	string romBuffer;
@@ -567,31 +1276,88 @@ bool Printer::installFirmware(const string &file) {
 	}
 
 	// Check if ROM is too big
-	if(romBuffer.length() > CHIP_TOTAL_MEMORY)
+	if(romBuffer.length() > CHIP_TOTAL_MEMORY) {
+	
+		// Log file size status
+		if(logFunction)
+			logFunction(file + " is too big");
 
 		// Return false
 		return false;
+	}
 	
-	// Check if requesting that chip failed to be erased
-	if(!sendRequestAscii('E'))
+	// Log file size status
+	if(logFunction)
+		logFunction(file + " isn't too big");
+	
+	// Check if requesting firmware CRC failed
+	if(!sendRequestAscii('C') || !sendRequestAscii('A')) {
+	
+		// Log error
+		if(logFunction)
+			logFunction("Obtaining current firmware CRC failed");
 	
 		// Return false
 		return false;
+	}
+
+	// Get response
+	string response = receiveResponseAscii();
+
+	// Get old firmware CRC
+	uint32_t oldFirmwareCrc = 0;
+	for(uint8_t i = 0; i < 4; i++) {
+		oldFirmwareCrc <<= 8;
+		oldFirmwareCrc += static_cast<uint8_t>(response[i]);
+	}
+	oldFirmwareCrc = __builtin_bswap32(oldFirmwareCrc);
+	
+	// Log old firmware CRC
+	if(logFunction) {
+		stringstream oldFirmwareCrcStream;
+		oldFirmwareCrcStream << setfill('0') << setw(8) << hex << uppercase << oldFirmwareCrc;
+		logFunction("Current firmware CRC is 0x" + oldFirmwareCrcStream.str());
+	}
+	
+	// Check if requesting that firmware failed to be erased
+	if(!sendRequestAscii('E')) {
+	
+		// Log printer error
+		if(logFunction)
+			logFunction("Erasing firmware failed");
+	
+		// Return false
+		return false;
+	}
 	
 	// Delay
 	sleepUs(1000000);
 	
-	// Check if chip failed to be erased
-	if(receiveResponseAscii() != "\r")
+	// Check if firmware failed to be erased
+	if(receiveResponseAscii() != "\r") {
+	
+		// Log error
+		if(logFunction)
+			logFunction("Erasing firmware failed");
 	
 		// Return false
 		return false;
+	}
+	
+	// Log erase firmware status
+	if(logFunction)
+		logFunction("Successfully erased firmware");
 	
 	// Check if address wasn't acknowledged
-	if(!sendRequestAscii('A') || !sendRequestAscii('\x00') || !sendRequestAscii('\x00') || receiveResponseAscii() != "\r")
+	if(!sendRequestAscii('A') || !sendRequestAscii('\x00') || !sendRequestAscii('\x00') || receiveResponseAscii() != "\r") {
+	
+		// Log error
+		if(logFunction)
+			logFunction("Setting starting address failed");
 	
 		// Return false
 		return false;
+	}
 
 	// Set pages to write
 	uint16_t pagesToWrite = romBuffer.length() / 2 / CHIP_PAGE_SIZE;
@@ -602,10 +1368,15 @@ bool Printer::installFirmware(const string &file) {
 	for(uint16_t i = 0; i < pagesToWrite; i++) {
 
 		// Check if sending write to page request failed
-		if(!sendRequestAscii('B') || !sendRequestAscii(CHIP_PAGE_SIZE * 2 >> 8, false) || !sendRequestAscii(static_cast<char>(CHIP_PAGE_SIZE * 2), false))
+		if(!sendRequestAscii('B') || !sendRequestAscii(CHIP_PAGE_SIZE * 2 >> 8, false) || !sendRequestAscii(static_cast<char>(CHIP_PAGE_SIZE * 2), false)) {
 		
+			// Log error
+			if(logFunction)
+				logFunction("Setting page number failed");
+			
 			// Return false
 			return false;
+		}
 
 		// Go through all values for the page
 		for(int j = 0; j < CHIP_PAGE_SIZE * 2; j++) {
@@ -614,47 +1385,91 @@ bool Printer::installFirmware(const string &file) {
 			uint32_t position = j + CHIP_PAGE_SIZE * i * 2;
 			if(position < romBuffer.length()) {
 
-				// Return false if sending value failed
-				if(!sendRequestAscii(romBuffer[position + (position % 2 ? -1 : 1)], false))
+				// Check if sending value failed
+				if(!sendRequestAscii(romBuffer[position + (position % 2 ? -1 : 1)], false)) {
+				
+					// Log error
+					if(logFunction)
+						logFunction("Writing data failed");
+				
+					// Return false
 					return false;
+				}
 			}
 
 			// Otherwise
 			else {
 
-				// Return false if sending padding failed
-				if(!sendRequestAscii(romEncryptionTable[0xFF], false))
+				// Check if sending padding failed
+				if(!sendRequestAscii(romEncryptionTable[0xFF], false)) {
+				
+					// Log error
+					if(logFunction)
+						logFunction("Writing padding failed");
+					
+					// Return false
 					return false;
+				}
 			}
 		}
 
-		// Check if chip failed to be flashed
-		if(receiveResponseAscii() != "\r")
+		// Check if page failed to be written to
+		if(receiveResponseAscii() != "\r") {
+		
+			// Log error
+			if(logFunction)
+				logFunction("Failed to write page");
 
 			// Return false
 			return false;
+		}
+		
+		// Log percent complete
+		if(logFunction) {
+			if(i)
+				logFunction("Remove last line");
+			logFunction(to_string(static_cast<double>(i + 1) / pagesToWrite * 100) + "% complete");
+		}
 	}
 
 	// Check if address wasn't acknowledged
-	if(!sendRequestAscii('A') || !sendRequestAscii('\x00') || !sendRequestAscii('\x00') || receiveResponseAscii() != "\r")
+	if(!sendRequestAscii('A') || !sendRequestAscii('\x00') || !sendRequestAscii('\x00') || receiveResponseAscii() != "\r") {
+	
+		// Log error
+		if(logFunction)
+			logFunction("Resetting starting address failed");
 	
 		// Return false
 		return false;
+	}
 
-	// Check if requesting CRC from chip failed
-	if(!sendRequestAscii('C') || !sendRequestAscii('A'))
+	// Check if requesting CRC from firmware failed
+	if(!sendRequestAscii('C') || !sendRequestAscii('A')) {
+	
+		// Log error
+		if(logFunction)
+			logFunction("Obtaining new firmware CRC failed");
 	
 		// Return false
 		return false;
+	}
 
 	// Get response
-	string response = receiveResponseAscii();
+	response = receiveResponseAscii();
 
-	// Get chip CRC
-	uint32_t chipCrc = 0;
+	// Get firmware CRC
+	uint32_t firmwareCrc = 0;
 	for(uint8_t i = 0; i < 4; i++) {
-		chipCrc <<= 8;
-		chipCrc += static_cast<uint8_t>(response[i]);
+		firmwareCrc <<= 8;
+		firmwareCrc += static_cast<uint8_t>(response[i]);
+	}
+	firmwareCrc = __builtin_bswap32(firmwareCrc);
+	
+	// Log firmware CRC
+	if(logFunction) {
+		stringstream firmwareCrcStream;
+		firmwareCrcStream << setfill('0') << setw(8) << hex << uppercase << firmwareCrc;
+		logFunction("New firmware CRC is 0x" + firmwareCrcStream.str());
 	}
 
 	// Decrypt the ROM
@@ -686,12 +1501,28 @@ bool Printer::installFirmware(const string &file) {
 
 	// Get ROM CRC
 	uint32_t romCrc = crc32(0, decryptedRom, CHIP_TOTAL_MEMORY);
+	
+	// Log ROM CRC
+	if(logFunction) {
+		stringstream romCrcStream;
+		romCrcStream << setfill('0') << setw(8) << hex << uppercase << romCrc;
+		logFunction("ROM CRC is 0x" + romCrcStream.str());
+	}
 
 	// Check if firmware update failed
-	if(chipCrc != __builtin_bswap32(romCrc))
+	if(firmwareCrc != romCrc) {
+	
+		// Log error
+		if(logFunction)
+			logFunction("New firmware CRC was incorrect");
 
 		// Return false
 		return false;
+	}
+	
+	// Log CRC status
+	if(logFunction)
+		logFunction("New firmware CRC was correct");
 
 	// Set ROM version from file name
 	uint8_t endOfNumbers = 0;
@@ -700,20 +1531,124 @@ bool Printer::installFirmware(const string &file) {
 	else
 		endOfNumbers = file.length() - 1;
 	uint32_t romVersion = stoi(file.substr(endOfNumbers - 10));
+	
+	// Check if request EEPROM failed
+	if(!sendRequestAscii('S')) {
+	
+		// Log error
+		if(logFunction)
+			logFunction("Obtaining EEPROM failed");
+	
+		// Return false
+		return false;
+	}
+	
+	// Get response
+	response = receiveResponseAscii();
+
+	// Check if failed to read EEPROM
+	if(response.length() != 0x301 || response[0x300] != '\r') {
+	
+		// Log error
+		if(logFunction)
+			logFunction("Obtaining EEPROM failed");
+
+		// Return false
+		return false;
+	}
+	
+	// Set EEPROM
+	eeprom = response.substr(0, 0x300);
+	
+	// Log EEPROM status
+	if(logFunction)
+		logFunction("Obtained EEPROM");
+					
+	// Get old EEPROM CRC
+	uint32_t oldEepromCrc = eepromGetInt(EEPROM_FIRMWARE_CRC_OFFSET, EEPROM_FIRMWARE_CRC_LENGTH);
+	
+	// Check if last Z recorded is invalid or previous firmware was corrupt
+	if(!eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH) || oldFirmwareCrc != oldEepromCrc) {
+	
+		// Check if clearing last recorded Z value in EEPROM failed
+		if(!eepromWriteInt(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, 0)) {
+		
+			// Log error
+			if(logFunction)
+				logFunction("Failed to clear out last recorded Z value");
+
+			// Return false
+			return false;
+		}
+		
+		// Log operation status
+		if(logFunction)
+			logFunction("Successfully cleared out last recorded Z value");
+	}
+	
+	// Check if clearing motor's steps per mm failed
+	if(!eepromWriteInt(EEPROM_X_AXIS_STEPS_PER_MM_OFFSET, EEPROM_E_AXIS_STEPS_PER_MM_LENGTH + EEPROM_E_AXIS_STEPS_PER_MM_OFFSET - EEPROM_X_AXIS_STEPS_PER_MM_OFFSET, 0)) {
+	
+		// Log error
+		if(logFunction)
+			logFunction("Failed to clear out motor's steps per mm");
+
+		// Return false
+		return false;
+	}
+	
+	// Log operation status
+	if(logFunction)
+		logFunction("Successfully cleared out motor's steps per mm");
 
 	// Check if updating firmware version in EEPROM failed
-	for(uint8_t i = 0; i < 4; i++)
-		if(!writeToEeprom(i, romVersion >> 8 * i))
+	if(!eepromWriteInt(EEPROM_FIRMWARE_VERSION_OFFSET, EEPROM_FIRMWARE_VERSION_LENGTH, romVersion)) {
+	
+		// Log error
+		if(logFunction)
+			logFunction("Failed to update firmware version");
 
-			// Return false
-			return false;
+		// Return false
+		return false;
+	}
+	
+	// Log operation status
+	if(logFunction)
+		logFunction("Successfully updated firmware version");
 
 	// Check if updating firmware CRC in EEPROM failed
-	for(uint8_t i = 0; i < 4; i++)
-		if(!writeToEeprom(i + 4, romCrc >> 8 * i))
+	if(!eepromWriteInt(EEPROM_FIRMWARE_CRC_OFFSET, EEPROM_FIRMWARE_CRC_LENGTH, romCrc)) {
+	
+		// Log error
+		if(logFunction)
+			logFunction("Failed to update firmware CRC");
 
-			// Return false
-			return false;
+		// Return false
+		return false;
+	}
+	
+	// Log operation status
+	if(logFunction)
+		logFunction("Successfully updated firmware CRC");
+	
+	// Log firmware installation status
+	if(logFunction)
+		logFunction("Successfully installed " + file);
+	
+	// Check if collecting printer information failed
+	if(!collectPrinterInformation(false)) {
+	
+		// Log error
+		if(logFunction)
+			logFunction("Failed to collect printer information");
+		
+		// Return false
+		return false;
+	}
+	
+	// Log printer details
+	if(logFunction)
+		logFunction("Printer is running " + getFirmwareType() + " firmware V" + getFirmwareVersion());
 
 	// Return true
 	return true;
@@ -740,16 +1675,30 @@ bool Printer::sendRequestAscii(const char *data, bool checkForModeSwitching) {
 		bool returnValue = write(fd, data, strlen(data)) == static_cast<signed int>(strlen(data));
 	#endif
 	
-	// Release lock
-	releaseLock();
-	
-	// Reconnect if data was successfully sent and switching into bootloader mode
+	// Check if data was successfully sent and switching into bootloader or firmware mode
 	if(returnValue && checkForModeSwitching && (!strcmp(data, "M115 S628") || !strcmp(data, "Q")))
-		connect();
+	
+		// Check if operating mode changes
+		if(operatingMode != !strcmp(data, "M115 S628") ? BOOTLOADER : FIRMWARE) {
+		
+			// Log mode change
+			if(logFunction)
+				logFunction(static_cast<string>("Switching printer into ") + (operatingMode == BOOTLOADER ? "firmware" : "bootloader") + " mode");
+			
+			// Set operating mode
+			operatingMode = !strcmp(data, "M115 S628") ? BOOTLOADER : FIRMWARE;
+			
+			// Reconnect
+			sleepUs(1000000);
+			connect("", false);
+		}
 	
 	// Disconnect if sending request failed
 	if(!returnValue || !isConnected())
 		disconnect();
+	
+	// Release lock
+	releaseLock();
 	
 	// Return if request was successfully sent
 	return returnValue && isConnected();
@@ -776,16 +1725,30 @@ bool Printer::sendRequestAscii(char data, bool checkForModeSwitching) {
 		bool returnValue = write(fd, &data, 1) == 1;
 	#endif
 	
-	// Release lock
-	releaseLock();
-	
-	// Reconnect if data was successfully sent and switching into bootloader mode
+	// Check if data was successfully sent and switching into firmware mode
 	if(returnValue && checkForModeSwitching && data == 'Q')
-		connect();
+	
+		// Check if operating mode changes
+		if(operatingMode != FIRMWARE) {
+		
+			// Log mode change
+			if(logFunction)
+				logFunction("Switching printer into firmware mode");
+			
+			// Set operating mode
+			operatingMode = FIRMWARE;
+	
+			// Reconnect
+			sleepUs(1000000);
+			connect("", false);
+		}
 	
 	// Disconnect if sending request failed
 	if(!returnValue || !isConnected())
 		disconnect();
+	
+	// Release lock
+	releaseLock();
 	
 	// Return if request was successfully sent
 	return returnValue && isConnected();
@@ -803,7 +1766,7 @@ bool Printer::sendRequestAscii(const Gcode &data) {
 	return sendRequestAscii(data.getAscii(), true);
 }
 
-bool Printer::sendRequestBinary(const Gcode &data) {
+bool Printer::sendRequestRepetier(const Gcode &data) {
 
 	// Return false if not connected
 	if(!isConnected())
@@ -827,39 +1790,94 @@ bool Printer::sendRequestBinary(const Gcode &data) {
 		bool returnValue = write(fd, request.data(), request.size()) == static_cast<signed int>(request.size());		
 	#endif
 	
-	// Release lock
-	releaseLock();
-	
-	// Reconnect if data was successfully sent and switching into bootloader mode
+	// Check if data was successfully sent and switching into bootloader mode
 	if(returnValue && data.getValue('M') == "115" && data.getValue('S') == "628")
-		connect();
+	
+		// Check if operating mode changes
+		if(operatingMode != BOOTLOADER) {
+		
+			// Log mode change
+			if(logFunction)
+				logFunction("Switching printer into bootloader mode");
+			
+			// Set operating mode
+			operatingMode = BOOTLOADER;
+	
+			// Reconnect
+			sleepUs(1000000);
+			connect("", false);
+		}
 	
 	// Disconnect if sending request failed
 	if(!returnValue || !isConnected())
 		disconnect();
 	
+	// Release lock
+	releaseLock();
+	
 	// Return if request was successfully sent
 	return returnValue && isConnected();
 }
 
-bool Printer::sendRequestBinary(const char *data) {
+bool Printer::sendRequestRepetier(const char *data) {
 	
 	// Check if line was successfully parsed
 	Gcode gcode;
 	if(gcode.parseLine(data))
 	
 		// Send request
-		return sendRequestBinary(gcode);
+		return sendRequestRepetier(gcode);
 	
-	// Disconnect and return false
-	disconnect();
+	// Return false
 	return false;
 }
 
-bool Printer::sendRequestBinary(const string &data) {
+bool Printer::sendRequestRepetier(const string &data) {
 
 	// Send request
-	return sendRequestBinary(data.c_str());
+	return sendRequestRepetier(data.c_str());
+}
+
+bool Printer::sendRequest(const Gcode &data) {
+
+	// Send request
+	switch(firmwareType) {
+	
+		case M3D:
+		case M3D_MOD:
+			return sendRequestRepetier(data);
+		break;
+		
+		default:
+			return sendRequestAscii(data);
+	}
+}
+
+bool Printer::sendRequest(const char *data) {
+
+	// Check if in bootloader mode
+	if(operatingMode == BOOTLOADER)
+	
+		// Send request
+		return sendRequestAscii(data);
+
+	// Send request
+	switch(firmwareType) {
+	
+		case M3D:
+		case M3D_MOD:
+			return sendRequestRepetier(data);
+		break;
+		
+		default:
+			return sendRequestAscii(data);
+	}
+}
+
+bool Printer::sendRequest(const string &data) {
+
+	// Send request
+	return sendRequest(data.c_str());
 }
 
 string Printer::receiveResponseAscii() {
@@ -873,15 +1891,15 @@ string Printer::receiveResponseAscii() {
 	char character;
 	uint16_t i = 0;
 	
+	// Acquire lock
+	acquireLock();
+	
 	// Check if using Windows
 	#ifdef WINDOWS
 	
 		// Wait 1 second for a response
 		DWORD bytesReceived = 0;
-		for(; i < 1000 && !bytesReceived; i++) {
-		
-			// Acquire lock
-			acquireLock();
+		for(; i < 10 && !bytesReceived; i++)
 		
 			// Check if failed to receive a response
 			if(!ReadFile(fd, &character, sizeof(character), &bytesReceived, nullptr)) {
@@ -893,26 +1911,22 @@ string Printer::receiveResponseAscii() {
 				disconnect();
 				return "";
 			}
-			
+		
+		// Check if no response is received
+		if(i == 10) {
+		
 			// Release lock
 			releaseLock();
-			
-			if(!bytesReceived)
-				sleepUs(1000);
-		}
 		
-		// Return an empty string if no response is received
-		if(i == 1000)
+			// Return an empty string
 			return "";
+		}
 		
 		// Get response
 		do {
 			response.push_back(character);
 			sleepUs(50);
 			
-			// Acquire lock
-			acquireLock();
-			
 			// Check if failed to receive a response
 			if(!ReadFile(fd, &character, sizeof(character), &bytesReceived, nullptr)) {
 			
@@ -923,9 +1937,6 @@ string Printer::receiveResponseAscii() {
 				disconnect();
 				return "";
 			}
-			
-			// Release lock
-			releaseLock();
 		} while(bytesReceived);
 	
 	// Otherwise
@@ -933,10 +1944,7 @@ string Printer::receiveResponseAscii() {
 	
 		// Wait 1 second for a response
 		int bytesReceived = 0;
-		for(; i < 1000 && !bytesReceived; i++) {
-		
-			// Acquire lock
-			acquireLock();
+		for(; i < 10 && !bytesReceived; i++)
 		
 			// Check if failed to receive a response
 			if((bytesReceived = read(fd, &character, sizeof(character))) == -1) {
@@ -948,26 +1956,22 @@ string Printer::receiveResponseAscii() {
 				disconnect();
 				return "";
 			}
-			
+		
+		// Check if no response is received
+		if(i == 10) {
+		
 			// Release lock
 			releaseLock();
-			
-			if(!bytesReceived)
-				sleepUs(1000);
-		}
 		
-		// Return an empty string if no response is received
-		if(i == 1000)
+			// Return an empty string
 			return "";
+		}
 	
 		// Get response
 		do {
 			response.push_back(character);
 			sleepUs(50);
 			
-			// Acquire lock
-			acquireLock();
-			
 			// Check if failed to receive a response
 			if((bytesReceived = read(fd, &character, sizeof(character))) == -1) {
 			
@@ -978,17 +1982,17 @@ string Printer::receiveResponseAscii() {
 				disconnect();
 				return "";
 			}
-			
-			// Release lock
-			releaseLock();
 		} while(bytesReceived);
 	#endif
+	
+	// Release lock
+	releaseLock();
 	
 	// Return response
 	return response;
 }
 
-string Printer::receiveResponseBinary() {
+string Printer::receiveResponseTerminated() {
 
 	// Return an empty string if not connected
 	if(!isConnected())
@@ -999,15 +2003,15 @@ string Printer::receiveResponseBinary() {
 	char character;
 	uint16_t i = 0;
 	
+	// Acquire lock
+	acquireLock();
+	
 	// Check if using Windows
 	#ifdef WINDOWS
 	
 		// Wait 1 second for a response
 		DWORD bytesReceived = 0;
-		for(; i < 1000 && !bytesReceived; i++) {
-		
-			// Acquire lock
-			acquireLock();
+		for(; i < 10 && !bytesReceived; i++)
 		
 			// Check if failed to receive a response
 			if(!ReadFile(fd, &character, sizeof(character), &bytesReceived, nullptr)) {
@@ -1019,25 +2023,21 @@ string Printer::receiveResponseBinary() {
 				disconnect();
 				return "";
 			}
-			
+		
+		// Check if no response is received
+		if(i == 10) {
+		
 			// Release lock
 			releaseLock();
-			
-			if(!bytesReceived)
-				sleepUs(1000);
-		}
 		
-		// Return an empty string if no response is received
-		if(i == 1000)
+			// Return an empty string
 			return "";
+		}
 		
 		// Get response
 		while(character != '\n') {
 			response.push_back(character);
 			do {
-			
-				// Acquire lock
-				acquireLock();
 			
 				// Check if failed to receive a response
 				if(!ReadFile(fd, &character, sizeof(character), &bytesReceived, nullptr)) {
@@ -1049,9 +2049,6 @@ string Printer::receiveResponseBinary() {
 					disconnect();
 					return "";
 				}
-				
-				// Release lock
-				releaseLock();
 			} while(!bytesReceived);
 		}
 	
@@ -1060,10 +2057,7 @@ string Printer::receiveResponseBinary() {
 	
 		// Wait 1 second for a response
 		int bytesReceived = 0;
-		for(; i < 1000 && !bytesReceived; i++) {
-		
-			// Acquire lock
-			acquireLock();
+		for(; i < 10 && !bytesReceived; i++)
 		
 			// Check if failed to receive a response
 			if((bytesReceived = read(fd, &character, sizeof(character))) == -1) {
@@ -1076,24 +2070,20 @@ string Printer::receiveResponseBinary() {
 				return "";
 			}
 			
+		// Check if no response is received
+		if(i == 10) {
+		
 			// Release lock
 			releaseLock();
-			
-			if(!bytesReceived)
-				sleepUs(1000);
-		}
-	
-		// Return an empty string if no response is received
-		if(i == 1000)
+		
+			// Return an empty string
 			return "";
+		}
 		
 		// Get response
 		while(character != '\n') {
 			response.push_back(character);
 			do {
-			
-				// Acquire lock
-				acquireLock();
 			
 				// Check if failed to receive a response
 				if((bytesReceived = read(fd, &character, sizeof(character))) == -1) {
@@ -1105,15 +2095,21 @@ string Printer::receiveResponseBinary() {
 					disconnect();
 					return "";
 				}
-				
-				// Release lock
-				releaseLock();
 			} while(!bytesReceived);
 		}
 	#endif
 	
+	// Release lock
+	releaseLock();
+	
 	// Return response
 	return response;
+}
+
+string Printer::receiveResponse() {
+
+	// Return response
+	return operatingMode == BOOTLOADER ? receiveResponseAscii() : receiveResponseTerminated();
 }
 
 bool Printer::writeToEeprom(uint16_t address, const uint8_t *data, uint16_t length) {
@@ -1179,13 +2175,18 @@ void Printer::updateAvailableSerialPorts() {
 		
 				// Set device info size
 				deviceInfoData->cbSize = sizeof(SP_DEVINFO_DATA);
+				
+				// Create device info string
+				stringstream deviceInfoStringStream;
+				deviceInfoStringStream << "USB\\VID_" << setfill('0') << setw(4) << hex << uppercase << PRINTER_VENDOR_ID << "&PID_" << setfill('0') << setw(4) << hex << uppercase << PRINTER_PRODUCT_ID;
+				string deviceInfoString = deviceInfoStringStream.str();
 	
 				// Go through all devices
 				for(DWORD i = 0; SetupDiEnumDeviceInfo(deviceInfo, i, deviceInfoData); i++) {
 	
 					// Check if device is has the printer's PID and VID
 					TCHAR buffer[MAX_PATH];
-					if(SetupDiGetDeviceInstanceId(deviceInfo, deviceInfoData, buffer, sizeof(buffer), nullptr) && !_tcsnicmp(buffer, _T("USB\\VID_03EB&PID_2404"), strlen("USB\\VID_03EB&PID_2404"))) {
+					if(SetupDiGetDeviceInstanceId(deviceInfo, deviceInfoData, buffer, sizeof(buffer), nullptr) && !_tcsnicmp(buffer, _T(deviceInfoString.c_str()), deviceInfoString.length())) {
 					
 						// Check if getting device registry key was successful
 						HKEY deviceRegistryKey = SetupDiOpenDevRegKey(deviceInfo, deviceInfoData, DICS_FLAG_GLOBAL, 0, DIREG_DEV, KEY_QUERY_VALUE);
@@ -1221,7 +2222,7 @@ void Printer::updateAvailableSerialPorts() {
 	// Otherwise check if using OS X
 	#ifdef OSX
 		
-		// Check if establish connection to IOKit was successful
+		// Check if establishing connection to IOKit was successful
 		mach_port_t masterPort;
 		if(IOMasterPort(MACH_PORT_NULL, &masterPort) == KERN_SUCCESS) {
 			
@@ -1250,7 +2251,7 @@ void Printer::updateAvailableSerialPorts() {
 						
 								// Check if device has the printer's PID and VID
 								int pid, vid;
-								if(CFNumberGetValue(reinterpret_cast<CFNumberRef>(vidType), kCFNumberIntType, &vid) && CFNumberGetValue(reinterpret_cast<CFNumberRef>(pidType), kCFNumberIntType, &pid) && vid == 0x03EB && pid == 0x2404) {
+								if(CFNumberGetValue(reinterpret_cast<CFNumberRef>(vidType), kCFNumberIntType, &vid) && CFNumberGetValue(reinterpret_cast<CFNumberRef>(pidType), kCFNumberIntType, &pid) && vid == PRINTER_VENDOR_ID && pid == PRINTER_PRODUCT_ID) {
 							
 									// Check if device has a file path
 									CFTypeRef deviceFilePathAsCFString = IORegistryEntryCreateCFProperty(modemService, CFSTR(kIOCalloutDeviceKey), kCFAllocatorDefault, 0);
@@ -1294,6 +2295,11 @@ void Printer::updateAvailableSerialPorts() {
 		DIR *path = opendir("/sys/class/tty/");
 		if(path) {
 		
+			// Create device info string
+			stringstream deviceInfoStringStream;
+			deviceInfoStringStream << "USB:V" << setfill('0') << setw(4) << hex << uppercase << PRINTER_VENDOR_ID << 'P' << setfill('0') << setw(4) << hex << uppercase << PRINTER_PRODUCT_ID;    
+			string deviceInfoString = deviceInfoStringStream.str();
+			
 			// Go through all serial devices
 			dirent *entry;
 		        while((entry = readdir(path))) {
@@ -1309,9 +2315,9 @@ void Printer::updateAvailableSerialPorts() {
 				        	string info;
 						while(device.peek() != EOF)
 							info.push_back(toupper(device.get()));
-					
+						
 						// Check if device has the printer's PID and VID
-						if(info.find("USB:V03EBP2404") == 0)
+						if(info.find(deviceInfoString) == 0)
 					
 							// Append serial port to list
 							availableSerialPorts.push_back(static_cast<string>("/dev/") + entry->d_name);
@@ -1337,10 +2343,15 @@ string Printer::getNewSerialPort() {
 	updateAvailableSerialPorts();
 	
 	// Check if no current serial port has been set
-	if(!currentSerialPort.length() && availableSerialPorts.size())
+	if(!currentSerialPort.length() && availableSerialPorts.size()) {
+	
+		// Log serial port
+		if(logFunction)
+			logFunction("Printer found at " + availableSerialPorts[0]);
 	
 		// Return first available serial port
 		return availableSerialPorts[0];
+	}
 
 	// Go through all available serial ports
 	for(uint8_t i = 0; i < availableSerialPorts.size(); i++)
@@ -1372,10 +2383,15 @@ string Printer::getNewSerialPort() {
 		}
 		
 		// Check if a new port was found
-		if(newPortFound)
+		if(newPortFound) {
+		
+			// Log serial port
+			if(logFunction)
+				logFunction("Printer switched to " + availableSerialPorts[i]);
 		
 			// Return serial port
 			return availableSerialPorts[i];
+		}
 	}
 	
 	// Return nothing
@@ -1408,17 +2424,37 @@ string Printer::getCurrentSerialPort() {
 
 string Printer::getStatus() {
 
-	// Acquire lock
-	acquireLock();
+	// Initialize variables
+	string temp;
+
+	// Check if lock was acquired
+	if(tryToAcquireLock()) {
 	
-	// Get status
-	string temp = status;
+		// Get status
+		temp = status;
 	
-	// Release lock
-	releaseLock();
+		// Release lock
+		releaseLock();
+	}
 	
 	// Return status
 	return temp;
+}
+
+bool Printer::tryToAcquireLock() {
+
+	// Check if using Windows
+	#ifdef WINDOWS
+	
+		// Return if lock was acquired
+		return WaitForSingleObject(mutex, 0) == WAIT_OBJECT_0;
+	
+	// Otherwise
+	#else
+
+		// Return if lock was acquired
+		return mutex.try_lock();
+	#endif
 }
 
 void Printer::acquireLock() {
@@ -1451,4 +2487,149 @@ void Printer::releaseLock() {
 		// Release lock
 		mutex.unlock();
 	#endif
+}
+
+uint32_t Printer::eepromGetInt(uint16_t offset, uint8_t length) {
+
+	// Initialize value
+	uint32_t value = 0;
+	
+	// Get value from EEPROM
+	for(int16_t i = offset + length - 1; i >= offset; i--) {
+		value <<= 8;
+		value += static_cast<uint8_t>(eeprom[i]);
+	}
+	
+	// return value
+	return value;
+}
+
+float Printer::eepromGetFloat(uint16_t offset, uint8_t length) {
+
+	// Get value
+	uint32_t value = eepromGetInt(offset, length);
+	
+	// Return value as float
+	float *valueAsFloat = reinterpret_cast<float *>(&value);
+	return *valueAsFloat;
+}
+
+string Printer::eepromGetString(uint16_t offset, uint8_t length) {
+
+	// Initialize value
+	string value;
+	
+	// Get value from EEPROM
+	for(uint16_t i = offset; i < offset + length; i++) {
+	
+		if(!eeprom[i])
+			break;
+		
+		value.push_back(eeprom[i]);
+	}
+	
+	// return value
+	return value;
+}
+
+bool Printer::eepromWriteInt(uint16_t offset, uint8_t length, uint32_t value) {
+
+	// Check if writing to EEPROM failed
+	for(uint8_t i = 0; i < length; i++)
+		if(!writeToEeprom(offset + i, i < sizeof(value) ? value >> 8 * i : 0))
+
+			// Return false
+			return false;
+	
+	// Return true
+	return true;
+}
+
+bool Printer::eepromWriteFloat(uint16_t offset, uint8_t length, float value) {
+
+	// Get value as int
+	uint32_t *valueAsInt = reinterpret_cast<uint32_t *>(&value);
+	
+	// Return if writing to EEPROM was successful
+	return eepromWriteInt(offset, length, *valueAsInt);
+}
+
+bool Printer::eepromWriteString(uint16_t offset, uint8_t length, const string &value) {
+
+	// Check if writing to EEPROM failed
+	for(uint8_t i = 0; i < length; i++)
+		if(!writeToEeprom(offset + i, i < value.length() ? value[i] : 0))
+
+			// Return false
+			return false;
+	
+	// Return true
+	return true;
+}
+
+bool Printer::eepromKeepFloatWithinRange(uint16_t offset, uint8_t length, float min, float max, float defaultValue) {
+
+	// Check if value is not a number or out of range
+	float value = eepromGetFloat(offset, length);
+	if(isnan(value) || value < min || value > max)
+		
+		// Return if setting value to its default was successful
+		return eepromWriteFloat(offset, length, defaultValue);
+	
+	// Return true
+	return true;
+}
+
+string Printer::getSerialNumber() {
+
+	// Return serial number
+	return serialNumber.substr(0, 2) + '-' + serialNumber.substr(2, 2) + '-' + serialNumber.substr(4, 2) + '-' + serialNumber.substr(6, 2) + '-' + serialNumber.substr(8, 2) + '-' + serialNumber.substr(10, 3) + '-' + serialNumber.substr(13, 13);
+}
+
+string Printer::getFirmwareType() {
+
+	// Return firmware type
+	switch(firmwareType) {
+	
+		case IME:
+			return "iMe";
+		
+		case M3D:
+			return "M3D";
+		
+		case M3D_MOD:
+			return "M3D Mod";
+		
+		default:
+			return "unknown";
+	}
+}
+
+string Printer::getFirmwareVersion() {
+
+	// Return firmware version
+	switch(firmwareType) {
+	
+		case M3D:
+			return to_string(firmwareVersion);
+		
+		case M3D_MOD:
+			return to_string(firmwareVersion  - 100000000);
+		
+		default:
+			string temp = to_string(firmwareVersion);
+			return temp.substr(2, 2) + '.' + temp.substr(4, 2) + '.' + temp.substr(6, 2) + '.' + temp.substr(8, 2);
+	}
+}
+
+void Printer::setLogFunction(function<void(const string &message)> function) {
+
+	// Set log function
+	logFunction = function;
+}
+
+operatingModes Printer::getOperatingMode() {
+
+	// Return operating mode
+	return operatingMode;
 }
