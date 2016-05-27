@@ -4,11 +4,14 @@ extern "C" {
 }
 #include "fan.h"
 #include "eeprom.h"
+#include "common.h"
+#include "led.h"
 
 
 // Definitions
 #define FAN_ENABLE_PIN IOPORT_CREATE_PIN(PORTE, 1)
 #define FAN_CHANNEL TC_CCB
+#define FAN_CHANNEL_CAPTURE_COMPARE TC_CCBEN
 
 
 // Supporting function implementation
@@ -21,7 +24,7 @@ void Fan::initialize() {
 	tc_enable(&FAN_TIMER);
 	tc_set_wgm(&FAN_TIMER, TC_WG_SS);
 	tc_write_period(&FAN_TIMER, FAN_TIMER_PERIOD);
-	tc_enable_cc_channels(&FAN_TIMER, static_cast<tc_cc_channel_mask_enable_t>(TC_CCBEN | TC_CCDEN));
+	tc_enable_cc_channels(&FAN_TIMER, static_cast<tc_cc_channel_mask_enable_t>(FAN_CHANNEL_CAPTURE_COMPARE | LED_CHANNEL_CAPTURE_COMPARE));
 	tc_write_clock_source(&FAN_TIMER, TC_CLKSEL_DIV64_gc);
 	
 	// Turn off fan

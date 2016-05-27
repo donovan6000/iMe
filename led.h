@@ -5,6 +5,7 @@
 
 // Definitions
 #define LED_MAX_BRIGHTNESS 100
+#define LED_CHANNEL_CAPTURE_COMPARE TC_CCDEN
 
 
 // LED class

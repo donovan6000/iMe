@@ -182,7 +182,7 @@ int main() {
 							if(requests[currentProcessingRequest].commandParameters & PARAMETER_N_OFFSET) {
 			
 								// Check if command doesn't have a valid checksum
-								if(!requests[currentProcessingRequest].hasValidChecksum())
+								if(!(requests[currentProcessingRequest].commandParameters & VALID_CHECKSUM_OFFSET))
 	
 									// Set response to resend
 									strcpy(responseBuffer, "rs");
@@ -447,10 +447,15 @@ int main() {
 											}
 										break;
 						
-										// M21, M84, M110, or M999
+										// M20, M21, M80, M82, M83, M84, M110, M111, or M999
+										case 20:
 										case 21:
+										case 80:
+										case 82:
+										case 83:
 										case 84:
 										case 110:
+										case 111:
 										case 999:
 				
 											// Set response to confirmation
@@ -682,24 +687,36 @@ void cdcRxNotifyCallback(uint8_t port) {
 	// Check if an emergency stop isn't being processed
 	if(!emergencyStopOccured) {
 	
-		// Parse request
-		Gcode gcode;
-		gcode.parseCommand(buffer);
+		// Go through all commands in request
+		for(char *offset = buffer; *offset;) {
 	
-		// Check if request is an emergency stop and it has a valid checksum if it has an N parameter
-		if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.commandParameters & VALID_CHECKSUM_OFFSET))
+			// Parse request
+			Gcode gcode;
+			gcode.parseCommand(offset);
+	
+			// Check if request is an emergency stop and it has a valid checksum if it has an N parameter
+			if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.commandParameters & VALID_CHECKSUM_OFFSET)) {
 
-			// Stop all peripherals
-			heater.emergencyStopOccured = motors.emergencyStopOccured = emergencyStopOccured = true;
+				// Stop all peripherals
+				heater.emergencyStopOccured = motors.emergencyStopOccured = emergencyStopOccured = true;
+				
+				// Break
+				break;
+			}
 
-		// Otherwise check if currently receiving request isn't empty
-		else if(!requests[currentReceivingRequest].commandParameters) {
+			// Otherwise check if currently receiving request isn't empty
+			else if(!requests[currentReceivingRequest].commandParameters) {
 		
-			// Set current receiving request to command
-			requests[currentReceivingRequest] = gcode;
+				// Set current receiving request to command
+				requests[currentReceivingRequest] = gcode;
 			
-			// Increment current receiving request
-			currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
+				// Increment current receiving request
+				currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
+			}
+			
+			// Go to next command
+			if(*(offset = strchr(offset, '\n')))
+				offset++;
 		}
 	}
 }

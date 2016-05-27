@@ -77,16 +77,16 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		void show(wxShowEvent &event);
 		
 		/*
-		Name: Connect to printer
-		Purpose: Connects to the printer
+		Name: Change printer connection
+		Purpose: Connects to or disconnects from the printer
 		*/
-		void connectToPrinter(wxCommandEvent& event);
+		void changePrinterConnection(wxCommandEvent& event);
 		
 		/*
-		Name: Switch to firware mode
-		Purpose: Switches printer into firmware mode
+		Name: Switch to mode
+		Purpose: Switches printer into firmware or bootloader mode
 		*/
-		void switchToFirmwareMode(wxCommandEvent& event);
+		void switchToMode(wxCommandEvent& event);
 		
 		/*
 		Name: Install iMe
@@ -171,12 +171,12 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		// Controls
 		wxChoice *serialPortChoice;
 		wxButton *refreshSerialPortsButton;
-		wxButton *connectButton;
+		wxButton *connectionButton;
 		wxStaticText *versionText;
 		wxStaticText *statusText;
 		wxButton *installFirmwareFromFileButton;
 		wxButton *installImeFirmwareButton;
-		wxButton *switchToFirmwareModeButton;
+		wxButton *switchToModeButton;
 		wxTimer *statusTimer;
 		wxTextCtrl* commandInput;
 		wxTextCtrl* consoleOutput;

@@ -1,5 +1,10 @@
 Changelog:
 
+V00.00.00.09 May X, 2016
+
+	* Fixed compatibility with Simplify3D
+	* M3D Manager now allows switching to bootloader mode
+
 V00.00.00.08 May 25, 2016
 
 	* Decreased homing accelerometer sensitivity
