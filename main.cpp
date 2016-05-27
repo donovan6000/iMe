@@ -596,6 +596,14 @@ int main() {
 												// Set response to confirmation
 												strcpy(responseBuffer, "ok");
 											}
+										break;
+										
+										// G20 or G21
+										case 20:
+										case 21:
+				
+											// Set response to confirmation
+											strcpy(responseBuffer, "ok");
 									}
 								}
 								
@@ -677,46 +685,55 @@ void cdcRxNotifyCallback(uint8_t port) {
 
 	// Initialize variables
 	static uint8_t currentReceivingRequest = 0;
+	static uint8_t lastCharacterOffset = 0;
+	static char buffer[UINT8_MAX];
 	
 	// Get request
-	uint8_t size = udi_cdc_multi_get_nb_received_data(port);
-	char buffer[UDI_CDC_COMM_EP_SIZE + 1];
-	udi_cdc_multi_read_buf(port, buffer, size);
-	buffer[size] = 0;
+	uint8_t size = udi_cdc_get_nb_received_data();
+	udi_cdc_read_buf(&buffer[lastCharacterOffset], size);
+	lastCharacterOffset += size;
+	buffer[lastCharacterOffset] = 0;
 	
-	// Check if an emergency stop isn't being processed
-	if(!emergencyStopOccured) {
+	// Check if no more data is available
+	if(size != UDI_CDC_COMM_EP_SIZE) {
 	
-		// Go through all commands in request
-		for(char *offset = buffer; *offset;) {
+		// Clear last character offset
+		lastCharacterOffset = 0;
 	
-			// Parse request
-			Gcode gcode;
-			gcode.parseCommand(offset);
+		// Check if an emergency stop isn't being processed
+		if(!emergencyStopOccured) {
 	
-			// Check if request is an emergency stop and it has a valid checksum if it has an N parameter
-			if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.commandParameters & VALID_CHECKSUM_OFFSET)) {
+			// Go through all commands in request
+			for(char *offset = buffer; *offset;) {
+	
+				// Parse request
+				Gcode gcode;
+				gcode.parseCommand(offset);
+	
+				// Check if request is an emergency stop and it has a valid checksum if it has an N parameter
+				if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.commandParameters & VALID_CHECKSUM_OFFSET)) {
 
-				// Stop all peripherals
-				heater.emergencyStopOccured = motors.emergencyStopOccured = emergencyStopOccured = true;
+					// Stop all peripherals
+					heater.emergencyStopOccured = motors.emergencyStopOccured = emergencyStopOccured = true;
 				
-				// Break
-				break;
-			}
+					// Break
+					break;
+				}
 
-			// Otherwise check if currently receiving request isn't empty
-			else if(!requests[currentReceivingRequest].commandParameters) {
+				// Otherwise check if currently receiving request isn't empty
+				else if(!requests[currentReceivingRequest].commandParameters) {
 		
-				// Set current receiving request to command
-				requests[currentReceivingRequest] = gcode;
+					// Set current receiving request to command
+					requests[currentReceivingRequest] = gcode;
 			
-				// Increment current receiving request
-				currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
+					// Increment current receiving request
+					currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
+				}
+			
+				// Go to next command
+				if(*(offset = strchr(offset, '\n')))
+					offset++;
 			}
-			
-			// Go to next command
-			if(*(offset = strchr(offset, '\n')))
-				offset++;
 		}
 	}
 }
