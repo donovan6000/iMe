@@ -1,4 +1,7 @@
 // Header files
+extern "C" {
+	#include <asf.h>
+}
 #include <string.h>
 #include <ctype.h>
 #include "gcode.h"
@@ -43,7 +46,7 @@ bool Gcode::parseCommand(const char *command) {
 	if(*firstValidCharacter == '@') {
 	
 		// Set command length
-		uint8_t commandLength = stopParsingOffset - startParsingOffset - 1;
+		uint8_t commandLength = min(static_cast<uint8_t>(stopParsingOffset - startParsingOffset - 1), sizeof(hostCommand) - 1);
 	
 		// Check if host command is empty
 		if(!commandLength)

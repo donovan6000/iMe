@@ -43,6 +43,7 @@ void ftoa(float value, char *buffer) {
 
 	// Initialize variables
 	uint8_t i = FLOAT_BUFFER_SIZE;
+	bool negative = value < 0;
 	
 	// Add terminating character
 	buffer[i] = 0;
@@ -52,8 +53,11 @@ void ftoa(float value, char *buffer) {
 	buffer[i] = '.';
 	uint8_t j = i;
 	
+	// Limit value's max
+	value = min(fabs(value), UINT32_MAX);
+	
 	// Go through all digits
-	uint32_t temp = static_cast<uint32_t>(fabs(value));
+	uint32_t temp = static_cast<uint32_t>(value);
 	do {
 
 		// Set digit in buffer
@@ -62,7 +66,7 @@ void ftoa(float value, char *buffer) {
 	} while(temp);
 	
 	// Go through all decimals
-	temp = static_cast<uint32_t>(round(fabs(value) * pow(10, NUMBER_OF_DECIMAL_PLACES)));
+	temp = static_cast<uint32_t>(round(value * pow(10, NUMBER_OF_DECIMAL_PLACES)));
 	for(uint8_t k = NUMBER_OF_DECIMAL_PLACES; k; k--) {
 	
 		// Set decimal digit in buffer
@@ -71,7 +75,7 @@ void ftoa(float value, char *buffer) {
 	}
 	
 	// Prepend minus sign if value is negative
-	if(value < 0)
+	if(negative)
 		buffer[--i] = '-';
 	
 	// Move string to the start of the buffer
@@ -140,10 +144,13 @@ float strtof(const char *nptr, char **endptr) {
 		nptr++;
 	
 		// Go through all decimal values
-		for(uint32_t i = 10; isdigit(*nptr); nptr++, i *= 10)
+		for(uint32_t i = 10; isdigit(*nptr); nptr++)
 
 			// Set decimal digit in value
-			value += static_cast<float>(*nptr - 0x30) / i;
+			if(i < UINT32_MAX / 10) {
+				value += static_cast<float>(*nptr - 0x30) / i;
+				i *= 10;
+			}
 	}
 	
 	// Set end pointer to last valid character

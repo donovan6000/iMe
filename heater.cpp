@@ -9,7 +9,7 @@ extern "C" {
 
 
 // Definitions
-#define UPDATE_TEMPERATURE_PER_SECOND 2
+#define UPDATE_TEMPERATURE_PER_SECOND 3
 #define HEATER_READ_ADC ADC_MODULE
 #define HEATER_VOLTAGE_TO_TEMPERATURE_SCALAR 2.177778
 #define HEATER_READ_ADC_FREQUENCY 200000
@@ -166,6 +166,9 @@ void Heater::initialize() {
 }
 
 void Heater::setTemperature(uint16_t value, bool wait) {
+
+	// Prevent updating temperature
+	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
 
 	// Get heater calibration mode
 	heaterCalibrationMode = nvm_eeprom_read_byte(EEPROM_HEATER_CALIBRATION_MODE_OFFSET);

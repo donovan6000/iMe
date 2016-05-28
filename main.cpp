@@ -81,9 +81,9 @@ int main() {
 		requests[i].commandParameters = 0;
 	
 	// Initialize variables
-	uint64_t currentLineNumber = 0;
+	uint64_t currentCommandNumber = 0;
 	uint8_t currentProcessingRequest = 0;
-	char responseBuffer[UINT8_MAX];
+	char responseBuffer[UINT8_MAX + 1];
 	char numberBuffer[INT_BUFFER_SIZE];
 	
 	// Configure ADC Vref pin
@@ -190,27 +190,27 @@ int main() {
 								// Otherwise
 								else {
 								
-									// Check if command is a starting line number
+									// Check if command is a starting command number
 									if(requests[currentProcessingRequest].valueM == 110)
 	
-										// Set current line number
-										currentLineNumber = requests[currentProcessingRequest].valueN + 1;
+										// Set current command number
+										currentCommandNumber = requests[currentProcessingRequest].valueN;
+									
+									// Otherwise check if current command number is at its max
+									else if(currentCommandNumber == UINT64_MAX)
+	
+										// Set response to error
+										strcpy(responseBuffer, "Error: Max command number exceeded");
 		
-									// Otherwise check if line number is correct
-									else if(requests[currentProcessingRequest].valueN == currentLineNumber)
-		
-										// Increment current line number
-										currentLineNumber++;
-			
 									// Otherwise check if command has already been processed
-									else if(requests[currentProcessingRequest].valueN < currentLineNumber)
-			
+									else if(requests[currentProcessingRequest].valueN < currentCommandNumber)
+		
 										// Set response to skip
 										strcpy(responseBuffer, "skip");
-		
-									// Otherwise
-									else
-		
+	
+									// Otherwise check if an older command was expected
+									else if(requests[currentProcessingRequest].valueN > currentCommandNumber)
+	
 										// Set response to resend
 										strcpy(responseBuffer, "rs");
 								}
@@ -616,10 +616,16 @@ int main() {
 		
 							// Check if command has an N parameter and it was processed
 							if(requests[currentProcessingRequest].commandParameters & PARAMETER_N_OFFSET && (!strncmp(responseBuffer, "ok", strlen("ok")) || !strncmp(responseBuffer, "rs", strlen("rs")) || !strncmp(responseBuffer, "skip", strlen("skip")))) {
-
-								// Append line number to response
+							
+								// Check if response is a confirmation and current command number isn't at its max
+								if(!strncmp(responseBuffer, "ok", strlen("ok")) && currentCommandNumber != UINT64_MAX)
+								
+									// Increment current command number
+									currentCommandNumber++;
+								
+								// Append command number to response
 								uint8_t endOfResponse = responseBuffer[0] == 's' ? strlen("skip") : strlen("ok");
-								ulltoa(responseBuffer[0] == 'r' ? currentLineNumber : requests[currentProcessingRequest].valueN, numberBuffer);
+								ulltoa(responseBuffer[0] == 'r' ? currentCommandNumber : requests[currentProcessingRequest].valueN, numberBuffer);
 								memmove(&responseBuffer[endOfResponse + 1 + strlen(numberBuffer)], &responseBuffer[endOfResponse], strlen(responseBuffer) - 1);
 								responseBuffer[endOfResponse] = ' ';
 								memcpy(&responseBuffer[endOfResponse + 1], numberBuffer, strlen(numberBuffer));
@@ -686,13 +692,21 @@ void cdcRxNotifyCallback(uint8_t port) {
 	// Initialize variables
 	static uint8_t currentReceivingRequest = 0;
 	static uint8_t lastCharacterOffset = 0;
-	static char buffer[UINT8_MAX];
+	static char accumulatedBuffer[UINT8_MAX + 1];
 	
 	// Get request
 	uint8_t size = udi_cdc_get_nb_received_data();
-	udi_cdc_read_buf(&buffer[lastCharacterOffset], size);
+	char buffer[UDI_CDC_COMM_EP_SIZE];
+	udi_cdc_read_buf(buffer, size);
+	
+	// Prevent request from overflowing accumulated request
+	if(size + lastCharacterOffset >= sizeof(accumulatedBuffer))
+		size = sizeof(accumulatedBuffer) - lastCharacterOffset - 1;
+	buffer[size] = 0;
+	
+	// Accumulate requests
+	strcpy(&accumulatedBuffer[lastCharacterOffset], buffer);
 	lastCharacterOffset += size;
-	buffer[lastCharacterOffset] = 0;
 	
 	// Check if no more data is available
 	if(size != UDI_CDC_COMM_EP_SIZE) {
@@ -704,7 +718,7 @@ void cdcRxNotifyCallback(uint8_t port) {
 		if(!emergencyStopOccured) {
 	
 			// Go through all commands in request
-			for(char *offset = buffer; *offset;) {
+			for(char *offset = accumulatedBuffer; *offset;) {
 	
 				// Parse request
 				Gcode gcode;
