@@ -1,10 +1,10 @@
 Changelog:
 
-V00.00.00.09 May X, 2016
+V00.00.00.09 June X, 2016
 
-	* Fixed compatibility with Simplify3D
+	* Fixed compatibility with Simplify3D and Repetier-Host
 	* M3D Manager now allows switching to bootloader mode
-	* Fixed compatibility with Repetier-Host
+	* Added delays to allow voltages to stabilize before reading them with the ADC
 
 V00.00.00.08 May 25, 2016
 

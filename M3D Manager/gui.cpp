@@ -746,7 +746,7 @@ void MyFrame::switchToMode(wxCommandEvent& event) {
 		else
 		
 			// Return message
-			return {static_cast<string>("Printer has been successfully switched into ") + (newOperatingMode == FIRMWARE ? "firmware" : "bootloader") + " mode", wxOK | wxICON_INFORMATION | wxCENTRE};
+			return {static_cast<string>("Printer has been successfully switched into ") + (newOperatingMode == FIRMWARE ? "firmware" : "bootloader") + " mode and is connected at " + printer.getCurrentSerialPort(), wxOK | wxICON_INFORMATION | wxCENTRE};
 	});
 	
 	// Append thread complete callback to queue

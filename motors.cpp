@@ -762,6 +762,12 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		
 		// Turn on motors
 		turnOn();
+		
+		// Check if motor E moves
+		if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm)
+		
+			// Wait enough time for motor E voltage to stabilize
+			delay_us(500);
 	
 		// Start motors step timer
 		tc_write_count(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD - 1);

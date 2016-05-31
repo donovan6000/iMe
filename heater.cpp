@@ -124,6 +124,9 @@ void Heater::initialize() {
 	
 			// Turn on heater
 			ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_ON);
+			
+			// Wait enough time for heater voltage to stabilize
+			delay_us(500);
 	
 			// Get resistance value
 			adc_write_configuration(&HEATER_READ_ADC, &resistanceReadAdcController);
