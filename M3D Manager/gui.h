@@ -77,16 +77,16 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		void show(wxShowEvent &event);
 		
 		/*
-		Name: Connect to printer
-		Purpose: Connects to the printer
+		Name: Change printer connection
+		Purpose: Connects to or disconnects from the printer
 		*/
-		void connectToPrinter(wxCommandEvent& event);
+		void changePrinterConnection(wxCommandEvent& event);
 		
 		/*
-		Name: Switch to firware mode
-		Purpose: Switches printer into firmware mode
+		Name: Switch to mode
+		Purpose: Switches printer into firmware or bootloader mode
 		*/
-		void switchToFirmwareMode(wxCommandEvent& event);
+		void switchToMode(wxCommandEvent& event);
 		
 		/*
 		Name: Install iMe
@@ -155,6 +155,12 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		*/
 		ThreadTaskResponse installFirmware(const string &firmwareLocation);
 		
+		/*
+		Name: Update feed rate movement text
+		Purpose: Changes feed rate movement's text to the current feed rate set by the slider
+		*/
+		void updateFeedRateMovementText();
+		
 		// Check if using Windows
 		#ifdef WINDOWS
 		
@@ -171,17 +177,26 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		// Controls
 		wxChoice *serialPortChoice;
 		wxButton *refreshSerialPortsButton;
-		wxButton *connectButton;
+		wxButton *connectionButton;
 		wxStaticText *versionText;
 		wxStaticText *statusText;
 		wxButton *installFirmwareFromFileButton;
 		wxButton *installImeFirmwareButton;
-		wxButton *switchToFirmwareModeButton;
+		wxButton *switchToModeButton;
 		wxTimer *statusTimer;
 		wxTextCtrl* commandInput;
 		wxTextCtrl* consoleOutput;
 		wxButton *sendCommandButton;
 		wxButton *installDriversButton;
+		wxButton *backwardMovementButton;
+		wxButton *forwardMovementButton;
+		wxButton *rightMovementButton;
+		wxButton *leftMovementButton;
+		wxButton *upMovementButton;
+		wxButton *downMovementButton;
+		wxButton *homeMovementButton;
+		wxSlider *feedRateMovementSlider;
+		wxStaticText *feedRateMovementText;
 		
 		// Critical lock
 		wxCriticalSection criticalLock;
@@ -196,6 +211,9 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		
 		// Printer
 		Printer printer;
+		
+		// Establishing printer connection
+		bool establishingPrinterConnection;
 };
 
 

@@ -63,7 +63,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		#endif
 
 		// Create and show window
-		MyFrame *frame = new MyFrame("M3D Manager", wxDefaultPosition, wxSize(547, 446), wxDEFAULT_FRAME_STYLE & ~(wxRESIZE_BORDER | wxMAXIMIZE_BOX));
+		MyFrame *frame = new MyFrame("M3D Manager", wxDefaultPosition, wxSize(1118, 446), wxDEFAULT_FRAME_STYLE & ~(wxRESIZE_BORDER | wxMAXIMIZE_BOX));
 		frame->Center();
 		frame->Show(true);
 		
@@ -89,11 +89,12 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 				if(!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
 		
 					// Display help
-					cout << "Usage: \"M3D Manager\" -d -s -i -m -r firmware.rom serialport" << endl;
+					cout << "Usage: \"M3D Manager\" -d -f -b -i -m -r firmware.rom serialport" << endl;
 					#ifndef OSX
 						cout << "-d | --drivers: Install device drivers" << endl;
 					#endif
-					cout << "-s | --start: Switches printer into firmware mode" << endl;
+					cout << "-f | --firmware: Switches printer into firmware mode" << endl;
+					cout << "-b | --bootloader: Switches printer into bootloader mode" << endl;
 					cout << "-i | --ime: Installs iMe firmware" << endl;
 					cout << "-r | --rom: Installs the provided firmware" << endl;
 					cout << "-m | --manual: Allows manually sending commands to the printer" << endl;
@@ -249,7 +250,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 				#endif
 	
 				// Otherwise check if a switching printer into firmware mode
-				else if(!strcmp(argv[i], "-s") || !strcmp(argv[i], "--start")) {
+				else if(!strcmp(argv[i], "-f") || !strcmp(argv[i], "--firmware")) {
 		
 					// Display message
 					cout << "Switching printer into firmware mode" << endl;
@@ -293,6 +294,60 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 				
 						// Display message
 						cout << "Printer has been successfully switched into firmware mode" << endl;
+					}
+				
+					// Display current serial port
+					cout << "Current serial port: " << printer.getCurrentSerialPort() << endl;
+			
+					// Return
+					return EXIT_SUCCESS;
+				}
+				
+				// Otherwise check if a switching printer into bootloader mode
+				else if(!strcmp(argv[i], "-b") || !strcmp(argv[i], "--bootloader")) {
+		
+					// Display message
+					cout << "Switching printer into bootloader mode" << endl;
+		
+					// Set serial port
+					string serialPort;
+					if(i < argc - 1)
+						serialPort = argv[argc - 1];
+		
+					// Check if connecting to printer failed
+					if(!printer.connect(serialPort)) {
+		
+						// Display error
+						cout << printer.getStatus() << endl;
+					
+						// Return
+						return EXIT_FAILURE;
+					}
+				
+					// Check if printer is already in bootloader mode
+					if(printer.inBootloaderMode())
+				
+						// Display message
+						cout << "Printer is already in bootloader mode" << endl;
+				
+					// Otherwise
+					else {
+				
+						// Put printer into bootloader mode
+						printer.switchToBootloaderMode();
+				
+						// Check if printer isn't connected
+						if(!printer.isConnected()) {
+		
+							// Display error
+							cout << printer.getStatus() << endl;
+						
+							// Return
+							return EXIT_FAILURE;
+						}
+				
+						// Display message
+						cout << "Printer has been successfully switched into bootloader mode" << endl;
 					}
 				
 					// Display current serial port
@@ -389,19 +444,6 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		
 					// Check if connecting to printer failed
 					if(!printer.connect(serialPort)) {
-		
-						// Display error
-						cout << printer.getStatus() << endl;
-					
-						// Return
-						return EXIT_FAILURE;
-					}
-			
-					// Put printer into firmware mode
-					printer.switchToFirmwareMode();
-				
-					// Check if printer isn't connected
-					if(!printer.isConnected()) {
 		
 						// Display error
 						cout << printer.getStatus() << endl;
@@ -559,19 +601,6 @@ void breakHandler(int signal) {
 
 			// Display error
 			cout << "Failed to update firmware" << endl;
-		
-			// Return false
-			return false;
-		}
-
-		// Put printer into firmware mode
-		printer.switchToFirmwareMode();
-	
-		// Check if printer isn't connected
-		if(!printer.isConnected()) {
-
-			// Display error
-			cout << printer.getStatus() << endl;
 		
 			// Return false
 			return false;

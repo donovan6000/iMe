@@ -9,11 +9,13 @@ extern "C" {
 
 
 // Definitions
-#define UPDATE_TEMPERATURE_PER_SECOND 2
+#define UPDATE_TEMPERATURE_PER_SECOND 3
 #define HEATER_READ_ADC ADC_MODULE
-#define HEATER_VOLTAGE_TO_TEMPERATURE_SCALAR 2.177778
 #define HEATER_READ_ADC_FREQUENCY 200000
 #define HEATER_READ_ADC_SAMPLE_SIZE 50
+#define IDEAL_HEATER_RESISTANCE_M 245.0
+#define IDEAL_HEATER_TEMPERATURE_MEASUREMENT_B -450.0
+#define HEATER_VOLTAGE_TO_TEMPERATURE_SCALAR (-IDEAL_HEATER_RESISTANCE_M / IDEAL_HEATER_TEMPERATURE_MEASUREMENT_B * 4)
 
 // Heater Pins
 #define HEATER_MODE_SELECT_PIN IOPORT_CREATE_PIN(PORTE, 2)
@@ -124,6 +126,9 @@ void Heater::initialize() {
 	
 			// Turn on heater
 			ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_ON);
+			
+			// Wait enough time for heater voltage to stabilize
+			delay_us(500);
 	
 			// Get resistance value
 			adc_write_configuration(&HEATER_READ_ADC, &resistanceReadAdcController);
@@ -166,6 +171,9 @@ void Heater::initialize() {
 }
 
 void Heater::setTemperature(uint16_t value, bool wait) {
+
+	// Prevent updating temperature
+	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
 
 	// Get heater calibration mode
 	heaterCalibrationMode = nvm_eeprom_read_byte(EEPROM_HEATER_CALIBRATION_MODE_OFFSET);

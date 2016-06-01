@@ -15,9 +15,10 @@
 #define INT_BUFFER_SIZE sizeof("18446744073709551615")
 #define FLOAT_BUFFER_SIZE (sizeof("4294967296") + sizeof('.') + NUMBER_OF_DECIMAL_PLACES)
 
-// 12-bit integer limits
-#define UINT12_MAX (pow(2, 12) - 1)
-#define INT12_MAX (pow(2, 12 - 1) - 1)
+// Integer limits
+#define UINT6_MAX static_cast<uint8_t>(pow(2, 6) - 1)
+#define UINT12_MAX static_cast<uint16_t>(pow(2, 12) - 1)
+#define INT12_MAX static_cast<int16_t>(pow(2, 12 - 1) - 1)
 
 // ADC
 #define ADC_MODULE ADCA

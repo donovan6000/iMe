@@ -81,9 +81,9 @@ int main() {
 		requests[i].commandParameters = 0;
 	
 	// Initialize variables
-	uint64_t currentLineNumber = 0;
+	uint64_t currentCommandNumber = 0;
 	uint8_t currentProcessingRequest = 0;
-	char responseBuffer[UINT8_MAX];
+	char responseBuffer[UINT8_MAX + 1];
 	char numberBuffer[INT_BUFFER_SIZE];
 	
 	// Configure ADC Vref pin
@@ -182,7 +182,7 @@ int main() {
 							if(requests[currentProcessingRequest].commandParameters & PARAMETER_N_OFFSET) {
 			
 								// Check if command doesn't have a valid checksum
-								if(!requests[currentProcessingRequest].hasValidChecksum())
+								if(!(requests[currentProcessingRequest].commandParameters & VALID_CHECKSUM_OFFSET))
 	
 									// Set response to resend
 									strcpy(responseBuffer, "rs");
@@ -190,27 +190,27 @@ int main() {
 								// Otherwise
 								else {
 								
-									// Check if command is a starting line number
+									// Check if command is a starting command number
 									if(requests[currentProcessingRequest].valueM == 110)
 	
-										// Set current line number
-										currentLineNumber = requests[currentProcessingRequest].valueN + 1;
+										// Set current command number
+										currentCommandNumber = requests[currentProcessingRequest].valueN;
+									
+									// Otherwise check if current command number is at its max
+									else if(currentCommandNumber == UINT64_MAX)
+	
+										// Set response to error
+										strcpy(responseBuffer, "Error: Max command number exceeded");
 		
-									// Otherwise check if line number is correct
-									else if(requests[currentProcessingRequest].valueN == currentLineNumber)
-		
-										// Increment current line number
-										currentLineNumber++;
-			
 									// Otherwise check if command has already been processed
-									else if(requests[currentProcessingRequest].valueN < currentLineNumber)
-			
+									else if(requests[currentProcessingRequest].valueN < currentCommandNumber)
+		
 										// Set response to skip
 										strcpy(responseBuffer, "skip");
-		
-									// Otherwise
-									else
-		
+	
+									// Otherwise check if an older command was expected
+									else if(requests[currentProcessingRequest].valueN > currentCommandNumber)
+	
 										// Set response to resend
 										strcpy(responseBuffer, "rs");
 								}
@@ -447,10 +447,15 @@ int main() {
 											}
 										break;
 						
-										// M21, M84, M110, or M999
+										// M20, M21, M80, M82, M83, M84, M110, M111, or M999
+										case 20:
 										case 21:
+										case 80:
+										case 82:
+										case 83:
 										case 84:
 										case 110:
+										case 111:
 										case 999:
 				
 											// Set response to confirmation
@@ -591,6 +596,14 @@ int main() {
 												// Set response to confirmation
 												strcpy(responseBuffer, "ok");
 											}
+										break;
+										
+										// G20 or G21
+										case 20:
+										case 21:
+				
+											// Set response to confirmation
+											strcpy(responseBuffer, "ok");
 									}
 								}
 								
@@ -603,10 +616,16 @@ int main() {
 		
 							// Check if command has an N parameter and it was processed
 							if(requests[currentProcessingRequest].commandParameters & PARAMETER_N_OFFSET && (!strncmp(responseBuffer, "ok", strlen("ok")) || !strncmp(responseBuffer, "rs", strlen("rs")) || !strncmp(responseBuffer, "skip", strlen("skip")))) {
-
-								// Append line number to response
+							
+								// Check if response is a confirmation and current command number isn't at its max
+								if(!strncmp(responseBuffer, "ok", strlen("ok")) && currentCommandNumber != UINT64_MAX)
+								
+									// Increment current command number
+									currentCommandNumber++;
+								
+								// Append command number to response
 								uint8_t endOfResponse = responseBuffer[0] == 's' ? strlen("skip") : strlen("ok");
-								ulltoa(responseBuffer[0] == 'r' ? currentLineNumber : requests[currentProcessingRequest].valueN, numberBuffer);
+								ulltoa(responseBuffer[0] == 'r' ? currentCommandNumber : requests[currentProcessingRequest].valueN, numberBuffer);
 								memmove(&responseBuffer[endOfResponse + 1 + strlen(numberBuffer)], &responseBuffer[endOfResponse], strlen(responseBuffer) - 1);
 								responseBuffer[endOfResponse] = ' ';
 								memcpy(&responseBuffer[endOfResponse + 1], numberBuffer, strlen(numberBuffer));
@@ -672,34 +691,63 @@ void cdcRxNotifyCallback(uint8_t port) {
 
 	// Initialize variables
 	static uint8_t currentReceivingRequest = 0;
+	static uint8_t lastCharacterOffset = 0;
+	static char accumulatedBuffer[UINT8_MAX + 1];
 	
 	// Get request
-	uint8_t size = udi_cdc_multi_get_nb_received_data(port);
-	char buffer[UDI_CDC_COMM_EP_SIZE + 1];
-	udi_cdc_multi_read_buf(port, buffer, size);
+	uint8_t size = udi_cdc_get_nb_received_data();
+	char buffer[UDI_CDC_COMM_EP_SIZE];
+	udi_cdc_read_buf(buffer, size);
+	
+	// Prevent request from overflowing accumulated request
+	if(size + lastCharacterOffset >= sizeof(accumulatedBuffer))
+		size = sizeof(accumulatedBuffer) - lastCharacterOffset - 1;
 	buffer[size] = 0;
 	
-	// Check if an emergency stop isn't being processed
-	if(!emergencyStopOccured) {
+	// Accumulate requests
+	strcpy(&accumulatedBuffer[lastCharacterOffset], buffer);
+	lastCharacterOffset += size;
 	
-		// Parse request
-		Gcode gcode;
-		gcode.parseCommand(buffer);
+	// Check if no more data is available
+	if(size != UDI_CDC_COMM_EP_SIZE) {
 	
-		// Check if request is an emergency stop and it has a valid checksum if it has an N parameter
-		if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.commandParameters & VALID_CHECKSUM_OFFSET))
+		// Clear last character offset
+		lastCharacterOffset = 0;
+	
+		// Check if an emergency stop isn't being processed
+		if(!emergencyStopOccured) {
+	
+			// Go through all commands in request
+			for(char *offset = accumulatedBuffer; *offset;) {
+	
+				// Parse request
+				Gcode gcode;
+				gcode.parseCommand(offset);
+	
+				// Check if request is an emergency stop and it has a valid checksum if it has an N parameter
+				if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.commandParameters & VALID_CHECKSUM_OFFSET)) {
 
-			// Stop all peripherals
-			heater.emergencyStopOccured = motors.emergencyStopOccured = emergencyStopOccured = true;
+					// Stop all peripherals
+					heater.emergencyStopOccured = motors.emergencyStopOccured = emergencyStopOccured = true;
+				
+					// Break
+					break;
+				}
 
-		// Otherwise check if currently receiving request isn't empty
-		else if(!requests[currentReceivingRequest].commandParameters) {
+				// Otherwise check if currently receiving request isn't empty
+				else if(!requests[currentReceivingRequest].commandParameters) {
 		
-			// Set current receiving request to command
-			requests[currentReceivingRequest] = gcode;
+					// Set current receiving request to command
+					requests[currentReceivingRequest] = gcode;
 			
-			// Increment current receiving request
-			currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
+					// Increment current receiving request
+					currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
+				}
+			
+				// Go to next command
+				if(*(offset = strchr(offset, '\n')))
+					offset++;
+			}
 		}
 	}
 }
