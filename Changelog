@@ -1,6 +1,6 @@
 Changelog:
 
-V00.00.00.09 June X, 2016
+V00.00.00.09 June 1, 2016
 
 	* Fixed compatibility with Simplify3D and Repetier-Host
 	* M3D Manager now allows switching to bootloader mode

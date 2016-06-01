@@ -526,11 +526,10 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 
 			// Get chip CRC
 			uint32_t chipCrc = 0;
-			for(uint8_t i = 0; i < 4; i++) {
+			for(int8_t i = 3; i >= 0; i--) {
 				chipCrc <<= 8;
 				chipCrc += static_cast<uint8_t>(response[i]);
 			}
-			chipCrc = __builtin_bswap32(chipCrc);
 
 			// Check if request EEPROM was successful
 			if(sendRequestAscii('S')) {
@@ -1306,11 +1305,10 @@ bool Printer::installFirmware(const string &file) {
 
 	// Get old firmware CRC
 	uint32_t oldFirmwareCrc = 0;
-	for(uint8_t i = 0; i < 4; i++) {
+	for(int8_t i = 3; i >= 0; i--) {
 		oldFirmwareCrc <<= 8;
 		oldFirmwareCrc += static_cast<uint8_t>(response[i]);
 	}
-	oldFirmwareCrc = __builtin_bswap32(oldFirmwareCrc);
 	
 	// Log old firmware CRC
 	if(logFunction) {
@@ -1459,11 +1457,10 @@ bool Printer::installFirmware(const string &file) {
 
 	// Get firmware CRC
 	uint32_t firmwareCrc = 0;
-	for(uint8_t i = 0; i < 4; i++) {
+	for(int8_t i = 3; i >= 0; i--) {
 		firmwareCrc <<= 8;
 		firmwareCrc += static_cast<uint8_t>(response[i]);
 	}
-	firmwareCrc = __builtin_bswap32(firmwareCrc);
 	
 	// Log firmware CRC
 	if(logFunction) {

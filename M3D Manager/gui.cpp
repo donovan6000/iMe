@@ -45,6 +45,9 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		// Log message to console
 		logToConsole(message);
 	});
+	
+	// Clear establishing printer connection
+	establishingPrinterConnection = false;
 
 	// Initialize PNG image handler
 	wxImage::AddHandler(new wxPNGHandler);
@@ -388,6 +391,351 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	sendCommandButton->Bind(wxEVT_BUTTON, &MyFrame::sendCommandManually, this);
 	sendCommandButton->Enable(false);
 	
+	// Create movement box
+	new wxStaticBox(panel, wxID_ANY, "Movement", wxPoint(564, 0), wxSize(
+	#ifdef WINDOWS
+		542, 90
+	#endif
+	#ifdef OSX
+		549, 82
+	#endif
+	#ifdef LINUX
+		549, 97
+	#endif
+	));
+	
+	// Create backward movement button
+	backwardMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	#ifdef WINDOWS
+		-1, -1, 0, 0
+	#endif
+	#ifdef OSX
+		-1, -1, 0, 2
+	#endif
+	#ifdef LINUX
+		-1, -1, 0, 0
+	#endif
+	), wxPoint(
+	#ifdef WINDOWS
+		616, 19
+	#endif
+	#ifdef OSX
+		616, 15
+	#endif
+	#ifdef LINUX
+		625, 22
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		-1, -1
+	#endif
+	#ifdef OSX
+		27, -1
+	#endif
+	#ifdef LINUX
+		-1, -1
+	#endif
+	));
+	backwardMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		// Send commands
+		sendCommand("G91");
+		sendCommand("G0 Y" + to_string(static_cast<double>(feedRateMovementSlider->GetValue()) / 1000) + " F" TOSTRING(DEFAULT_Y_SPEED));
+	});
+	backwardMovementButton->Enable(false);
+	
+	// Create left movement button
+	leftMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	#ifdef WINDOWS
+		-1, -1, 0, 0
+	#endif
+	#ifdef OSX
+		-1, -1, 0, 2
+	#endif
+	#ifdef LINUX
+		-1, -1, 0, 0
+	#endif
+	), wxPoint(
+	#ifdef WINDOWS
+		566, 69
+	#endif
+	#ifdef OSX
+		566, 65
+	#endif
+	#ifdef LINUX
+		575, 72
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		-1, -1
+	#endif
+	#ifdef OSX
+		27, -1
+	#endif
+	#ifdef LINUX
+		-1, -1
+	#endif
+	));
+	leftMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		// Send commands
+		sendCommand("G91");
+		sendCommand("G0 X-" + to_string(static_cast<double>(feedRateMovementSlider->GetValue()) / 1000) + " F" TOSTRING(DEFAULT_X_SPEED));
+	});
+	leftMovementButton->Enable(false);
+	
+	// Create home movement button
+	homeMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	#ifdef WINDOWS
+		-1, -1, 0, 0
+	#endif
+	#ifdef OSX
+		-1, -1, 0, 2
+	#endif
+	#ifdef LINUX
+		-1, -1, 0, 0
+	#endif
+	), wxPoint(
+	#ifdef WINDOWS
+		616, 69
+	#endif
+	#ifdef OSX
+		616, 65
+	#endif
+	#ifdef LINUX
+		625, 72
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		-1, -1
+	#endif
+	#ifdef OSX
+		27, -1
+	#endif
+	#ifdef LINUX
+		-1, -1
+	#endif
+	));
+	homeMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		// Send commands
+		sendCommand("G28");
+	});
+	homeMovementButton->Enable(false);
+	
+	// Create right movement button
+	rightMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	#ifdef WINDOWS
+		-1, -1, 0, 0
+	#endif
+	#ifdef OSX
+		-1, -1, 0, 2
+	#endif
+	#ifdef LINUX
+		-1, -1, 0, 0
+	#endif
+	), wxPoint(
+	#ifdef WINDOWS
+		666, 69
+	#endif
+	#ifdef OSX
+		666, 65
+	#endif
+	#ifdef LINUX
+		675, 72
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		-1, -1
+	#endif
+	#ifdef OSX
+		27, -1
+	#endif
+	#ifdef LINUX
+		-1, -1
+	#endif
+	));
+	rightMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		// Send commands
+		sendCommand("G91");
+		sendCommand("G0 X" + to_string(static_cast<double>(feedRateMovementSlider->GetValue()) / 1000) + " F" TOSTRING(DEFAULT_X_SPEED));
+	});
+	rightMovementButton->Enable(false);
+	
+	// Create forward movement button
+	forwardMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	#ifdef WINDOWS
+		-1, -1, 0, 0
+	#endif
+	#ifdef OSX
+		-1, -1, 0, 2
+	#endif
+	#ifdef LINUX
+		-1, -1, 0, 0
+	#endif
+	), wxPoint(
+	#ifdef WINDOWS
+		616, 119
+	#endif
+	#ifdef OSX
+		616, 115
+	#endif
+	#ifdef LINUX
+		625, 122
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		-1, -1
+	#endif
+	#ifdef OSX
+		27, -1
+	#endif
+	#ifdef LINUX
+		-1, -1
+	#endif
+	));
+	forwardMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		// Send commands
+		sendCommand("G91");
+		sendCommand("G0 Y-" + to_string(static_cast<double>(feedRateMovementSlider->GetValue()) / 1000) + " F" TOSTRING(DEFAULT_Y_SPEED));
+	});
+	forwardMovementButton->Enable(false);
+	
+	// Create up movement button
+	upMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	#ifdef WINDOWS
+		-1, -1, 0, 0
+	#endif
+	#ifdef OSX
+		-1, -1, 0, 2
+	#endif
+	#ifdef LINUX
+		-1, -1, 0, 0
+	#endif
+	), wxPoint(
+	#ifdef WINDOWS
+		696, 44
+	#endif
+	#ifdef OSX
+		716, 40
+	#endif
+	#ifdef LINUX
+		725, 47
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		-1, -1
+	#endif
+	#ifdef OSX
+		27, -1
+	#endif
+	#ifdef LINUX
+		-1, -1
+	#endif
+	));
+	upMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		// Send commands
+		sendCommand("G91");
+		sendCommand("G0 Z" + to_string(static_cast<double>(feedRateMovementSlider->GetValue()) / 1000) + " F" TOSTRING(DEFAULT_Z_SPEED));
+	});
+	upMovementButton->Enable(false);
+	
+	// Create down movement button
+	downMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	#ifdef WINDOWS
+		-1, -1, 0, 0
+	#endif
+	#ifdef OSX
+		-1, -1, 0, 2
+	#endif
+	#ifdef LINUX
+		-1, -1, 0, 0
+	#endif
+	), wxPoint(
+	#ifdef WINDOWS
+		696, 94
+	#endif
+	#ifdef OSX
+		716, 90
+	#endif
+	#ifdef LINUX
+		725, 97
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		-1, -1
+	#endif
+	#ifdef OSX
+		27, -1
+	#endif
+	#ifdef LINUX
+		-1, -1
+	#endif
+	));
+	downMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		// Send commands
+		sendCommand("G91");
+		sendCommand("G0 Z-" + to_string(static_cast<double>(feedRateMovementSlider->GetValue()) / 1000) + " F" TOSTRING(DEFAULT_Z_SPEED));
+	});
+	downMovementButton->Enable(false);
+	
+	// Create feed rate movement slider
+	feedRateMovementSlider = new wxSlider(panel, wxID_ANY, 10 * 1000, 0.001 * 1000, 50 * 1000, wxPoint(
+	#ifdef WINDOWS
+		616, 219
+	#endif
+	#ifdef OSX
+		616, 219
+	#endif
+	#ifdef LINUX
+		616, 219
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		140, -1
+	#endif
+	#ifdef OSX
+		140, -1
+	#endif
+	#ifdef LINUX
+		140, -1
+	#endif
+	));
+	feedRateMovementSlider->Bind(wxEVT_COMMAND_SLIDER_UPDATED, [=](wxCommandEvent& event) {
+	
+		// Update feed rate movement text
+		updateFeedRateMovementText();
+	});
+	feedRateMovementSlider->Enable(false);
+	
+	// Create feed rate movement text
+	feedRateMovementText = new wxStaticText(panel, wxID_ANY, "", wxPoint(
+	#ifdef WINDOWS
+		616, 239
+	#endif
+	#ifdef OSX
+		616, 239
+	#endif
+	#ifdef LINUX
+		616, 239
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		140, -1
+	#endif
+	#ifdef OSX
+		140, -1
+	#endif
+	#ifdef LINUX
+		140, -1
+	#endif
+	), wxALIGN_CENTRE_HORIZONTAL | wxST_NO_AUTORESIZE);
+	updateFeedRateMovementText();
+	
 	// Create version text
 	string iMeVersion = static_cast<string>(TOSTRING(IME_ROM_VERSION_STRING)).substr(2);
 	for(uint8_t i = 0; i < 3; i++)
@@ -605,6 +953,9 @@ void MyFrame::changePrinterConnection(wxCommandEvent& event) {
 			// Set status text
 			statusText->SetLabel("Connecting");
 			statusText->SetForegroundColour(wxColour(255, 180, 0));
+			
+			// Set establishing printer connection
+			establishingPrinterConnection = true;
 		});
 		
 		// Append thread task to queue
@@ -646,6 +997,9 @@ void MyFrame::changePrinterConnection(wxCommandEvent& event) {
 
 			// Start status timer
 			statusTimer->Start(100);
+			
+			// Clear establishing printer connection
+			establishingPrinterConnection = false;
 		});
 	}
 	
@@ -1134,10 +1488,74 @@ void MyFrame::updateLog(wxTimerEvent& event) {
 			}
 		
 			// Otherwise
-			else
+			else {
+			
+				// Check if printer is switching modes
+				if(message == "Switching printer into bootloader mode" || message == "Switching printer into firmware mode") {
+				
+					// Check if not establishing printer connection
+					if(!establishingPrinterConnection) {
+			
+						// Disable movement controls
+						backwardMovementButton->Enable(false);
+						forwardMovementButton->Enable(false);
+						rightMovementButton->Enable(false);
+						leftMovementButton->Enable(false);
+						upMovementButton->Enable(false);
+						downMovementButton->Enable(false);
+						homeMovementButton->Enable(false);
+						feedRateMovementSlider->Enable(false);
+					}
+				}
+				
+				// Otherwise check if printer is in firmware mode
+				else if(message == "Printer is in firmware mode") {
+			
+					// Set switch mode button label
+					switchToModeButton->SetLabel("Switch to bootloader mode");
+					
+					// Check if not establishing printer connection
+					if(!establishingPrinterConnection) {
+					
+						// Enable movement controls
+						backwardMovementButton->Enable(true);
+						forwardMovementButton->Enable(true);
+						rightMovementButton->Enable(true);
+						leftMovementButton->Enable(true);
+						upMovementButton->Enable(true);
+						downMovementButton->Enable(true);
+						homeMovementButton->Enable(true);
+						feedRateMovementSlider->Enable(true);
+					}
+				}
+				
+				// Otherwise check if printer is in bootloader mode
+				else if(message == "Printer is in bootloader mode")
+				
+					// Set switch mode button label
+					switchToModeButton->SetLabel("Switch to firmware mode");
+				
+				// Otherwise check if the printer has been disconnected
+				else if(message == "Printer has been disconnected") {
+				
+					// Check if not establishing printer connection
+					if(!establishingPrinterConnection) {
+				
+						// Disable movement controls
+						backwardMovementButton->Enable(false);
+						forwardMovementButton->Enable(false);
+						rightMovementButton->Enable(false);
+						leftMovementButton->Enable(false);
+						upMovementButton->Enable(false);
+						downMovementButton->Enable(false);
+						homeMovementButton->Enable(false);
+						feedRateMovementSlider->Enable(false);
+					}
+				}
 		
 				// Append message to console's output
 				consoleOutput->AppendText(static_cast<string>(consoleOutput->GetValue().IsEmpty() ? "" : "\n") + ">> " + message);
+			}
 		
 			// Scroll to bottom
 			consoleOutput->ShowPosition(consoleOutput->GetLastPosition());
@@ -1164,11 +1582,6 @@ void MyFrame::updateStatus(wxTimerEvent& event) {
 		
 			// Set status text color
 			statusText->SetForegroundColour(wxColour(0, 255, 0));
-			
-			// Set switch to mode label
-			string switchToModeButtonText = static_cast<string>("Switch to ") + (printer.getOperatingMode() == FIRMWARE ? "bootloader" : "firmware") + " mode";
-			if(switchToModeButton->GetLabel() != switchToModeButtonText)
-				switchToModeButton->SetLabel(switchToModeButtonText);
 		}
 	
 		// Otherwise
@@ -1289,6 +1702,14 @@ void MyFrame::refreshSerialPorts(wxCommandEvent& event) {
 		// Select choice
 		serialPortChoice->SetSelection(serialPortChoice->FindString(currentChoice));
 	});
+}
+
+void MyFrame::updateFeedRateMovementText() {
+
+	// Set feed rate movement text to current feed rate
+	stringstream stream;
+	stream << fixed << setprecision(3) << static_cast<double>(feedRateMovementSlider->GetValue()) / 1000;
+	feedRateMovementText->SetLabel(stream.str() + "mm");
 }
 
 ThreadTaskResponse MyFrame::installFirmware(const string &firmwareLocation) {

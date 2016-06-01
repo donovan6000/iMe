@@ -20,6 +20,10 @@ using namespace std;
 // Printer details
 #define PRINTER_VENDOR_ID 0x03EB
 #define PRINTER_PRODUCT_ID 0x2404
+#define DEFAULT_X_SPEED 3000
+#define DEFAULT_Y_SPEED 3000
+#define DEFAULT_Z_SPEED 90
+#define DEFAULT_E_SPEED 345
 
 // Firmware types
 enum firmwareTypes {M3D, M3D_MOD, IME, UNKNOWN_FIRMWARE};

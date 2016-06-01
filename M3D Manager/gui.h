@@ -155,6 +155,12 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		*/
 		ThreadTaskResponse installFirmware(const string &firmwareLocation);
 		
+		/*
+		Name: Update feed rate movement text
+		Purpose: Changes feed rate movement's text to the current feed rate set by the slider
+		*/
+		void updateFeedRateMovementText();
+		
 		// Check if using Windows
 		#ifdef WINDOWS
 		
@@ -182,6 +188,15 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		wxTextCtrl* consoleOutput;
 		wxButton *sendCommandButton;
 		wxButton *installDriversButton;
+		wxButton *backwardMovementButton;
+		wxButton *forwardMovementButton;
+		wxButton *rightMovementButton;
+		wxButton *leftMovementButton;
+		wxButton *upMovementButton;
+		wxButton *downMovementButton;
+		wxButton *homeMovementButton;
+		wxSlider *feedRateMovementSlider;
+		wxStaticText *feedRateMovementText;
 		
 		// Critical lock
 		wxCriticalSection criticalLock;
@@ -196,6 +211,9 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		
 		// Printer
 		Printer printer;
+		
+		// Establishing printer connection
+		bool establishingPrinterConnection;
 };
 
 
