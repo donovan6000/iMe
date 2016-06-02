@@ -20,6 +20,7 @@ using namespace std;
 // Printer details
 #define PRINTER_VENDOR_ID 0x03EB
 #define PRINTER_PRODUCT_ID 0x2404
+#define PRINTER_BAUD_RATE 115200
 #define DEFAULT_X_SPEED 3000
 #define DEFAULT_Y_SPEED 3000
 #define DEFAULT_Z_SPEED 90
@@ -171,10 +172,10 @@ class Printer {
 		string getFirmwareType();
 		
 		/*
-		Name: Get firmware version
-		Purpose: Returns the printer's firmware version
+		Name: Get firmware release
+		Purpose: Returns the printer's firmware release number
 		*/
-		string getFirmwareVersion();
+		string getFirmwareRelease();
 		
 		/*
 		Name: Set log function
@@ -256,7 +257,7 @@ class Printer {
 		uint32_t crc32(int32_t offset, const uint8_t *data, int32_t count);
 		
 		// Get new serial port
-		string getNewSerialPort();
+		string getNewSerialPort(string lastAttemptedPort = "", string stopAtPort = "");
 		
 		// update available serial ports
 		void updateAvailableSerialPorts();
@@ -297,6 +298,15 @@ class Printer {
 		
 		// Log function
 		function<void(const string &message)> logFunction;
+		
+		// Get firmware type from firmware version
+		firmwareTypes getFirmwareTypeFromFirmwareVersion(uint32_t firmwareVersion);
+		
+		// Get firmware type as string
+		string getFirmwareTypeAsString(firmwareTypes firmwareType);
+		
+		// Get firmware release from firmware version
+		string getFirmwareReleaseFromFirmwareVersion(uint32_t firmwareVersion);
 };
 
 

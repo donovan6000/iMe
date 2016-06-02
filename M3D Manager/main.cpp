@@ -63,7 +63,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		#endif
 
 		// Create and show window
-		MyFrame *frame = new MyFrame("M3D Manager", wxDefaultPosition, wxSize(1118, 446), wxDEFAULT_FRAME_STYLE & ~(wxRESIZE_BORDER | wxMAXIMIZE_BOX));
+		MyFrame *frame = new MyFrame("M3D Manager", wxDefaultPosition, wxSize(559, 446), wxDEFAULT_FRAME_STYLE & ~(wxRESIZE_BORDER | wxMAXIMIZE_BOX));
 		frame->Center();
 		frame->Show(true);
 		
@@ -566,18 +566,18 @@ void breakHandler(int signal) {
 			// Return false
 			return false;
 		}
-
+		
 		// Check if firmware ROM name is valid
 		uint8_t endOfNumbers = 0;
 		if(firmwareLocation.find_last_of('.') != string::npos)
 			endOfNumbers = firmwareLocation.find_last_of('.') - 1;
 		else
 			endOfNumbers = firmwareLocation.length() - 1;
+	
+		int8_t beginningOfNumbers = endOfNumbers;
+		for(; beginningOfNumbers >= 0 && isdigit(firmwareLocation[beginningOfNumbers]); beginningOfNumbers--);
 
-		uint8_t beginningOfNumbers = endOfNumbers - 10;
-		for(; beginningOfNumbers && endOfNumbers > beginningOfNumbers && isdigit(firmwareLocation[endOfNumbers]); endOfNumbers--);
-
-		if(endOfNumbers != beginningOfNumbers) {
+		if(beginningOfNumbers != endOfNumbers - 10)
 
 			// Display error
 			cout << "Invalid firmware ROM name" << endl;

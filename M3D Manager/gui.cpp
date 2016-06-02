@@ -1100,7 +1100,7 @@ void MyFrame::switchToMode(wxCommandEvent& event) {
 		else
 		
 			// Return message
-			return {static_cast<string>("Printer has been successfully switched into ") + (newOperatingMode == FIRMWARE ? "firmware" : "bootloader") + " mode and is connected at " + printer.getCurrentSerialPort(), wxOK | wxICON_INFORMATION | wxCENTRE};
+			return {static_cast<string>("Printer has been successfully switched into ") + (newOperatingMode == FIRMWARE ? "firmware" : "bootloader") + " mode and is connected at " + printer.getCurrentSerialPort() + " running at a baud rate of " TOSTRING(PRINTER_BAUD_RATE), wxOK | wxICON_INFORMATION | wxCENTRE};
 	});
 	
 	// Append thread complete callback to queue
@@ -1723,18 +1723,18 @@ ThreadTaskResponse MyFrame::installFirmware(const string &firmwareLocation) {
 
 	// Otherwise
 	else {
-
+	
 		// Check if firmware ROM name is valid
 		uint8_t endOfNumbers = 0;
 		if(firmwareLocation.find_last_of('.') != string::npos)
 			endOfNumbers = firmwareLocation.find_last_of('.') - 1;
 		else
 			endOfNumbers = firmwareLocation.length() - 1;
+	
+		int8_t beginningOfNumbers = endOfNumbers;
+		for(; beginningOfNumbers >= 0 && isdigit(firmwareLocation[beginningOfNumbers]); beginningOfNumbers--);
 
-		uint8_t beginningOfNumbers = endOfNumbers - 10;
-		for(; beginningOfNumbers && endOfNumbers > beginningOfNumbers && isdigit(firmwareLocation[endOfNumbers]); endOfNumbers--);
-
-		if(endOfNumbers != beginningOfNumbers)
+		if(beginningOfNumbers != endOfNumbers - 10)
 		
 			// Return message
 			return {"Invalid firmware name", wxOK | wxICON_ERROR | wxCENTRE};
@@ -1798,11 +1798,14 @@ void MyFrame::sendCommand(const string &command, function<void()> threadStartCal
 			// Log error
 			logToConsole("Sending command failed");
 		
-		// Otherwise
-		else {
+		// Otherwise check if not changing modes
+		else if(!changedMode) {
+		
+			// Initialize response
+			string response;
 		
 			// Wait until command receives a response
-			for(string response; !changedMode && response.substr(0, 2) != "ok" && response.substr(0, 2) != "rs" && response.substr(0, 4) != "skip" && response.substr(0, 5) != "Error";) {
+			do {
 				
 				// Get response
 				do {
@@ -1837,7 +1840,7 @@ void MyFrame::sendCommand(const string &command, function<void()> threadStartCal
 				
 					// Break
 					break;
-			}
+			} while(response.substr(0, 2) != "ok" && response.substr(0, 2) != "rs" && response.substr(0, 4) != "skip" && response.substr(0, 5) != "Error");
 		}
 
 		// Return empty response

@@ -1,6 +1,7 @@
 // Header files
 #include <fstream>
 #include <stdexcept>
+#include <algorithm>
 #include <cstring>
 #include <cfloat>
 #include <cmath>
@@ -32,6 +33,7 @@ using namespace std;
 
 
 // Definitions
+#define M3D_FIRMWARE_FLOAT_TO_INT_SCALAR 5170.635833481
 
 // Chip details
 #define CHIP_NAME ATxmega32C4
@@ -215,35 +217,70 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 	// Log start of connection if connecting to a new printer
 	if(logFunction)
 		logFunction(connectingToNewPrinter ? (serialPort.length() ? "Connecting to " + serialPort : "Autodetecting serial port") : "Reconnecting to " + currentSerialPort);
-
+	
+	// Delay if connecting to a new printer and autodetecting serial ports
+	if(connectingToNewPrinter && !serialPort.length())
+		sleepUs(300000);
+	
 	// Acquire lock
 	acquireLock();
 	
-	// Update status
-	if(status == "Connected")
-		status = "Reconnecting";
-	else
-		status = "Connecting";
+	// Update status if connecting to a new printer
+	if(connectingToNewPrinter) {
+		if(status == "Connected")
+			status = "Reconnecting";
+		else
+			status = "Connecting";
+	}
 	
 	// Disconnect if already connected and save current serial port
 	string savedSerialPort = currentSerialPort;
 	disconnect();
-	currentSerialPort = savedSerialPort;
+	
+	// Restore current serial port if not connecting to a new printer
+	if(!connectingToNewPrinter)
+		currentSerialPort = savedSerialPort;
         
-        // Attempt to connect for half a seconds
-        for(uint8_t i = 0; i < 500000 / 100000; i++) {
+        // Attempt to connect to a specified port several times or all available ports once
+        string lastAttemptedSerialPort, initialSerialPort;
+        for(uint8_t i = 0; i < 5; i += serialPort.length() || !connectingToNewPrinter ? 1 : 0) {
         
-        	// Wait 100 milliseconds
-		sleepUs(100000);
+        	// Wait 100 milliseconds if connecting to a specified port
+        	if(serialPort.length() || !connectingToNewPrinter)
+			sleepUs(100000);
+		
+		// Save current serial port
+		savedSerialPort = currentSerialPort;
 		
 		// Get current serial port
-		currentSerialPort = serialPort.length() ? serialPort : getNewSerialPort();
-
-		// Check if no serial ports were found
-		if(!currentSerialPort.length())
+		currentSerialPort = serialPort.length() ? serialPort : getNewSerialPort(lastAttemptedSerialPort, initialSerialPort);
 		
-			// Try again
-			continue;
+		// Check if no more serial ports were found
+		if(currentSerialPort.empty()) {
+		
+			// Check if not connecting to a new printer
+			if(!connectingToNewPrinter) {
+			
+				// Restore current serial port
+				currentSerialPort = savedSerialPort;
+				
+				// Continue
+				continue;
+			}
+			
+			// Otherwise
+			else
+		
+				// Break
+				break;
+		}
+		
+		// Set last attempted serial port
+		lastAttemptedSerialPort = currentSerialPort;
+		
+		// Set initial serial port
+		if(initialSerialPort.empty())
+			initialSerialPort = currentSerialPort;
 		
 		// Check if using Windows
 		#ifdef WINDOWS
@@ -257,8 +294,12 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 				serialPortSettings.DCBlength = sizeof(serialPortSettings);
 				if(GetCommState(fd, &serialPortSettings)) {
 	
-					// Set port settings to 8n1 with 115200 baud rate
-					serialPortSettings.BaudRate = CBR_115200;
+					// Set port settings to 8n1 with specified baud rate
+					serialPortSettings.BaudRate =
+					#if PRINTER_BAUD_RATE == 115200
+						CBR_115200
+					#endif
+					;
 					serialPortSettings.ByteSize = 8;
 					serialPortSettings.StopBits = ONESTOPBIT;
 					serialPortSettings.Parity = NOPARITY;
@@ -305,7 +346,7 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 									
 									// Log end of successful connection
 									if(logFunction)
-										logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareType() + " firmware V" + getFirmwareVersion());
+										logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareType() + " firmware V" + getFirmwareRelease());
 
 									// Return true
 									return true;
@@ -343,18 +384,19 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 			// Otherwise
 			else {
 			
-				// Update status
-				switch(GetLastError()) {
-					case ERROR_FILE_NOT_FOUND:
-						status = "Device not found";
-					break;
-					case ERROR_ACCESS_DENIED:
-						status = "No read/write access to the device";
-					break;
-					case ERROR_SHARING_VIOLATION:
-						status = "Device is busy";
-					break;
-				}
+				// Update status if connecting to a new printer
+				if(connectingToNewPrinter)
+					switch(GetLastError()) {
+						case ERROR_FILE_NOT_FOUND:
+							status = "Device not found";
+						break;
+						case ERROR_ACCESS_DENIED:
+							status = "No read/write access to the device";
+						break;
+						case ERROR_SHARING_VIOLATION:
+							status = "Device is busy";
+						break;
+					}
 		
 				// Disconnect
 				disconnect();
@@ -376,7 +418,7 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 				// Check if file isn't already locked by another process
 				if(fcntl(fd, F_SETLK, &fileLock) != -1) {
 				
-					// Set port settings to 8n1 with 115200 baud rate
+					// Set port settings to 8n1 with specified baud rate
 					termios settings;
 					memset(&settings, 0, sizeof(settings));
 					settings.c_iflag = 0;
@@ -385,8 +427,16 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 					settings.c_lflag = 0;
 					settings.c_cc[VMIN] = 0;
 					settings.c_cc[VTIME] = 1;
-					cfsetospeed(&settings, B115200);
-					cfsetispeed(&settings, B115200);
+					cfsetospeed(&settings,
+					#if PRINTER_BAUD_RATE == 115200
+						B115200
+					#endif
+					);
+					cfsetispeed(&settings,
+					#if PRINTER_BAUD_RATE == 115200
+						B115200
+					#endif
+					);
 
 					// Check if setting port settings was successful
 					if(tcsetattr(fd, TCSANOW, &settings) != -1) {
@@ -417,7 +467,7 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 								
 								// Log end of successful connection
 								if(logFunction)
-									logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareType() + " firmware V" + getFirmwareVersion());
+									logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareType() + " firmware V" + getFirmwareRelease());
 
 								// Return true
 								return true;
@@ -441,8 +491,9 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 				// Otherwise
 				else {
 				
-					// Update status
-					status = "Device is busy";
+					// Update status if connecting to a new printer
+					if(connectingToNewPrinter)
+						status = "Device is busy";
 		
 					// Disconnect
 					disconnect();
@@ -452,37 +503,44 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 			// Otherwise
 			else {
 				
-				// Update status
-				switch(errno) {
-					case ENOENT:
-						status = "Device not found";
-					break;
-					case EACCES:
-						status = "No read/write access to the device";
-					break;
-				}
+				// Update status if connecting to a new printer
+				if(connectingToNewPrinter)
+					switch(errno) {
+						case ENOENT:
+							status = "Device not found";
+						break;
+						case EACCES:
+							status = "No read/write access to the device";
+						break;
+					}
 		
 				// Disconnect
 				disconnect();
 			}
 		#endif
 		
-		// Log failed connection details
-		if(status != "Connecting" && status != "Reconnecting" && logFunction)
-			logFunction("" + status);
+		// Log failed connection details if connecting to a new printer
+		if(connectingToNewPrinter && status != "Connecting" && status != "Reconnecting" && logFunction)
+			logFunction(status);
 	}
 	
-	// Update status
-	if(status == "Connecting" || status == "Reconnecting") {
+	// Check if connecting to a new printer
+	if(connectingToNewPrinter) {
 	
-		if(!currentSerialPort.length())
-			status = serialPort.length() ? "Device not found" : "No devices found";
-		else
-			status = "Failed to connect to the device";
+		// Update status
+		if(status == "Connecting" || status == "Reconnecting") {
+	
+			if(currentSerialPort.empty())
+				status = serialPort.length() ? "Device not found" : "No devices found";
+			else
+				status = "Failed to connect to the device";
+		}
+		else if(serialPort.empty())
+			status = "Couldn't connect to any devices";
 		
 		// Log end of failed connection
 		if(logFunction)
-			logFunction("" + status);
+			logFunction(status);
 	}
 	
 	// Release lock
@@ -544,34 +602,18 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					// Get EEPROM CRC
 					uint32_t eepromCrc = eepromGetInt(EEPROM_FIRMWARE_CRC_OFFSET, EEPROM_FIRMWARE_CRC_LENGTH);
 					
-					// Set if firmware is valid
+					// Set if firmware isn't corrupt
 					firmwareValid = chipCrc == eepromCrc;
 					
 					// Log if firmware is valid and logging details
 					if(logFunction && logDetails)
-						logFunction(static_cast<string>("Firmware is ") + (firmwareValid ? "valid" : "invalid"));
+						logFunction(static_cast<string>("Firmware is ") + (firmwareValid ? "valid" : "corrupt"));
 				
 					// Set firmware version
 					firmwareVersion = eepromGetInt(EEPROM_FIRMWARE_VERSION_OFFSET, EEPROM_FIRMWARE_VERSION_LENGTH);
 				
 					// Set firmware type
-					switch(firmwareVersion / 100000000) {
-				
-						case 19:
-							firmwareType = IME;
-						break;
-					
-						case 20:
-							firmwareType = M3D;
-						break;
-					
-						case 21:
-							firmwareType = M3D_MOD;
-						break;
-					
-						default:
-							firmwareType = UNKNOWN_FIRMWARE;
-					}
+					firmwareType = getFirmwareTypeFromFirmwareVersion(firmwareVersion);
 				
 					// Set serial number
 					serialNumber = eepromGetString(EEPROM_SERIAL_NUMBER_OFFSET, EEPROM_SERIAL_NUMBER_LENGTH);
@@ -675,7 +717,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 						logFunction("Using " + to_string(extruderCurrent) + "mA extruder current");
 					
 					// Check if using M3D or M3D Mod firmware and it's from before new bed orientation and adjustable backlash speed
-					if((firmwareType == M3D || firmwareType == M3D_MOD) && stoi(getFirmwareVersion()) < 2015080402) {
+					if((firmwareType == M3D || firmwareType == M3D_MOD) && stoi(getFirmwareRelease()) < 2015080402) {
 					
 						// Check if clearing bed offsets failed
 						if(!eepromWriteInt(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, EEPROM_BED_HEIGHT_OFFSET_LENGTH + EEPROM_BED_HEIGHT_OFFSET_OFFSET - EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, 0)) {
@@ -1231,6 +1273,33 @@ bool Printer::installFirmware(const string &file) {
 	// Log firmware installation
 	if(logFunction)
 		logFunction("Installing firmware with " + file);
+	
+	// Check if firmware ROM name is invalid
+	uint8_t endOfNumbers = 0;
+	if(file.find_last_of('.') != string::npos)
+		endOfNumbers = file.find_last_of('.') - 1;
+	else
+		endOfNumbers = file.length() - 1;
+
+	int8_t beginningOfNumbers = endOfNumbers;
+	for(; beginningOfNumbers >= 0 && isdigit(file[beginningOfNumbers]); beginningOfNumbers--);
+
+	if(beginningOfNumbers != endOfNumbers - 10) {
+	
+		// Log file status
+		if(logFunction)
+			logFunction("Can't detect firmware version from ROM name");
+	
+		// Return false
+		return false;
+	}
+	
+	// Set ROM version from file name
+	uint32_t romVersion = stoi(file.substr(beginningOfNumbers + 1, 10));
+	
+	// Log ROM version status
+	if(logFunction)
+		logFunction("ROM is " + getFirmwareTypeAsString(getFirmwareTypeFromFirmwareVersion(romVersion)) + " firmware V" + getFirmwareReleaseFromFirmwareVersion(romVersion));
 
 	// Switch to bootloader mode
 	switchToBootloaderMode();
@@ -1520,14 +1589,6 @@ bool Printer::installFirmware(const string &file) {
 	// Log CRC status
 	if(logFunction)
 		logFunction("New firmware CRC was correct");
-
-	// Set ROM version from file name
-	uint8_t endOfNumbers = 0;
-	if(file.find_last_of('.') != string::npos)
-		endOfNumbers = file.find_last_of('.') - 1;
-	else
-		endOfNumbers = file.length() - 1;
-	uint32_t romVersion = stoi(file.substr(endOfNumbers - 10));
 	
 	// Check if request EEPROM failed
 	if(!sendRequestAscii('S')) {
@@ -1581,6 +1642,60 @@ bool Printer::installFirmware(const string &file) {
 		// Log operation status
 		if(logFunction)
 			logFunction("Successfully cleared out last recorded Z value");
+	}
+	
+	// Otherwise
+	else {
+	
+		// Get old firmware type
+		firmwareTypes oldFirmwareType = getFirmwareTypeFromFirmwareVersion(eepromGetInt(EEPROM_FIRMWARE_VERSION_OFFSET, EEPROM_FIRMWARE_VERSION_LENGTH));
+		
+		// Get new firmware type
+		firmwareTypes newFirmwareType = getFirmwareTypeFromFirmwareVersion(romVersion);
+		
+		// Check if going from M3D or M3D Mod firmware to iMe firmware
+		if((oldFirmwareType == M3D || oldFirmwareType == M3D_MOD) && newFirmwareType == IME) {
+		
+			// Convert last recorded Z value to single-precision floating-point format used by iMe firmware
+			float lastRecordedZValue = eepromGetInt(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH) / M3D_FIRMWARE_FLOAT_TO_INT_SCALAR;
+			
+			// Check if saving last recorded Z value in EEPROM failed
+			if(!eepromWriteFloat(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, lastRecordedZValue)) {
+			
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save converted last recorded Z value");
+				
+				// Return false
+				return false;
+			}
+			
+			// Log last recorded Z value status
+			if(logFunction)
+				logFunction("Successfully saved converted last recorded Z value");
+		}
+		
+		// Otherwise check if going from iMe firmware to M3D or M3D Mod firmware
+		else if(oldFirmwareType == IME && (newFirmwareType == M3D || newFirmwareType == M3D_MOD)) {
+		
+			// Convert last recorded Z value to unsigned 32-bit integer format used by M3D and M3D Mod firmwares
+			uint32_t lastRecordedZValue = round(eepromGetFloat(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH) * M3D_FIRMWARE_FLOAT_TO_INT_SCALAR);
+			
+			// Check if saving last recorded Z value in EEPROM failed
+			if(!eepromWriteInt(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, lastRecordedZValue)) {
+			
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save converted last recorded Z value");
+				
+				// Return false
+				return false;
+			}
+			
+			// Log last recorded Z value status
+			if(logFunction)
+				logFunction("Successfully saved converted last recorded Z value");
+		}
 	}
 	
 	// Check if clearing motor's steps per mm failed
@@ -1645,7 +1760,7 @@ bool Printer::installFirmware(const string &file) {
 	
 	// Log printer details
 	if(logFunction)
-		logFunction("Printer is running " + getFirmwareType() + " firmware V" + getFirmwareVersion());
+		logFunction("Printer is running " + getFirmwareType() + " firmware V" + getFirmwareRelease());
 
 	// Return true
 	return true;
@@ -2329,9 +2444,12 @@ void Printer::updateAvailableSerialPorts() {
 			closedir(path);
 		}
 	#endif
+	
+	// Sort available serial ports
+	sort(availableSerialPorts.begin(), availableSerialPorts.end());
 }
 
-string Printer::getNewSerialPort() {
+string Printer::getNewSerialPort(string lastAttemptedPort, string stopAtPort) {
 
 	// Save available serial ports
 	vector<string> temp = availableSerialPorts;
@@ -2341,7 +2459,36 @@ string Printer::getNewSerialPort() {
 	
 	// Check if no current serial port has been set
 	if(!currentSerialPort.length() && availableSerialPorts.size()) {
-	
+		
+		// Check if last attempted port was provided
+		if(!lastAttemptedPort.empty())
+		
+			// Go through all available serial ports
+			for(uint8_t i = 0; i < availableSerialPorts.size(); i++)
+			
+				// Check if at the next available serial port
+				if(availableSerialPorts[i] > lastAttemptedPort) {
+				
+					// Check if stopping at the next available serial port
+					if(availableSerialPorts[i] == stopAtPort)
+					
+						// Return nothing
+						return "";
+				
+					// Log serial port
+					if(logFunction)
+						logFunction("Printer found at " + availableSerialPorts[i]);
+			
+					// Return the next available serial port
+					return availableSerialPorts[i];
+				}
+		
+		// Check if stopping at the first available serial port
+		if(availableSerialPorts[0] == stopAtPort)
+		
+			// Return nothing
+			return "";
+		
 		// Log serial port
 		if(logFunction)
 			logFunction("Printer found at " + availableSerialPorts[0]);
@@ -2585,38 +2732,14 @@ string Printer::getSerialNumber() {
 
 string Printer::getFirmwareType() {
 
-	// Return firmware type
-	switch(firmwareType) {
-	
-		case IME:
-			return "iMe";
-		
-		case M3D:
-			return "M3D";
-		
-		case M3D_MOD:
-			return "M3D Mod";
-		
-		default:
-			return "unknown";
-	}
+	// Return firmware type as string
+	return getFirmwareTypeAsString(firmwareType);
 }
 
-string Printer::getFirmwareVersion() {
+string Printer::getFirmwareRelease() {
 
-	// Return firmware version
-	switch(firmwareType) {
-	
-		case M3D:
-			return to_string(firmwareVersion);
-		
-		case M3D_MOD:
-			return to_string(firmwareVersion  - 100000000);
-		
-		default:
-			string temp = to_string(firmwareVersion);
-			return temp.substr(2, 2) + '.' + temp.substr(4, 2) + '.' + temp.substr(6, 2) + '.' + temp.substr(8, 2);
-	}
+	// Return firmware release from firmare version
+	return getFirmwareReleaseFromFirmwareVersion(firmwareVersion);
 }
 
 void Printer::setLogFunction(function<void(const string &message)> function) {
@@ -2629,4 +2752,65 @@ operatingModes Printer::getOperatingMode() {
 
 	// Return operating mode
 	return operatingMode;
+}
+
+firmwareTypes Printer::getFirmwareTypeFromFirmwareVersion(uint32_t firmwareVersion) {
+
+	// Return firmware type
+	switch(firmwareVersion / 100000000) {
+				
+		case 19:
+			return IME;
+		break;
+	
+		case 20:
+			return M3D;
+		break;
+	
+		case 21:
+			return M3D_MOD;
+		break;
+	
+		default:
+			return UNKNOWN_FIRMWARE;
+	}
+}
+
+string Printer::getFirmwareTypeAsString(firmwareTypes firmwareType) {
+
+	// Return firmware type
+	switch(firmwareType) {
+			
+		case IME:
+			return "iMe";
+		break;
+	
+		case M3D:
+			return "M3D";
+		break;
+	
+		case M3D_MOD:
+			return "M3D Mod";
+		break;
+	
+		default:
+			return "an unknown";
+	}
+}
+
+string Printer::getFirmwareReleaseFromFirmwareVersion(uint32_t firmwareVersion) {
+
+	// Return firmware version
+	switch(getFirmwareTypeFromFirmwareVersion(firmwareVersion)) {
+		
+		case M3D:
+			return to_string(firmwareVersion);
+		
+		case M3D_MOD:
+			return to_string(firmwareVersion  - 100000000);
+		
+		default:
+			string temp = to_string(firmwareVersion);
+			return temp.substr(2, 2) + '.' + temp.substr(4, 2) + '.' + temp.substr(6, 2) + '.' + temp.substr(8, 2);
+	}
 }
