@@ -89,10 +89,16 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		void switchToMode(wxCommandEvent& event);
 		
 		/*
-		Name: Install iMe
-		Purpose: Installs iMe as the printer's firmware
+		Name: Install iMe firmware
+		Purpose: Installs iMe firmware as the printer's firmware
 		*/
-		void installIMe(wxCommandEvent& event);
+		void installIMeFirmware(wxCommandEvent& event);
+		
+		/*
+		Name: Install M3D firmware
+		Purpose: Installs M3D firmware as the printer's firmware
+		*/
+		void installM3dFirmware(wxCommandEvent& event);
 		
 		/*
 		Name: Install drivers
@@ -182,6 +188,7 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		wxStaticText *statusText;
 		wxButton *installFirmwareFromFileButton;
 		wxButton *installImeFirmwareButton;
+		wxButton *installM3dFirmwareButton;
 		wxButton *switchToModeButton;
 		wxTimer *statusTimer;
 		wxTextCtrl* commandInput;

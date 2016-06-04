@@ -239,13 +239,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 	), wxSize(
 	#ifdef WINDOWS
-		542, 58
+		542, 94
 	#endif
 	#ifdef OSX
-		549, 59
+		549, 95
 	#endif
 	#ifdef LINUX
-		549, 60
+		549, 96
 	#endif
 	));
 	
@@ -264,21 +264,6 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	switchToModeButton->Enable(false);
 	switchToModeButton->Bind(wxEVT_BUTTON, &MyFrame::switchToMode, this);
 	
-	// Create install iMe firmware button
-	installImeFirmwareButton = new wxButton(panel, wxID_ANY, "Install iMe firmware", wxPoint(
-	#ifdef WINDOWS
-		220, 111
-	#endif
-	#ifdef OSX
-		210, 103
-	#endif
-	#ifdef LINUX
-		215, 118
-	#endif
-	));
-	installImeFirmwareButton->Enable(false);
-	installImeFirmwareButton->Bind(wxEVT_BUTTON, &MyFrame::installIMe, this);
-	
 	// Create install firmware with file button
 	installFirmwareFromFileButton = new wxButton(panel, wxID_ANY, "Install firmware from file", wxPoint(
 	#ifdef WINDOWS
@@ -294,16 +279,49 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	installFirmwareFromFileButton->Enable(false);
 	installFirmwareFromFileButton->Bind(wxEVT_BUTTON, &MyFrame::installFirmwareFromFile, this);
 	
+	// Create install iMe firmware button
+	string iMeVersion = static_cast<string>(TOSTRING(IME_ROM_VERSION_STRING)).substr(2);
+	for(uint8_t i = 0; i < 3; i++)
+		iMeVersion.insert(i * 2 + 2 + i, ".");
+	installImeFirmwareButton = new wxButton(panel, wxID_ANY, "Install iMe V" + iMeVersion, wxPoint(
+	#ifdef WINDOWS
+		14, 147
+	#endif
+	#ifdef OSX
+		11, 139
+	#endif
+	#ifdef LINUX
+		14, 154
+	#endif
+	));
+	installImeFirmwareButton->Enable(false);
+	installImeFirmwareButton->Bind(wxEVT_BUTTON, &MyFrame::installIMeFirmware, this);
+	
+	// Create install M3D firmware button
+	installM3dFirmwareButton = new wxButton(panel, wxID_ANY, "Install M3D V" TOSTRING(M3D_ROM_VERSION_STRING), wxPoint(
+	#ifdef WINDOWS
+		220, 147
+	#endif
+	#ifdef OSX
+		210, 139
+	#endif
+	#ifdef LINUX
+		215, 154
+	#endif
+	));
+	installM3dFirmwareButton->Enable(false);
+	installM3dFirmwareButton->Bind(wxEVT_BUTTON, &MyFrame::installM3dFirmware, this);
+	
 	// Create console box
 	new wxStaticBox(panel, wxID_ANY, "Console", wxPoint(
 	#ifdef WINDOWS
-		5, 150
+		5, 186
 	#endif
 	#ifdef OSX
-		5, 143
+		5, 179
 	#endif
 	#ifdef LINUX
-		5, 159
+		5, 195
 	#endif
 	), wxSize(
 	#ifdef WINDOWS
@@ -320,13 +338,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	// Create console output
 	consoleOutput = new wxTextCtrl(panel, wxID_ANY, wxEmptyString, wxPoint(
 	#ifdef WINDOWS
-		15, 170
+		15, 206
 	#endif
 	#ifdef OSX
-		19, 168
+		19, 204
 	#endif
 	#ifdef LINUX
-		15, 179
+		15, 215
 	#endif
 	), wxSize(
 	#ifdef WINDOWS
@@ -354,13 +372,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	// Create command input
 	commandInput = new wxTextCtrl(panel, wxID_ANY, wxEmptyString, wxPoint(
 	#ifdef WINDOWS
-		15, 362
+		15, 398
 	#endif
 	#ifdef OSX
-		17, 374
+		17, 410
 	#endif
 	#ifdef LINUX
-		14, 389
+		14, 425
 	#endif
 	), wxSize(
 	#ifdef WINDOWS
@@ -379,13 +397,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	// Create send command button
 	sendCommandButton = new wxButton(panel, wxID_ANY, "Send", wxPoint(
 	#ifdef WINDOWS
-		450, 360
+		450, 396
 	#endif
 	#ifdef OSX
-		451, 371
+		451, 407
 	#endif
 	#ifdef LINUX
-		460, 389
+		460, 425
 	#endif
 	));
 	sendCommandButton->Bind(wxEVT_BUTTON, &MyFrame::sendCommandManually, this);
@@ -737,10 +755,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	updateFeedRateMovementText();
 	
 	// Create version text
-	string iMeVersion = static_cast<string>(TOSTRING(IME_ROM_VERSION_STRING)).substr(2);
-	for(uint8_t i = 0; i < 3; i++)
-		iMeVersion.insert(i * 2 + 2 + i, ".");
-	versionText = new wxStaticText(panel, wxID_ANY, "M3D Manager V" TOSTRING(VERSION) " - iMe V" + iMeVersion, wxDefaultPosition, wxSize(
+	versionText = new wxStaticText(panel, wxID_ANY, "M3D Manager V" TOSTRING(VERSION), wxDefaultPosition, wxSize(
 	#ifdef WINDOWS
 		-1, 15
 	#endif
@@ -980,6 +995,7 @@ void MyFrame::changePrinterConnection(wxCommandEvent& event) {
 				// Enable printer controls
 				installFirmwareFromFileButton->Enable(true);
 				installImeFirmwareButton->Enable(true);
+				installM3dFirmwareButton->Enable(true);
 				switchToModeButton->Enable(true);
 				sendCommandButton->Enable(true);
 				
@@ -1032,6 +1048,7 @@ void MyFrame::changePrinterConnection(wxCommandEvent& event) {
 			// Disable printer controls
 			installFirmwareFromFileButton->Enable(false);
 			installImeFirmwareButton->Enable(false);
+			installM3dFirmwareButton->Enable(false);
 			switchToModeButton->Enable(false);
 			sendCommandButton->Enable(false);
 		
@@ -1071,6 +1088,7 @@ void MyFrame::switchToMode(wxCommandEvent& event) {
 		// Disable printer controls
 		installFirmwareFromFileButton->Enable(false);
 		installImeFirmwareButton->Enable(false);
+		installM3dFirmwareButton->Enable(false);
 		switchToModeButton->Enable(false);
 		sendCommandButton->Enable(false);
 	});
@@ -1117,6 +1135,7 @@ void MyFrame::switchToMode(wxCommandEvent& event) {
 			// Enable printer controls
 			installFirmwareFromFileButton->Enable(true);
 			installImeFirmwareButton->Enable(true);
+			installM3dFirmwareButton->Enable(true);
 			switchToModeButton->Enable(true);
 			sendCommandButton->Enable(true);
 		}
@@ -1126,7 +1145,7 @@ void MyFrame::switchToMode(wxCommandEvent& event) {
 	});
 }
 
-void MyFrame::installIMe(wxCommandEvent& event) {
+void MyFrame::installIMeFirmware(wxCommandEvent& event) {
 
 	// Disable button that triggered event
 	FindWindowById(event.GetId())->Enable(false);
@@ -1148,6 +1167,7 @@ void MyFrame::installIMe(wxCommandEvent& event) {
 		// Disable printer controls
 		installFirmwareFromFileButton->Enable(false);
 		installImeFirmwareButton->Enable(false);
+		installM3dFirmwareButton->Enable(false);
 		switchToModeButton->Enable(false);
 		sendCommandButton->Enable(false);
 	
@@ -1196,6 +1216,91 @@ void MyFrame::installIMe(wxCommandEvent& event) {
 			// Enable printer controls
 			installFirmwareFromFileButton->Enable(true);
 			installImeFirmwareButton->Enable(true);
+			installM3dFirmwareButton->Enable(true);
+			switchToModeButton->Enable(true);
+			sendCommandButton->Enable(true);
+		}
+		
+		// Start status timer
+		statusTimer->Start(100);
+		
+		// Display message
+		wxMessageBox(response.message, "M3D Manager", response.style);
+	});
+}
+
+void MyFrame::installM3dFirmware(wxCommandEvent& event) {
+
+	// Disable button that triggered event
+	FindWindowById(event.GetId())->Enable(false);
+
+	// Lock
+	wxCriticalSectionLocker lock(criticalLock);
+
+	// Append thread start callback to queue
+	threadStartCallbackQueue.push([=]() -> void {
+	
+		// Stop status timer
+		statusTimer->Stop();
+
+		// Disable connection controls
+		serialPortChoice->Enable(false);
+		refreshSerialPortsButton->Enable(false);
+		connectionButton->Enable(false);
+	
+		// Disable printer controls
+		installFirmwareFromFileButton->Enable(false);
+		installImeFirmwareButton->Enable(false);
+		installM3dFirmwareButton->Enable(false);
+		switchToModeButton->Enable(false);
+		sendCommandButton->Enable(false);
+	
+		// Set status text
+		statusText->SetLabel("Installing firmware");
+		statusText->SetForegroundColour(wxColour(255, 180, 0));
+	});
+	
+	// Append thread task to queue
+	threadTaskQueue.push([=]() -> ThreadTaskResponse {
+	
+		// Set firmware location
+		string firmwareLocation = getTemporaryLocation() + "M3D " TOSTRING(M3D_ROM_VERSION_STRING) ".hex";
+
+		// Check if creating M3D ROM failed
+		ofstream fout(firmwareLocation, ios::binary);
+		if(fout.fail())
+		
+			// Return message
+			return {"Failed to unpack M3D firmware", wxOK | wxICON_ERROR | wxCENTRE};
+
+		// Otherwise
+		else {
+
+			// Unpack M3D ROM
+			for(uint64_t i = 0; i < M3D_HEX_SIZE; i++)
+				fout.put(M3D_HEX_DATA[i]);
+			fout.close();
+		
+			// Return install firmware's message
+			return installFirmware(firmwareLocation);
+		}
+	});
+	
+	// Append thread complete callback to queue
+	threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+	
+		// Enable connection controls
+		serialPortChoice->Enable(true);
+		refreshSerialPortsButton->Enable(true);
+		connectionButton->Enable(true);
+	
+		// Check if connected to printer
+		if(printer.isConnected()) {
+	
+			// Enable printer controls
+			installFirmwareFromFileButton->Enable(true);
+			installImeFirmwareButton->Enable(true);
+			installM3dFirmwareButton->Enable(true);
 			switchToModeButton->Enable(true);
 			sendCommandButton->Enable(true);
 		}
@@ -1239,6 +1344,7 @@ void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
 			// Disable printer controls
 			installFirmwareFromFileButton->Enable(false);
 			installImeFirmwareButton->Enable(false);
+			installM3dFirmwareButton->Enable(false);
 			switchToModeButton->Enable(false);
 			sendCommandButton->Enable(false);
 	
@@ -1268,6 +1374,7 @@ void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
 				// Enable printer controls
 				installFirmwareFromFileButton->Enable(true);
 				installImeFirmwareButton->Enable(true);
+				installM3dFirmwareButton->Enable(true);
 				switchToModeButton->Enable(true);
 				sendCommandButton->Enable(true);
 			}
@@ -1593,6 +1700,7 @@ void MyFrame::updateStatus(wxTimerEvent& event) {
 				// Disable printer controls
 				installFirmwareFromFileButton->Enable(false);
 				installImeFirmwareButton->Enable(false);
+				installM3dFirmwareButton->Enable(false);
 				switchToModeButton->Enable(false);
 				sendCommandButton->Enable(false);
 		
