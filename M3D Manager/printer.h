@@ -21,10 +21,15 @@ using namespace std;
 #define PRINTER_VENDOR_ID 0x03EB
 #define PRINTER_PRODUCT_ID 0x2404
 #define PRINTER_BAUD_RATE 115200
+
+// Default speeds
 #define DEFAULT_X_SPEED 3000
 #define DEFAULT_Y_SPEED 3000
 #define DEFAULT_Z_SPEED 90
 #define DEFAULT_E_SPEED 345
+
+// Max feed rate
+#define MAX_FEED_RATE 60.0001
 
 // Firmware types
 enum firmwareTypes {M3D, M3D_MOD, IME, UNKNOWN_FIRMWARE};
@@ -194,6 +199,46 @@ class Printer {
 		Purpose: Sets the printer's extruder motor's current
 		*/
 		bool setExtruderCurrent(uint16_t current, bool logDetails = true);
+		
+		/*
+		Name: Convert feed rate
+		Purpose: Converts the specified feed rate into a format that the printer's firmware can use
+		*/
+		double convertFeedRate(double feedRate);
+		
+		/*
+		Name: EEPROM get value
+		Purpose: Returns the value from the EEPROM
+		*/
+		uint32_t eepromGetInt(uint16_t offset, uint8_t length);
+		float eepromGetFloat(uint16_t offset, uint8_t length);
+		string eepromGetString(uint16_t offset, uint8_t length);
+		
+		/*
+		Name: EEPROM write value
+		Purpose: Writes the value to the EEPROM
+		*/
+		bool eepromWriteInt(uint16_t offset, uint8_t length, uint32_t value);
+		bool eepromWriteFloat(uint16_t offset, uint8_t length, float value);
+		bool eepromWriteString(uint16_t offset, uint8_t length, const string &value);
+		
+		/*
+		Name: Collect printer information
+		Purpose: Gets all the printer's settings from the printer's EEPROM
+		*/
+		bool collectPrinterInformation(bool logDetails = true);
+		
+		/*
+		Name: Get EEPROM offset and length
+		Purpose: Get the EEPROM offset and length for the EEPROM with the provided name
+		*/
+		void getEepromOffsetAndLength(const string &name, uint16_t &offset, uint8_t &length);
+		
+		/*
+		Name: Get EEPROM setting's names
+		Purpose: Returns all settings names for the EEPROM
+		*/
+		vector<string> getEepromSettingsNames();
 	
 	// Private
 	private:
@@ -225,26 +270,8 @@ class Printer {
 		// Firmware type
 		firmwareTypes firmwareType;
 		
-		// Collect printer information
-		bool collectPrinterInformation(bool logDetails = true);
-		
-		// EEPROM get int
-		uint32_t eepromGetInt(uint16_t offset, uint8_t length);
-		
-		// EEPROM get float
-		float eepromGetFloat(uint16_t offset, uint8_t length);
-		
-		// EEPROM get string
-		string eepromGetString(uint16_t offset, uint8_t length);
-		
-		// EEPROM write int
-		bool eepromWriteInt(uint16_t offset, uint8_t length, uint32_t value);
-		
-		// EEPROM write float
-		bool eepromWriteFloat(uint16_t offset, uint8_t length, float value);
-		
-		// EEPROM write string
-		bool eepromWriteString(uint16_t offset, uint8_t length, const string &value);
+		// Refresh EEPROM
+		bool refreshEeprom();
 		
 		// EEPROM keep float within range
 		bool eepromKeepFloatWithinRange(uint16_t offset, uint8_t length, float min, float max, float defaultValue);

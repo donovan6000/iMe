@@ -7,10 +7,11 @@ iMe is firmware for the Micro 3D printer that attempts to fix the printer's bigg
 
 The easiest way to install and use iMe is with M3D Manager, which is available for [Windows](https://raw.githubusercontent.com/donovan6000/iMe/master/M3D%20Manager/M3D%20Manager%20Windows.zip), [OS X](https://raw.githubusercontent.com/donovan6000/iMe/master/M3D%20Manager/M3D%20Manager%20OS%20X.zip), and [Linux](https://raw.githubusercontent.com/donovan6000/iMe/master/M3D%20Manager/M3D%20Manager%20Linux.zip). Simply click the 'Install iMe firmware' button to install iMe. Every time the printer powers on it'll be in bootloder mode, so you'll need to click the 'Switch to firmware mode' button to put the printer into a mode where 3D printing software can communicate with it. Make sure to disconnect the printer from M3D Manager or close M3D Manager when using the printer with other software so that the printer's serial port doesn't remain busy.
 ![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/m3d%20manager.png "M3D Manager")
-So far iMe has been tested on [Cura](https://ultimaker.com/en/products/cura-software), [OctoPrint](http://octoprint.org/), [Simplify3D](https://www.simplify3d.com/), [Repetier-Host](https://www.repetier.com/),[Printrun](http://www.pronterface.com/), and [MatterControl](http://www.mattercontrol.com/).
+So far iMe has been tested on [Cura](https://ultimaker.com/en/products/cura-software), [OctoPrint](http://octoprint.org/), [Simplify3D](https://www.simplify3d.com/), [Repetier-Host](https://www.repetier.com/), [Printrun](http://www.pronterface.com/), [MatterControl](http://www.mattercontrol.com/), and [CraftWare](https://craftunique.com/craftware).
 ![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/cura.png "Cura")
 ![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/octoprint.png "OctoPrint")
 ![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/simplify3d.png "Simplify3D")
 ![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/repetier-host.png "Repetier-Host")
 ![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/printrun.png "Printrun")
 ![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/mattercontrol.png "MatterControl")
+![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/craftware.png "CraftWare")

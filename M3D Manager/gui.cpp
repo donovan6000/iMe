@@ -46,8 +46,8 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		logToConsole(message);
 	});
 	
-	// Clear establishing printer connection
-	establishingPrinterConnection = false;
+	// Set allow enabling controls
+	allowEnablingControls = true;
 
 	// Initialize PNG image handler
 	wxImage::AddHandler(new wxPNGHandler);
@@ -249,8 +249,11 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 	));
 	
-	// Create switch to mode button
-	switchToModeButton = new wxButton(panel, wxID_ANY, "Switch to bootloader mode", wxPoint(
+	// Create install iMe firmware button
+	string iMeVersion = static_cast<string>(TOSTRING(IME_ROM_VERSION_STRING)).substr(2);
+	for(uint8_t i = 0; i < 3; i++)
+		iMeVersion.insert(i * 2 + 2 + i, ".");
+	installImeFirmwareButton = new wxButton(panel, wxID_ANY, "Install iMe V" + iMeVersion, wxPoint(
 	#ifdef WINDOWS
 		14, 111
 	#endif
@@ -261,8 +264,23 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		14, 118
 	#endif
 	));
-	switchToModeButton->Enable(false);
-	switchToModeButton->Bind(wxEVT_BUTTON, &MyFrame::switchToMode, this);
+	installImeFirmwareButton->Enable(false);
+	installImeFirmwareButton->Bind(wxEVT_BUTTON, &MyFrame::installImeFirmware, this);
+	
+	// Create install M3D firmware button
+	installM3dFirmwareButton = new wxButton(panel, wxID_ANY, "Install M3D V" TOSTRING(M3D_ROM_VERSION_STRING), wxPoint(
+	#ifdef WINDOWS
+		14, 147
+	#endif
+	#ifdef OSX
+		11, 139
+	#endif
+	#ifdef LINUX
+		14, 154
+	#endif
+	));
+	installM3dFirmwareButton->Enable(false);
+	installM3dFirmwareButton->Bind(wxEVT_BUTTON, &MyFrame::installM3dFirmware, this);
 	
 	// Create install firmware with file button
 	installFirmwareFromFileButton = new wxButton(panel, wxID_ANY, "Install firmware from file", wxPoint(
@@ -279,38 +297,20 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	installFirmwareFromFileButton->Enable(false);
 	installFirmwareFromFileButton->Bind(wxEVT_BUTTON, &MyFrame::installFirmwareFromFile, this);
 	
-	// Create install iMe firmware button
-	string iMeVersion = static_cast<string>(TOSTRING(IME_ROM_VERSION_STRING)).substr(2);
-	for(uint8_t i = 0; i < 3; i++)
-		iMeVersion.insert(i * 2 + 2 + i, ".");
-	installImeFirmwareButton = new wxButton(panel, wxID_ANY, "Install iMe V" + iMeVersion, wxPoint(
+	// Create switch to mode button
+	switchToModeButton = new wxButton(panel, wxID_ANY, "Switch to bootloader mode", wxPoint(
 	#ifdef WINDOWS
-		14, 147
+		370, 147
 	#endif
 	#ifdef OSX
-		11, 139
+		345, 139
 	#endif
 	#ifdef LINUX
-		14, 154
+		347, 154
 	#endif
 	));
-	installImeFirmwareButton->Enable(false);
-	installImeFirmwareButton->Bind(wxEVT_BUTTON, &MyFrame::installIMeFirmware, this);
-	
-	// Create install M3D firmware button
-	installM3dFirmwareButton = new wxButton(panel, wxID_ANY, "Install M3D V" TOSTRING(M3D_ROM_VERSION_STRING), wxPoint(
-	#ifdef WINDOWS
-		220, 147
-	#endif
-	#ifdef OSX
-		210, 139
-	#endif
-	#ifdef LINUX
-		215, 154
-	#endif
-	));
-	installM3dFirmwareButton->Enable(false);
-	installM3dFirmwareButton->Bind(wxEVT_BUTTON, &MyFrame::installM3dFirmware, this);
+	switchToModeButton->Enable(false);
+	switchToModeButton->Bind(wxEVT_BUTTON, &MyFrame::switchToMode, this);
 	
 	// Create console box
 	new wxStaticBox(panel, wxID_ANY, "Console", wxPoint(
@@ -406,19 +406,19 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		460, 425
 	#endif
 	));
-	sendCommandButton->Bind(wxEVT_BUTTON, &MyFrame::sendCommandManually, this);
 	sendCommandButton->Enable(false);
+	sendCommandButton->Bind(wxEVT_BUTTON, &MyFrame::sendCommandManually, this);
 	
 	// Create movement box
 	new wxStaticBox(panel, wxID_ANY, "Movement", wxPoint(564, 0), wxSize(
 	#ifdef WINDOWS
-		542, 90
+		201, 249
 	#endif
 	#ifdef OSX
-		549, 82
+		201, 249
 	#endif
 	#ifdef LINUX
-		549, 97
+		201, 249
 	#endif
 	));
 	
@@ -435,13 +435,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 	), wxPoint(
 	#ifdef WINDOWS
-		616, 19
+		615, 19
 	#endif
 	#ifdef OSX
-		616, 15
+		615, 15
 	#endif
 	#ifdef LINUX
-		625, 22
+		624, 22
 	#endif
 	), wxSize(
 	#ifdef WINDOWS
@@ -454,13 +454,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		-1, -1
 	#endif
 	));
+	backwardMovementButton->Enable(false);
 	backwardMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
 	
 		// Send commands
 		sendCommand("G91");
-		sendCommand("G0 Y" + to_string(static_cast<double>(feedRateMovementSlider->GetValue()) / 1000) + " F" TOSTRING(DEFAULT_Y_SPEED));
+		sendCommand("G0 Y" + to_string(static_cast<double>(distanceMovementSlider->GetValue()) / 1000) + " F" + to_string(printer.convertFeedRate(feedRateMovementSlider->GetValue())));
 	});
-	backwardMovementButton->Enable(false);
 	
 	// Create left movement button
 	leftMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
@@ -475,13 +475,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 	), wxPoint(
 	#ifdef WINDOWS
-		566, 69
+		565, 67
 	#endif
 	#ifdef OSX
-		566, 65
+		565, 63
 	#endif
 	#ifdef LINUX
-		575, 72
+		574, 70
 	#endif
 	), wxSize(
 	#ifdef WINDOWS
@@ -494,13 +494,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		-1, -1
 	#endif
 	));
+	leftMovementButton->Enable(false);
 	leftMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
 	
 		// Send commands
 		sendCommand("G91");
-		sendCommand("G0 X-" + to_string(static_cast<double>(feedRateMovementSlider->GetValue()) / 1000) + " F" TOSTRING(DEFAULT_X_SPEED));
+		sendCommand("G0 X-" + to_string(static_cast<double>(distanceMovementSlider->GetValue()) / 1000) + " F" + to_string(printer.convertFeedRate(feedRateMovementSlider->GetValue())));
 	});
-	leftMovementButton->Enable(false);
 	
 	// Create home movement button
 	homeMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
@@ -515,13 +515,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 	), wxPoint(
 	#ifdef WINDOWS
-		616, 69
+		615, 67
 	#endif
 	#ifdef OSX
-		616, 65
+		615, 63
 	#endif
 	#ifdef LINUX
-		625, 72
+		624, 70
 	#endif
 	), wxSize(
 	#ifdef WINDOWS
@@ -534,12 +534,12 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		-1, -1
 	#endif
 	));
+	homeMovementButton->Enable(false);
 	homeMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
 	
 		// Send commands
 		sendCommand("G28");
 	});
-	homeMovementButton->Enable(false);
 	
 	// Create right movement button
 	rightMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
@@ -554,13 +554,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 	), wxPoint(
 	#ifdef WINDOWS
-		666, 69
+		665, 67
 	#endif
 	#ifdef OSX
-		666, 65
+		665, 63
 	#endif
 	#ifdef LINUX
-		675, 72
+		674, 70
 	#endif
 	), wxSize(
 	#ifdef WINDOWS
@@ -573,13 +573,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		-1, -1
 	#endif
 	));
+	rightMovementButton->Enable(false);
 	rightMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
 	
 		// Send commands
 		sendCommand("G91");
-		sendCommand("G0 X" + to_string(static_cast<double>(feedRateMovementSlider->GetValue()) / 1000) + " F" TOSTRING(DEFAULT_X_SPEED));
+		sendCommand("G0 X" + to_string(static_cast<double>(distanceMovementSlider->GetValue()) / 1000) + " F" + to_string(printer.convertFeedRate(feedRateMovementSlider->GetValue())));
 	});
-	rightMovementButton->Enable(false);
 	
 	// Create forward movement button
 	forwardMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
@@ -594,13 +594,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 	), wxPoint(
 	#ifdef WINDOWS
-		616, 119
+		615, 115
 	#endif
 	#ifdef OSX
-		616, 115
+		615, 111
 	#endif
 	#ifdef LINUX
-		625, 122
+		624, 118
 	#endif
 	), wxSize(
 	#ifdef WINDOWS
@@ -613,13 +613,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		-1, -1
 	#endif
 	));
+	forwardMovementButton->Enable(false);
 	forwardMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
 	
 		// Send commands
 		sendCommand("G91");
-		sendCommand("G0 Y-" + to_string(static_cast<double>(feedRateMovementSlider->GetValue()) / 1000) + " F" TOSTRING(DEFAULT_Y_SPEED));
+		sendCommand("G0 Y-" + to_string(static_cast<double>(distanceMovementSlider->GetValue()) / 1000) + " F" + to_string(printer.convertFeedRate(feedRateMovementSlider->GetValue())));
 	});
-	forwardMovementButton->Enable(false);
 	
 	// Create up movement button
 	upMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
@@ -634,13 +634,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 	), wxPoint(
 	#ifdef WINDOWS
-		696, 44
+		695, 43
 	#endif
 	#ifdef OSX
-		716, 40
+		715, 39
 	#endif
 	#ifdef LINUX
-		725, 47
+		724, 46
 	#endif
 	), wxSize(
 	#ifdef WINDOWS
@@ -653,13 +653,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		-1, -1
 	#endif
 	));
+	upMovementButton->Enable(false);
 	upMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
 	
 		// Send commands
 		sendCommand("G91");
-		sendCommand("G0 Z" + to_string(static_cast<double>(feedRateMovementSlider->GetValue()) / 1000) + " F" TOSTRING(DEFAULT_Z_SPEED));
+		sendCommand("G0 Z" + to_string(static_cast<double>(distanceMovementSlider->GetValue()) / 1000) + " F" + to_string(printer.convertFeedRate(feedRateMovementSlider->GetValue())));
 	});
-	upMovementButton->Enable(false);
 	
 	// Create down movement button
 	downMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
@@ -674,13 +674,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 	), wxPoint(
 	#ifdef WINDOWS
-		696, 94
+		695, 89
 	#endif
 	#ifdef OSX
-		716, 90
+		715, 87
 	#endif
 	#ifdef LINUX
-		725, 97
+		724, 94
 	#endif
 	), wxSize(
 	#ifdef WINDOWS
@@ -693,66 +693,350 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		-1, -1
 	#endif
 	));
+	downMovementButton->Enable(false);
 	downMovementButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
 	
 		// Send commands
 		sendCommand("G91");
-		sendCommand("G0 Z-" + to_string(static_cast<double>(feedRateMovementSlider->GetValue()) / 1000) + " F" TOSTRING(DEFAULT_Z_SPEED));
+		sendCommand("G0 Z-" + to_string(static_cast<double>(distanceMovementSlider->GetValue()) / 1000) + " F" + to_string(printer.convertFeedRate(feedRateMovementSlider->GetValue())));
 	});
-	downMovementButton->Enable(false);
 	
-	// Create feed rate movement slider
-	feedRateMovementSlider = new wxSlider(panel, wxID_ANY, 10 * 1000, 0.001 * 1000, 50 * 1000, wxPoint(
+	// Create distance movement text
+	distanceMovementText = new wxStaticText(panel, wxID_ANY, "", wxPoint(
 	#ifdef WINDOWS
-		616, 219
+		575, 157
 	#endif
 	#ifdef OSX
-		616, 219
+		575, 157
 	#endif
 	#ifdef LINUX
-		616, 219
+		575, 157
 	#endif
 	), wxSize(
 	#ifdef WINDOWS
-		140, -1
+		179, -1
 	#endif
 	#ifdef OSX
-		140, -1
+		179, -1
 	#endif
 	#ifdef LINUX
-		140, -1
+		179, -1
+	#endif
+	), wxALIGN_CENTRE_HORIZONTAL | wxST_NO_AUTORESIZE);
+	
+	// Create distance movement slider
+	distanceMovementSlider = new wxSlider(panel, wxID_ANY, 10 * 1000, 0.001 * 1000, 100 * 1000, wxPoint(
+	#ifdef WINDOWS
+		575, 178
+	#endif
+	#ifdef OSX
+		575, 178
+	#endif
+	#ifdef LINUX
+		575, 178
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		179, -1
+	#endif
+	#ifdef OSX
+		179, -1
+	#endif
+	#ifdef LINUX
+		179, -1
 	#endif
 	));
+	distanceMovementSlider->Enable(false);
+	distanceMovementSlider->Bind(wxEVT_COMMAND_SLIDER_UPDATED, [=](wxCommandEvent& event) {
+	
+		// Update distance movement text
+		updateDistanceMovementText();
+	});
+	updateDistanceMovementText();
+	
+	// Create feed rate movement text
+	feedRateMovementText = new wxStaticText(panel, wxID_ANY, "", wxPoint(
+	#ifdef WINDOWS
+		575, 205
+	#endif
+	#ifdef OSX
+		575, 205
+	#endif
+	#ifdef LINUX
+		575, 205
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		179, -1
+	#endif
+	#ifdef OSX
+		179, -1
+	#endif
+	#ifdef LINUX
+		179, -1
+	#endif
+	), wxALIGN_CENTRE_HORIZONTAL | wxST_NO_AUTORESIZE);
+	
+	// Create feed rate movement slider
+	feedRateMovementSlider = new wxSlider(panel, wxID_ANY, DEFAULT_X_SPEED, 1, 4800, wxPoint(
+	#ifdef WINDOWS
+		575, 226
+	#endif
+	#ifdef OSX
+		575, 226
+	#endif
+	#ifdef LINUX
+		575, 226
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		179, -1
+	#endif
+	#ifdef OSX
+		179, -1
+	#endif
+	#ifdef LINUX
+		179, -1
+	#endif
+	));
+	feedRateMovementSlider->Enable(false);
 	feedRateMovementSlider->Bind(wxEVT_COMMAND_SLIDER_UPDATED, [=](wxCommandEvent& event) {
 	
 		// Update feed rate movement text
 		updateFeedRateMovementText();
 	});
-	feedRateMovementSlider->Enable(false);
+	updateFeedRateMovementText();
 	
-	// Create feed rate movement text
-	feedRateMovementText = new wxStaticText(panel, wxID_ANY, "", wxPoint(
+	// Create settings box
+	new wxStaticBox(panel, wxID_ANY, "Settings", wxPoint(775, 0), wxSize(
 	#ifdef WINDOWS
-		616, 239
+		338, 99
 	#endif
 	#ifdef OSX
-		616, 239
+		338, 99
 	#endif
 	#ifdef LINUX
-		616, 239
+		338, 99
+	#endif
+	));
+	
+	// Create printer settings
+	wxArrayString printerSettings;
+	vector<string> temp = printer.getEepromSettingsNames();
+	for(uint8_t i = 0; i < temp.size(); i++)
+		printerSettings.Add(temp[i]);
+	
+	// Create printer setting text
+	new wxStaticText(panel, wxID_ANY, "Printer Setting", wxPoint(
+	#ifdef WINDOWS
+		785, 24
+	#endif
+	#ifdef OSX
+		785, 23
+	#endif
+	#ifdef LINUX
+		785, 28
+	#endif
+	));
+	
+	// Create printer setting choice
+	printerSettingChoice = new wxChoice(panel, wxID_ANY, wxPoint(
+	#ifdef WINDOWS
+		889, 20
+	#endif
+	#ifdef OSX
+		889, 20
+	#endif
+	#ifdef LINUX
+		889, 20
 	#endif
 	), wxSize(
 	#ifdef WINDOWS
-		140, -1
+		215, -1
 	#endif
 	#ifdef OSX
-		140, -1
+		215, -1
 	#endif
 	#ifdef LINUX
-		140, -1
+		215, -1
 	#endif
-	), wxALIGN_CENTRE_HORIZONTAL | wxST_NO_AUTORESIZE);
-	updateFeedRateMovementText();
+	), printerSettings);
+	printerSettingChoice->SetSelection(printerSettingChoice->FindString(printerSettings[0]));
+	printerSettingChoice->Enable(false);
+	printerSettingChoice->Bind(wxEVT_CHOICE, [=](wxCommandEvent& event) {
+	
+		// Set printer settings value
+		setPrinterSettingValue();
+	});
+	
+	// Create printer setting input
+	printerSettingInput = new wxTextCtrl(panel, wxID_ANY, wxEmptyString, wxPoint(
+	#ifdef WINDOWS
+		785, 60
+	#endif
+	#ifdef OSX
+		785, 60
+	#endif
+	#ifdef LINUX
+		785, 60
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		229, -1
+	#endif
+	#ifdef OSX
+		229, -1
+	#endif
+	#ifdef LINUX
+		229, -1
+	#endif
+	), wxTE_PROCESS_ENTER);
+	printerSettingInput->SetHint("Value");
+	printerSettingInput->Bind(wxEVT_TEXT_ENTER, &MyFrame::savePrinterSetting, this);
+	
+	// Create save printer setting button
+	savePrinterSettingButton = new wxButton(panel, wxID_ANY, "Save", wxPoint(
+	#ifdef WINDOWS
+		1019, 60
+	#endif
+	#ifdef OSX
+		1019, 60
+	#endif
+	#ifdef LINUX
+		1019, 60
+	#endif
+	));
+	savePrinterSettingButton->Enable(false);
+	savePrinterSettingButton->Bind(wxEVT_BUTTON, &MyFrame::savePrinterSetting, this);
+	
+	// Create calibration box
+	new wxStaticBox(panel, wxID_ANY, "Miscellaneous", wxPoint(564, 250), wxSize(
+	#ifdef WINDOWS
+		105, 168
+	#endif
+	#ifdef OSX
+		105, 168
+	#endif
+	#ifdef LINUX
+		105, 168
+	#endif
+	));
+	
+	// Create motors on button
+	motorsOnButton = new wxButton(panel, wxID_ANY, "Motors on", wxPoint(
+	#ifdef WINDOWS
+		574, 270
+	#endif
+	#ifdef OSX
+		574, 270
+	#endif
+	#ifdef LINUX
+		574, 270
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		85, -1
+	#endif
+	#ifdef OSX
+		85, -1
+	#endif
+	#ifdef LINUX
+		85, -1
+	#endif
+	));
+	motorsOnButton->Enable(false);
+	motorsOnButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		// Send commands
+		sendCommand("M17");
+	});
+	
+	// Create motors off button
+	motorsOffButton = new wxButton(panel, wxID_ANY, "Motors off", wxPoint(
+	#ifdef WINDOWS
+		574, 306
+	#endif
+	#ifdef OSX
+		574, 306
+	#endif
+	#ifdef LINUX
+		574, 306
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		85, -1
+	#endif
+	#ifdef OSX
+		85, -1
+	#endif
+	#ifdef LINUX
+		85, -1
+	#endif
+	));
+	motorsOffButton->Enable(false);
+	motorsOffButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		// Send commands
+		sendCommand("M18");
+	});
+	
+	// Create fan on button
+	fanOnButton = new wxButton(panel, wxID_ANY, "Fan on", wxPoint(
+	#ifdef WINDOWS
+		574, 342
+	#endif
+	#ifdef OSX
+		574, 342
+	#endif
+	#ifdef LINUX
+		574, 342
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		85, -1
+	#endif
+	#ifdef OSX
+		85, -1
+	#endif
+	#ifdef LINUX
+		85, -1
+	#endif
+	));
+	fanOnButton->Enable(false);
+	fanOnButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		// Send commands
+		sendCommand("M106 S255");
+	});
+	
+	// Create fan off button
+	fanOffButton = new wxButton(panel, wxID_ANY, "Fan off", wxPoint(
+	#ifdef WINDOWS
+		574, 378
+	#endif
+	#ifdef OSX
+		574, 378
+	#endif
+	#ifdef LINUX
+		574, 378
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		85, -1
+	#endif
+	#ifdef OSX
+		85, -1
+	#endif
+	#ifdef LINUX
+		85, -1
+	#endif
+	));
+	fanOffButton->Enable(false);
+	fanOffButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		// Send commands
+		sendCommand("M107");
+	});
 	
 	// Create version text
 	versionText = new wxStaticText(panel, wxID_ANY, "M3D Manager V" TOSTRING(VERSION), wxDefaultPosition, wxSize(
@@ -961,16 +1245,14 @@ void MyFrame::changePrinterConnection(wxCommandEvent& event) {
 			statusTimer->Stop();
 		
 			// Disable connection controls
-			serialPortChoice->Enable(false);
-			refreshSerialPortsButton->Enable(false);
-			connectionButton->Enable(false);
+			enableConnectionControls(false);
 
 			// Set status text
 			statusText->SetLabel("Connecting");
 			statusText->SetForegroundColour(wxColour(255, 180, 0));
 			
-			// Set establishing printer connection
-			establishingPrinterConnection = true;
+			// Clear allow enabling controls
+			allowEnablingControls = false;
 		});
 		
 		// Append thread task to queue
@@ -985,6 +1267,9 @@ void MyFrame::changePrinterConnection(wxCommandEvent& event) {
 
 		// Append thread complete callback to queue
 		threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+		
+			// Set allow enabling controls
+			allowEnablingControls = true;
 	
 			// Enable connection button
 			connectionButton->Enable(true);
@@ -992,30 +1277,24 @@ void MyFrame::changePrinterConnection(wxCommandEvent& event) {
 			// Check if connected to printer
 			if(printer.isConnected()) {
 
-				// Enable printer controls
-				installFirmwareFromFileButton->Enable(true);
-				installImeFirmwareButton->Enable(true);
-				installM3dFirmwareButton->Enable(true);
-				switchToModeButton->Enable(true);
-				sendCommandButton->Enable(true);
+				// Enable firmware controls
+				enableFirmwareControls(true);
 				
 				// Change connection button to disconnect	
 				connectionButton->SetLabel("Disconnect");
+				
+				// Log printer mode
+				logToConsole(static_cast<string>("Printer is in ") + (printer.getOperatingMode() == BOOTLOADER ? "bootloader" : "firmware") + " mode");
 			}
 			
 			// Otherwise
-			else {
+			else
 			
 				// Enable connection controls
-				serialPortChoice->Enable(true);
-				refreshSerialPortsButton->Enable(true);
-			}
+				enableConnectionControls(true);
 
 			// Start status timer
 			statusTimer->Start(100);
-			
-			// Clear establishing printer connection
-			establishingPrinterConnection = false;
 		});
 	}
 	
@@ -1045,20 +1324,23 @@ void MyFrame::changePrinterConnection(wxCommandEvent& event) {
 		// Append thread complete callback to queue
 		threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
 	
-			// Disable printer controls
-			installFirmwareFromFileButton->Enable(false);
-			installImeFirmwareButton->Enable(false);
-			installM3dFirmwareButton->Enable(false);
-			switchToModeButton->Enable(false);
-			sendCommandButton->Enable(false);
+			// Disable firmware controls
+			enableFirmwareControls(false);
+			
+			// Disable movement controls
+			enableMovementControls(false);
+			
+			// Disable settings controls
+			enableSettingsControls(false);
+			
+			// Disable miscellaneous controls
+			enableMiscellaneousControls(false);
 		
 			// Change connection button to connect
 			connectionButton->SetLabel("Connect");
 		
 			// Enable connection controls
-			connectionButton->Enable(true);
-			serialPortChoice->Enable(true);
-			refreshSerialPortsButton->Enable(true);
+			enableConnectionControls(true);
 		
 			// Start status timer
 			statusTimer->Start(100);
@@ -1081,16 +1363,19 @@ void MyFrame::switchToMode(wxCommandEvent& event) {
 	threadStartCallbackQueue.push([=]() -> void {
 	
 		// Disable connection controls
-		serialPortChoice->Enable(false);
-		refreshSerialPortsButton->Enable(false);
-		connectionButton->Enable(false);
+		enableConnectionControls(false);
 	
-		// Disable printer controls
-		installFirmwareFromFileButton->Enable(false);
-		installImeFirmwareButton->Enable(false);
-		installM3dFirmwareButton->Enable(false);
-		switchToModeButton->Enable(false);
-		sendCommandButton->Enable(false);
+		// Disable firmware controls
+		enableFirmwareControls(false);
+		
+		// Disable movement controls
+		enableMovementControls(false);
+		
+		// Disable settings controls
+		enableSettingsControls(false);
+		
+		// Disable miscellaneous controls
+		enableMiscellaneousControls(false);
 	});
 	
 	// Append thread task to queue
@@ -1124,28 +1409,27 @@ void MyFrame::switchToMode(wxCommandEvent& event) {
 	// Append thread complete callback to queue
 	threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
 		
-		// Enable connection controls
-		serialPortChoice->Enable(true);
-		refreshSerialPortsButton->Enable(true);
+		// Enable connection button
 		connectionButton->Enable(true);
 
 		// Check if connected to printer
-		if(printer.isConnected()) {
+		if(printer.isConnected())
 
-			// Enable printer controls
-			installFirmwareFromFileButton->Enable(true);
-			installImeFirmwareButton->Enable(true);
-			installM3dFirmwareButton->Enable(true);
-			switchToModeButton->Enable(true);
-			sendCommandButton->Enable(true);
-		}
+			// Enable firmware controls
+			enableFirmwareControls(true);
+
+		// Otherwise
+		else
+
+			// Enable connection controls
+			enableConnectionControls(true);
 		
 		// Display message
 		wxMessageBox(response.message, "M3D Manager", response.style);
 	});
 }
 
-void MyFrame::installIMeFirmware(wxCommandEvent& event) {
+void MyFrame::installImeFirmware(wxCommandEvent& event) {
 
 	// Disable button that triggered event
 	FindWindowById(event.GetId())->Enable(false);
@@ -1160,20 +1444,26 @@ void MyFrame::installIMeFirmware(wxCommandEvent& event) {
 		statusTimer->Stop();
 
 		// Disable connection controls
-		serialPortChoice->Enable(false);
-		refreshSerialPortsButton->Enable(false);
-		connectionButton->Enable(false);
+		enableConnectionControls(false);
 	
-		// Disable printer controls
-		installFirmwareFromFileButton->Enable(false);
-		installImeFirmwareButton->Enable(false);
-		installM3dFirmwareButton->Enable(false);
-		switchToModeButton->Enable(false);
-		sendCommandButton->Enable(false);
+		// Disable firmware controls
+		enableFirmwareControls(false);
+		
+		// Disable movement controls
+		enableMovementControls(false);
+		
+		// Disable settings controls
+		enableSettingsControls(false);
+		
+		// Disable miscellaneous controls
+		enableMiscellaneousControls(false);
 	
 		// Set status text
 		statusText->SetLabel("Installing firmware");
 		statusText->SetForegroundColour(wxColour(255, 180, 0));
+		
+		// Clear allow enabling controls
+		allowEnablingControls = false;
 	});
 	
 	// Append thread task to queue
@@ -1205,21 +1495,27 @@ void MyFrame::installIMeFirmware(wxCommandEvent& event) {
 	// Append thread complete callback to queue
 	threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
 	
-		// Enable connection controls
-		serialPortChoice->Enable(true);
-		refreshSerialPortsButton->Enable(true);
-		connectionButton->Enable(true);
+		// Set allow enabling controls
+		allowEnablingControls = true;
 	
+		// Enable connection button
+		connectionButton->Enable(true);
+
 		// Check if connected to printer
 		if(printer.isConnected()) {
-	
-			// Enable printer controls
-			installFirmwareFromFileButton->Enable(true);
-			installImeFirmwareButton->Enable(true);
-			installM3dFirmwareButton->Enable(true);
-			switchToModeButton->Enable(true);
-			sendCommandButton->Enable(true);
+
+			// Enable firmware controls
+			enableFirmwareControls(true);
+			
+			// Log printer mode
+			logToConsole(static_cast<string>("Printer is in ") + (printer.getOperatingMode() == BOOTLOADER ? "bootloader" : "firmware") + " mode");
 		}
+
+		// Otherwise
+		else
+
+			// Enable connection controls
+			enableConnectionControls(true);
 		
 		// Start status timer
 		statusTimer->Start(100);
@@ -1244,20 +1540,26 @@ void MyFrame::installM3dFirmware(wxCommandEvent& event) {
 		statusTimer->Stop();
 
 		// Disable connection controls
-		serialPortChoice->Enable(false);
-		refreshSerialPortsButton->Enable(false);
-		connectionButton->Enable(false);
+		enableConnectionControls(false);
 	
-		// Disable printer controls
-		installFirmwareFromFileButton->Enable(false);
-		installImeFirmwareButton->Enable(false);
-		installM3dFirmwareButton->Enable(false);
-		switchToModeButton->Enable(false);
-		sendCommandButton->Enable(false);
+		// Disable firmware controls
+		enableFirmwareControls(false);
+		
+		// Disable movement controls
+		enableMovementControls(false);
+		
+		// Disable settings controls
+		enableSettingsControls(false);
+		
+		// Disable miscellaneous controls
+		enableMiscellaneousControls(false);
 	
 		// Set status text
 		statusText->SetLabel("Installing firmware");
 		statusText->SetForegroundColour(wxColour(255, 180, 0));
+		
+		// Clear allow enabling controls
+		allowEnablingControls = false;
 	});
 	
 	// Append thread task to queue
@@ -1289,21 +1591,27 @@ void MyFrame::installM3dFirmware(wxCommandEvent& event) {
 	// Append thread complete callback to queue
 	threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
 	
-		// Enable connection controls
-		serialPortChoice->Enable(true);
-		refreshSerialPortsButton->Enable(true);
-		connectionButton->Enable(true);
+		// Set allow enabling controls
+		allowEnablingControls = true;
 	
+		// Enable connection button
+		connectionButton->Enable(true);
+
 		// Check if connected to printer
 		if(printer.isConnected()) {
-	
-			// Enable printer controls
-			installFirmwareFromFileButton->Enable(true);
-			installImeFirmwareButton->Enable(true);
-			installM3dFirmwareButton->Enable(true);
-			switchToModeButton->Enable(true);
-			sendCommandButton->Enable(true);
+
+			// Enable firmware controls
+			enableFirmwareControls(true);
+			
+			// Log printer mode
+			logToConsole(static_cast<string>("Printer is in ") + (printer.getOperatingMode() == BOOTLOADER ? "bootloader" : "firmware") + " mode");
 		}
+
+		// Otherwise
+		else
+
+			// Enable connection controls
+			enableConnectionControls(true);
 		
 		// Start status timer
 		statusTimer->Start(100);
@@ -1337,20 +1645,26 @@ void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
 			statusTimer->Stop();
 
 			// Disable connection controls
-			serialPortChoice->Enable(false);
-			refreshSerialPortsButton->Enable(false);
-			connectionButton->Enable(false);
+			enableConnectionControls(false);
 	
-			// Disable printer controls
-			installFirmwareFromFileButton->Enable(false);
-			installImeFirmwareButton->Enable(false);
-			installM3dFirmwareButton->Enable(false);
-			switchToModeButton->Enable(false);
-			sendCommandButton->Enable(false);
+			// Disable firmware controls
+			enableFirmwareControls(false);
+			
+			// Disable movement controls
+			enableMovementControls(false);
+			
+			// Disable settings controls
+			enableSettingsControls(false);
+			
+			// Disable miscellaneous controls
+			enableMiscellaneousControls(false);
 	
 			// Set status text
 			statusText->SetLabel("Installing firmware");
 			statusText->SetForegroundColour(wxColour(255, 180, 0));
+			
+			// Clear allow enabling controls
+			allowEnablingControls = false;
 		});
 		
 		// Append thread task to queue
@@ -1362,22 +1676,28 @@ void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
 	
 		// Append thread complete callback to queue
 		threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+		
+			// Set allow enabling controls
+			allowEnablingControls = true;
 	
-			// Enable connection controls
-			serialPortChoice->Enable(true);
-			refreshSerialPortsButton->Enable(true);
+			// Enable connection button
 			connectionButton->Enable(true);
-	
+
 			// Check if connected to printer
 			if(printer.isConnected()) {
-	
-				// Enable printer controls
-				installFirmwareFromFileButton->Enable(true);
-				installImeFirmwareButton->Enable(true);
-				installM3dFirmwareButton->Enable(true);
-				switchToModeButton->Enable(true);
-				sendCommandButton->Enable(true);
+
+				// Enable firmware controls
+				enableFirmwareControls(true);
+				
+				// Log printer mode
+				logToConsole(static_cast<string>("Printer is in ") + (printer.getOperatingMode() == BOOTLOADER ? "bootloader" : "firmware") + " mode");
 			}
+
+			// Otherwise
+			else
+
+				// Enable connection controls
+				enableConnectionControls(true);
 		
 			// Start status timer
 			statusTimer->Start(100);
@@ -1600,19 +1920,14 @@ void MyFrame::updateLog(wxTimerEvent& event) {
 				// Check if printer is switching modes
 				if(message == "Switching printer into bootloader mode" || message == "Switching printer into firmware mode") {
 				
-					// Check if not establishing printer connection
-					if(!establishingPrinterConnection) {
-			
-						// Disable movement controls
-						backwardMovementButton->Enable(false);
-						forwardMovementButton->Enable(false);
-						rightMovementButton->Enable(false);
-						leftMovementButton->Enable(false);
-						upMovementButton->Enable(false);
-						downMovementButton->Enable(false);
-						homeMovementButton->Enable(false);
-						feedRateMovementSlider->Enable(false);
-					}
+					// Disable movement controls
+					enableMovementControls(false);
+					
+					// Disable settings controls
+					enableSettingsControls(false);
+					
+					// Disable miscellaneous controls
+					enableMiscellaneousControls(false);
 				}
 				
 				// Otherwise check if printer is in firmware mode
@@ -1621,42 +1936,54 @@ void MyFrame::updateLog(wxTimerEvent& event) {
 					// Set switch mode button label
 					switchToModeButton->SetLabel("Switch to bootloader mode");
 					
-					// Check if not establishing printer connection
-					if(!establishingPrinterConnection) {
+					// Check if controls can be enabled
+					if(allowEnablingControls) {
 					
 						// Enable movement controls
-						backwardMovementButton->Enable(true);
-						forwardMovementButton->Enable(true);
-						rightMovementButton->Enable(true);
-						leftMovementButton->Enable(true);
-						upMovementButton->Enable(true);
-						downMovementButton->Enable(true);
-						homeMovementButton->Enable(true);
-						feedRateMovementSlider->Enable(true);
+						enableMovementControls(true);
+						
+						// Disable settings controls
+						enableSettingsControls(false);
+						
+						// Enable miscellaneous controls
+						enableMiscellaneousControls(true);
 					}
 				}
 				
 				// Otherwise check if printer is in bootloader mode
-				else if(message == "Printer is in bootloader mode")
+				else if(message == "Printer is in bootloader mode") {
 				
 					// Set switch mode button label
 					switchToModeButton->SetLabel("Switch to firmware mode");
+					
+					// Check if controls can be enabled
+					if(allowEnablingControls) {
+					
+						// Disable movement controls
+						enableMovementControls(false);
+						
+						// Enable settings controls
+						enableSettingsControls(true);
+						
+						// Disable miscellaneous controls
+						enableMiscellaneousControls(false);
+					}
+				}
 				
 				// Otherwise check if the printer has been disconnected
 				else if(message == "Printer has been disconnected") {
 				
-					// Check if not establishing printer connection
-					if(!establishingPrinterConnection) {
+					// Check if controls can be enabled
+					if(allowEnablingControls) {
 				
 						// Disable movement controls
-						backwardMovementButton->Enable(false);
-						forwardMovementButton->Enable(false);
-						rightMovementButton->Enable(false);
-						leftMovementButton->Enable(false);
-						upMovementButton->Enable(false);
-						downMovementButton->Enable(false);
-						homeMovementButton->Enable(false);
-						feedRateMovementSlider->Enable(false);
+						enableMovementControls(false);
+						
+						// Disable settings controls
+						enableSettingsControls(false);
+						
+						// Disable miscellaneous controls
+						enableMiscellaneousControls(false);
 					}
 				}
 		
@@ -1684,8 +2011,10 @@ void MyFrame::updateStatus(wxTimerEvent& event) {
 				connectionButton->SetLabel("Disconnect");
 		
 			// Disable connection controls
-			serialPortChoice->Enable(false);
-			refreshSerialPortsButton->Enable(false);
+			enableConnectionControls(false);
+			
+			// Enable connection button
+			connectionButton->Enable(true);
 		
 			// Set status text color
 			statusText->SetForegroundColour(wxColour(0, 255, 0));
@@ -1697,20 +2026,23 @@ void MyFrame::updateStatus(wxTimerEvent& event) {
 			// Check if printer was just disconnected
 			if(status == "Disconnected" && (statusText->GetLabel() != status || connectionButton->GetLabel() == "Disconnect")) {
 				
-				// Disable printer controls
-				installFirmwareFromFileButton->Enable(false);
-				installImeFirmwareButton->Enable(false);
-				installM3dFirmwareButton->Enable(false);
-				switchToModeButton->Enable(false);
-				sendCommandButton->Enable(false);
+				// Disable firmware controls
+				enableFirmwareControls(false);
+				
+				// Disable movement controls
+				enableMovementControls(false);
+				
+				// Disable settings controls
+				enableSettingsControls(false);
+				
+				// Disable miscellaneous controls
+				enableMiscellaneousControls(false);
 		
 				// Change connection button to connect
 				connectionButton->SetLabel("Connect");
 		
 				// Enable connection controls
-				connectionButton->Enable(true);
-				serialPortChoice->Enable(true);
-				refreshSerialPortsButton->Enable(true);
+				enableConnectionControls(true);
 			
 				// Log disconnection
 				logToConsole("Printer has been disconnected");
@@ -1752,9 +2084,7 @@ void MyFrame::refreshSerialPorts(wxCommandEvent& event) {
 	threadStartCallbackQueue.push([=]() -> void {
 	
 		// Disable connection controls
-		serialPortChoice->Enable(false);
-		refreshSerialPortsButton->Enable(false);
-		connectionButton->Enable(false);
+		enableConnectionControls(false);
 	});
 	
 	// Append thread task to queue
@@ -1780,9 +2110,7 @@ void MyFrame::refreshSerialPorts(wxCommandEvent& event) {
 	threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
 	
 		// Enable connection controls
-		serialPortChoice->Enable(true);
-		refreshSerialPortsButton->Enable(true);
-		connectionButton->Enable(true);
+		enableConnectionControls(true);
 		
 		// Get serial ports from response
 		wxArrayString serialPorts;
@@ -1812,12 +2140,76 @@ void MyFrame::refreshSerialPorts(wxCommandEvent& event) {
 	});
 }
 
+void MyFrame::updateDistanceMovementText() {
+
+	// Set distance movement text to current distance
+	stringstream stream;
+	stream << fixed << setprecision(3) << static_cast<double>(distanceMovementSlider->GetValue()) / 1000;
+	distanceMovementText->SetLabel("Distance: " + stream.str() + "mm");
+}
+
 void MyFrame::updateFeedRateMovementText() {
 
 	// Set feed rate movement text to current feed rate
-	stringstream stream;
-	stream << fixed << setprecision(3) << static_cast<double>(feedRateMovementSlider->GetValue()) / 1000;
-	feedRateMovementText->SetLabel(stream.str() + "mm");
+	feedRateMovementText->SetLabel("Feed rate: " + to_string(feedRateMovementSlider->GetValue()) + "mm/min");
+}
+
+void MyFrame::enableConnectionControls(bool enable) {
+
+	// Enable or disable connection controls
+	serialPortChoice->Enable(enable);
+	refreshSerialPortsButton->Enable(enable);
+	connectionButton->Enable(enable);
+}
+
+void MyFrame::enableFirmwareControls(bool enable) {
+
+	// Enable or disable firmware controls
+	installFirmwareFromFileButton->Enable(enable);
+	installImeFirmwareButton->Enable(enable);
+	installM3dFirmwareButton->Enable(enable);
+	switchToModeButton->Enable(enable);
+	sendCommandButton->Enable(enable);
+}
+
+void MyFrame::enableMovementControls(bool enable) {
+
+	// Enable or disable movement controls
+	backwardMovementButton->Enable(enable);
+	forwardMovementButton->Enable(enable);
+	rightMovementButton->Enable(enable);
+	leftMovementButton->Enable(enable);
+	upMovementButton->Enable(enable);
+	downMovementButton->Enable(enable);
+	homeMovementButton->Enable(enable);
+	distanceMovementSlider->Enable(enable);
+	feedRateMovementSlider->Enable(enable);
+}
+
+void MyFrame::enableSettingsControls(bool enable) {
+
+	// Enable or disable settings controls
+	printerSettingChoice->Enable(enable);
+	savePrinterSettingButton->Enable(enable);
+	
+	// Check if enabling settings controls
+	if(enable) {
+	
+		// Refresh EEPROM
+		printer.collectPrinterInformation(false);
+	
+		// Set printer setting value
+		setPrinterSettingValue();
+	}
+}
+
+void MyFrame::enableMiscellaneousControls(bool enable) {
+
+	// Enable or disable miscellaneous controls
+	motorsOnButton->Enable(enable);
+	motorsOffButton->Enable(enable);
+	fanOnButton->Enable(enable);
+	fanOffButton->Enable(enable);
 }
 
 ThreadTaskResponse MyFrame::installFirmware(const string &firmwareLocation) {
@@ -1877,10 +2269,132 @@ void MyFrame::sendCommandManually(wxCommandEvent& event) {
 			// Clear command input
 			commandInput->SetValue("");
 			
+			// Initialize thread start and complete callbacks
+			function<void()> threadStartCallback = nullptr;
+			function<void(ThreadTaskResponse response)> threadCompleteCallback = nullptr;
+			
+			// Check if switching modes
+			if((command == "Q" && printer.getOperatingMode() == BOOTLOADER) || (command == "M115 S628" && printer.getOperatingMode() == FIRMWARE)) {
+			
+				// Set thread start callback
+				threadStartCallback = [=]() -> void {
+
+					// Disable connection controls
+					enableConnectionControls(false);
+
+					// Disable firmware controls
+					enableFirmwareControls(false);
+					
+					// Disable movement controls
+					enableMovementControls(false);
+					
+					// Disable miscellaneous controls
+					enableMiscellaneousControls(false);
+					
+					// Disable settings controls
+					enableSettingsControls(false);
+				};
+			
+				// Set thread complete callback
+				threadCompleteCallback = [=](ThreadTaskResponse response) -> void {
+			
+					// Enable connection button
+					connectionButton->Enable(true);
+
+					// Check if connected to printer
+					if(printer.isConnected())
+
+						// Enable firmware controls
+						enableFirmwareControls(true);
+
+					// Otherwise
+					else
+
+						// Enable connection controls
+						enableConnectionControls(true);
+				};
+			}
+			
 			// Send command
-			sendCommand(command);
+			sendCommand(command, threadStartCallback, threadCompleteCallback);
 		}
 	}
+}
+
+void MyFrame::savePrinterSetting(wxCommandEvent& event) {
+
+	// Check if setting can be saved
+	if(savePrinterSettingButton->IsEnabled()) {
+	
+		// Check if value exists
+		string value = static_cast<string>(printerSettingInput->GetValue());
+		if(!value.empty()) {
+		
+			// Disable save printer setting button
+			savePrinterSettingButton->Enable(false);
+			
+			// Set offset and length
+			uint16_t offset;
+			uint8_t length;
+			printer.getEepromOffsetAndLength(static_cast<string>(printerSettingChoice->GetString(printerSettingChoice->GetSelection())), offset, length);
+			
+			// Append thread start callback to queue
+			threadStartCallbackQueue.push([=]() -> void {
+		
+				// Disable settings controls
+				enableSettingsControls(false);
+			});
+		
+			// Append thread task to queue
+			threadTaskQueue.push([=]() -> ThreadTaskResponse {
+		
+				// Check if saving value in EEPROM was successful
+				if(printer.eepromWriteFloat(offset, length, stof(value)))
+				
+					// Return message
+					return {"Setting successfully saved", wxOK | wxICON_INFORMATION | wxCENTRE};
+				
+				// Otherwise
+				else
+				
+					// Return message
+					return {"Failed to save setting", wxOK | wxICON_ERROR | wxCENTRE};
+			});
+
+			// Append thread complete callback to queue
+			threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+			
+				// Check if connected to printer
+				if(printer.isConnected())
+	
+					// Enable settings controls
+					enableSettingsControls(true);
+				
+				// Display message
+				wxMessageBox(response.message, "M3D Manager", response.style);
+			});
+		}
+	}
+}
+
+void MyFrame::setPrinterSettingValue() {
+
+	// Set offset and length
+	uint16_t offset;
+	uint8_t length;
+	printer.getEepromOffsetAndLength(static_cast<string>(printerSettingChoice->GetString(printerSettingChoice->GetSelection())), offset, length);
+	
+	// Get value from EEPROM
+	string value = to_string(printer.eepromGetFloat(offset, length));
+	
+	// Clean up value
+	while(value.back() == '0')
+		value.pop_back();
+	if(value.back() == '.')
+		value.pop_back();
+	
+	// Set printer setting input
+	printerSettingInput->SetValue(value);
 }
 
 void MyFrame::sendCommand(const string &command, function<void()> threadStartCallback, function<void(ThreadTaskResponse response)> threadCompleteCallback) {
@@ -1909,7 +2423,7 @@ void MyFrame::sendCommand(const string &command, function<void()> threadStartCal
 		// Otherwise check if not changing modes
 		else if(!changedMode) {
 		
-			// Initialize response
+			// Initialize response and waiting
 			string response;
 		
 			// Wait until command receives a response

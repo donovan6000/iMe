@@ -441,6 +441,7 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 					// Check if setting port settings was successful
 					if(tcsetattr(fd, TCSANOW, &settings) != -1) {
 					
+						// Check if not connecting to a new printer
 						if(!connectingToNewPrinter) {
 						
 							// Release lock
@@ -550,6 +551,27 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 	return false;
 }
 
+bool Printer::refreshEeprom() {
+
+	// Check if request EEPROM was successful
+	if(sendRequestAscii('S')) {
+
+		// Check if response was correctly received
+		string response = receiveResponseAscii();
+		if(response.length() == 0x301 && response[0x300] == '\r') {
+
+			// Set EEPROM
+			eeprom = response.substr(0, 0x300);
+			
+			// Return true
+			return true;
+		}
+	}
+	
+	// Return false
+	return false;
+}
+
 bool Printer::collectPrinterInformation(bool logDetails) {
 
 	// Set changed mode
@@ -588,185 +610,144 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				chipCrc <<= 8;
 				chipCrc += static_cast<uint8_t>(response[i]);
 			}
-
-			// Check if request EEPROM was successful
-			if(sendRequestAscii('S')) {
+			
+			// Check if reading EEPROM was successful
+			if(refreshEeprom()) {
+					
+				// Get EEPROM CRC
+				uint32_t eepromCrc = eepromGetInt(EEPROM_FIRMWARE_CRC_OFFSET, EEPROM_FIRMWARE_CRC_LENGTH);
+				
+				// Set if firmware isn't corrupt
+				firmwareValid = chipCrc == eepromCrc;
+				
+				// Log if firmware is valid and logging details
+				if(logFunction && logDetails)
+					logFunction(static_cast<string>("Firmware is ") + (firmwareValid ? "valid" : "corrupt"));
+			
+				// Set firmware version
+				firmwareVersion = eepromGetInt(EEPROM_FIRMWARE_VERSION_OFFSET, EEPROM_FIRMWARE_VERSION_LENGTH);
+			
+				// Set firmware type
+				firmwareType = getFirmwareTypeFromFirmwareVersion(firmwareVersion);
+			
+				// Set serial number
+				serialNumber = eepromGetString(EEPROM_SERIAL_NUMBER_OFFSET, EEPROM_SERIAL_NUMBER_LENGTH);
+				
+				// Log printer color if logging details
+				if(logFunction && logDetails) {
+				
+					string printerColor;
+					if(serialNumber.substr(0, 2) == "BK")
+						printerColor = "black";
+					else if(serialNumber.substr(0, 2) == "WH")
+						printerColor = "white";
+					else if(serialNumber.substr(0, 2) == "BL")
+						printerColor = "blue";
+					else if(serialNumber.substr(0, 2) == "GR")
+						printerColor = "green";
+					else if(serialNumber.substr(0, 2) == "OR")
+						printerColor = "orange";
+					else if(serialNumber.substr(0, 2) == "CL")
+						printerColor = "clear";
+					else if(serialNumber.substr(0, 2) == "SL")
+						printerColor = "silver";
+					else if(serialNumber.substr(0, 2) == "PL")
+						printerColor = "purple";
+					
+					logFunction("Printer's color is " + printerColor);
+				}
+				
+				// Get fan type
+				fanTypes fanType = static_cast<fanTypes>(eepromGetInt(EEPROM_FAN_TYPE_OFFSET, EEPROM_FAN_TYPE_LENGTH));
+		
+				// Check if fan needs updating
+				if(!fanType || fanType == NO_FAN) {
 	
-				// Check if response was correctly received
-				string response = receiveResponseAscii();
-				if(response.length() == 0x301 && response[0x300] == '\r') {
+					// Set fan type to HengLiXin
+					fanType = HENGLIXIN;
 		
-					// Set EEPROM
-					eeprom = response.substr(0, 0x300);
-					
-					// Get EEPROM CRC
-					uint32_t eepromCrc = eepromGetInt(EEPROM_FIRMWARE_CRC_OFFSET, EEPROM_FIRMWARE_CRC_LENGTH);
-					
-					// Set if firmware isn't corrupt
-					firmwareValid = chipCrc == eepromCrc;
-					
-					// Log if firmware is valid and logging details
-					if(logFunction && logDetails)
-						logFunction(static_cast<string>("Firmware is ") + (firmwareValid ? "valid" : "corrupt"));
+					// Check if device is newer
+					if(stoi(serialNumber.substr(2, 6)) >= 150602)
+		
+						// Set fan type to Shenzhew
+						fanType = SHENZHEW;
+				}
 				
-					// Set firmware version
-					firmwareVersion = eepromGetInt(EEPROM_FIRMWARE_VERSION_OFFSET, EEPROM_FIRMWARE_VERSION_LENGTH);
+				// Check if updating fan calibration failed
+				if(!setFanType(fanType, logDetails))
 				
-					// Set firmware type
-					firmwareType = getFirmwareTypeFromFirmwareVersion(firmwareVersion);
+					// Return false
+					return false;
 				
-					// Set serial number
-					serialNumber = eepromGetString(EEPROM_SERIAL_NUMBER_OFFSET, EEPROM_SERIAL_NUMBER_LENGTH);
-					
-					// Log printer color if logging details
-					if(logFunction && logDetails) {
-					
-						string printerColor;
-						if(serialNumber.substr(0, 2) == "BK")
-							printerColor = "black";
-						else if(serialNumber.substr(0, 2) == "WH")
-							printerColor = "white";
-						else if(serialNumber.substr(0, 2) == "BL")
-							printerColor = "blue";
-						else if(serialNumber.substr(0, 2) == "GR")
-							printerColor = "green";
-						else if(serialNumber.substr(0, 2) == "OR")
-							printerColor = "orange";
-						else if(serialNumber.substr(0, 2) == "CL")
-							printerColor = "clear";
-						else if(serialNumber.substr(0, 2) == "SL")
-							printerColor = "silver";
-						else if(serialNumber.substr(0, 2) == "PL")
-							printerColor = "purple";
+				// Log fan type if logging details
+				if(logFunction && logDetails) {
+				
+					string fanString;
+					switch(fanType) {
+						case HENGLIXIN:
+							fanString = "a HengLiXin";
+						break;
 						
-						logFunction("Printer's color is " + printerColor);
+						case LISTENER:
+							fanString = "a Listener";
+						break;
+						
+						case SHENZHEW:
+							fanString = "a Shenzhew";
+						break;
+						
+						case XINYUJIE:
+							fanString = "a Xinyujie";
+						break;
+						
+						case CUSTOM_FAN :
+							fanString = "a custom";
+						break;
+						
+						case NO_FAN:
+							fanString = "no";
+						break;
+						
+						default:
+							fanString = "an unknown";
 					}
 					
-					// Get fan type
-					fanTypes fanType = static_cast<fanTypes>(eepromGetInt(EEPROM_FAN_TYPE_OFFSET, EEPROM_FAN_TYPE_LENGTH));
-			
-					// Check if fan needs updating
-					if(!fanType || fanType == NO_FAN) {
-		
-						// Set fan type to HengLiXin
-						fanType = HENGLIXIN;
-			
-						// Check if device is newer
-						if(stoi(serialNumber.substr(2, 6)) >= 150602)
-			
-							// Set fan type to Shenzhew
-							fanType = SHENZHEW;
-					}
-					
-					// Check if updating fan calibration failed
-					if(!setFanType(fanType, logDetails))
-					
+					logFunction("Using " + fanString + " fan");
+				}
+				
+				// Check if using a printer that can't use extruder currents above 500mA
+				if(serialNumber.substr(0, 13) == "BK15033001100" || serialNumber.substr(0, 13) == "BK15040201050" || serialNumber.substr(0, 13) == "BK15040301050" || serialNumber.substr(0, 13) == "BK15040602050" || serialNumber.substr(0, 13) == "BK15040801050" || serialNumber.substr(0, 13) == "BK15040802100" || serialNumber.substr(0, 13) == "GR15032702100" || serialNumber.substr(0, 13) == "GR15033101100" || serialNumber.substr(0, 13) == "GR15040601100" || serialNumber.substr(0, 13) == "GR15040701100" || serialNumber.substr(0, 13) == "OR15032701100" || serialNumber.substr(0, 13) == "SL15032601050")
+	
+					// Check if setting extruder current to 500mA failed
+					if(!setExtruderCurrent(500, logDetails))
+				
 						// Return false
 						return false;
-					
-					// Log fan type if logging details
-					if(logFunction && logDetails) {
-					
-						string fanString;
-						switch(fanType) {
-							case HENGLIXIN:
-								fanString = "a HengLiXin";
-							break;
-							
-							case LISTENER:
-								fanString = "a Listener";
-							break;
-							
-							case SHENZHEW:
-								fanString = "a Shenzhew";
-							break;
-							
-							case XINYUJIE:
-								fanString = "a Xinyujie";
-							break;
-							
-							case CUSTOM_FAN :
-								fanString = "a custom";
-							break;
-							
-							case NO_FAN:
-								fanString = "no";
-							break;
-							
-							default:
-								fanString = "an unknown";
-						}
-						
-						logFunction("Using " + fanString + " fan");
-					}
-					
-					// Check if using a printer that can't use extruder currents above 500mA
-					if(serialNumber.substr(0, 13) == "BK15033001100" || serialNumber.substr(0, 13) == "BK15040201050" || serialNumber.substr(0, 13) == "BK15040301050" || serialNumber.substr(0, 13) == "BK15040602050" || serialNumber.substr(0, 13) == "BK15040801050" || serialNumber.substr(0, 13) == "BK15040802100" || serialNumber.substr(0, 13) == "GR15032702100" || serialNumber.substr(0, 13) == "GR15033101100" || serialNumber.substr(0, 13) == "GR15040601100" || serialNumber.substr(0, 13) == "GR15040701100" || serialNumber.substr(0, 13) == "OR15032701100" || serialNumber.substr(0, 13) == "SL15032601050")
-		
-						// Check if setting extruder current to 500mA failed
-						if(!setExtruderCurrent(500, logDetails))
-					
-							// Return false
-							return false;
-					
-					// Get extruder current
-					uint16_t extruderCurrent = eepromGetInt(EEPROM_E_MOTOR_CURRENT_OFFSET, EEPROM_E_MOTOR_CURRENT_LENGTH);
-					
-					// Log extruder current if logging details
-					if(logFunction && logDetails)
-						logFunction("Using " + to_string(extruderCurrent) + "mA extruder current");
-					
-					// Check if using M3D or M3D Mod firmware and it's from before new bed orientation and adjustable backlash speed
-					if((firmwareType == M3D || firmwareType == M3D_MOD) && stoi(getFirmwareRelease()) < 2015080402) {
-					
-						// Check if clearing bed offsets failed
-						if(!eepromWriteInt(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, EEPROM_BED_HEIGHT_OFFSET_LENGTH + EEPROM_BED_HEIGHT_OFFSET_OFFSET - EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, 0)) {
-	
-							// Log error
-							if(logFunction)
-								logFunction("Failed to clear out bed offsets");
+				
+				// Get extruder current
+				uint16_t extruderCurrent = eepromGetInt(EEPROM_E_MOTOR_CURRENT_OFFSET, EEPROM_E_MOTOR_CURRENT_LENGTH);
+				
+				// Log extruder current if logging details
+				if(logFunction && logDetails)
+					logFunction("Using " + to_string(extruderCurrent) + "mA extruder current");
+				
+				// Check if using M3D or M3D Mod firmware and it's from before new bed orientation and adjustable backlash speed
+				if((firmwareType == M3D || firmwareType == M3D_MOD) && stoi(getFirmwareRelease()) < 2015080402) {
+				
+					// Check if clearing bed offsets failed
+					if(!eepromWriteInt(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, EEPROM_BED_HEIGHT_OFFSET_LENGTH + EEPROM_BED_HEIGHT_OFFSET_OFFSET - EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, 0)) {
 
-							// Return false
-							return false;
-						}
-						
-						// Check if updating backlash speed failed
-						if(!eepromWriteFloat(EEPROM_BACKLASH_SPEED_OFFSET, EEPROM_BACKLASH_SPEED_LENGTH, DEFAULT_BACKLASH_SPEED)) {
-		
-							// Log if logging details
-							if(logFunction && logDetails)
-								logFunction("Updating backlash speed failed");
-
-							// Return false
-							return false;
-						}
-					}
-					
-					// Check if updating backlash X failed
-					if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_X_OFFSET, EEPROM_BACKLASH_X_LENGTH, 0, 2, DEFAULT_BACKLASH_X)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating backlash X failed");
-
-						// Return false
-						return false;
-					}
-					
-					// Check if updating backlash Y failed
-					if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_Y_OFFSET, EEPROM_BACKLASH_Y_LENGTH, 0, 2, DEFAULT_BACKLASH_Y)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating backlash Y failed");
+						// Log error
+						if(logFunction)
+							logFunction("Failed to clear out bed offsets");
 
 						// Return false
 						return false;
 					}
 					
 					// Check if updating backlash speed failed
-					if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_SPEED_OFFSET, EEPROM_BACKLASH_SPEED_LENGTH, 1, 5000, DEFAULT_BACKLASH_SPEED)) {
-					
+					if(!eepromWriteFloat(EEPROM_BACKLASH_SPEED_OFFSET, EEPROM_BACKLASH_SPEED_LENGTH, DEFAULT_BACKLASH_SPEED)) {
+	
 						// Log if logging details
 						if(logFunction && logDetails)
 							logFunction("Updating backlash speed failed");
@@ -774,249 +755,285 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 						// Return false
 						return false;
 					}
-					
-					// Check if updating bed orientation back right failed
-					if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_BACK_RIGHT)) {
-					
+				}
+				
+				// Check if updating backlash X failed
+				if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_X_OFFSET, EEPROM_BACKLASH_X_LENGTH, 0, 2, DEFAULT_BACKLASH_X)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating backlash X failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating backlash Y failed
+				if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_Y_OFFSET, EEPROM_BACKLASH_Y_LENGTH, 0, 2, DEFAULT_BACKLASH_Y)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating backlash Y failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating backlash speed failed
+				if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_SPEED_OFFSET, EEPROM_BACKLASH_SPEED_LENGTH, 1, 5000, DEFAULT_BACKLASH_SPEED)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating backlash speed failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating bed orientation back right failed
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_BACK_RIGHT)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating bed orientation back right failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating bed orientation back left failed
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET, EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_BACK_LEFT)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating bed orientation back left failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating bed orientation front left failed
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_FRONT_LEFT)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating bed orientation front left failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating bed orientation front right failed
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_FRONT_RIGHT)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating bed orientation front right failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating bed offset back right failed
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET, EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_BACK_RIGHT)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating bed offset back right failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating bed offset back left failed
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, EEPROM_BED_OFFSET_BACK_LEFT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_BACK_LEFT)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating bed offset back left failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating bed offset front left failed
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET, EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_FRONT_LEFT)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating bed offset front left failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating bed offset front right failed
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET, EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_FRONT_RIGHT)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating bed offset front right failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating bed height offset failed
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_HEIGHT_OFFSET_OFFSET, EEPROM_BED_HEIGHT_OFFSET_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_HEIGHT_OFFSET)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating bed height offset failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating speed limit X failed
+				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_X_OFFSET, EEPROM_SPEED_LIMIT_X_LENGTH, 120, 4800, DEFAULT_SPEED_LIMIT_X)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating speed limit X failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating speed limit Y failed
+				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_Y_OFFSET, EEPROM_SPEED_LIMIT_Y_LENGTH, 120, 4800, DEFAULT_SPEED_LIMIT_Y)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating speed limit Y failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating speed limit Z failed
+				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_Z_OFFSET, EEPROM_SPEED_LIMIT_Z_LENGTH, 30, 60, DEFAULT_SPEED_LIMIT_Z)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating speed limit Z failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating speed limit E+ failed
+				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET, EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH, 60, 600, DEFAULT_SPEED_LIMIT_E_POSITIVE)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating speed limit E+ failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if updating speed limit E- failed
+				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH, 60, 720, DEFAULT_SPEED_LIMIT_E_NEGATIVE)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating speed limit E- failed");
+
+					// Return false
+					return false;
+				}
+				
+				// Check if using iMe firmware
+				if(firmwareType == IME) {
+				
+					// Check if updating last recorded X value failed
+					if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, EEPROM_LAST_RECORDED_X_VALUE_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_LAST_RECORDED_X_VALUE)) {
+				
 						// Log if logging details
 						if(logFunction && logDetails)
-							logFunction("Updating bed orientation back right failed");
+							logFunction("Updating last recorded X value failed");
 
 						// Return false
 						return false;
 					}
-					
-					// Check if updating bed orientation back left failed
-					if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET, EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_BACK_LEFT)) {
-					
+				
+					// Check if updating last recorded Y value failed
+					if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_Y_VALUE_OFFSET, EEPROM_LAST_RECORDED_Y_VALUE_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_LAST_RECORDED_Y_VALUE)) {
+				
 						// Log if logging details
 						if(logFunction && logDetails)
-							logFunction("Updating bed orientation back left failed");
+							logFunction("Updating last recorded Y value failed");
 
 						// Return false
 						return false;
 					}
-					
-					// Check if updating bed orientation front left failed
-					if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_FRONT_LEFT)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating bed orientation front left failed");
+				}
+				
+				// Check if updating last recorded Z value failed
+				if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_LAST_RECORDED_Z_VALUE)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating last recorded Z value failed");
 
-						// Return false
-						return false;
-					}
-					
-					// Check if updating bed orientation front right failed
-					if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_FRONT_RIGHT)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating bed orientation front right failed");
-
-						// Return false
-						return false;
-					}
-					
-					// Check if updating bed offset back right failed
-					if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET, EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_BACK_RIGHT)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating bed offset back right failed");
-
-						// Return false
-						return false;
-					}
-					
-					// Check if updating bed offset back left failed
-					if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, EEPROM_BED_OFFSET_BACK_LEFT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_BACK_LEFT)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating bed offset back left failed");
-
-						// Return false
-						return false;
-					}
-					
-					// Check if updating bed offset front left failed
-					if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET, EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_FRONT_LEFT)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating bed offset front left failed");
-
-						// Return false
-						return false;
-					}
-					
-					// Check if updating bed offset front right failed
-					if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET, EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_FRONT_RIGHT)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating bed offset front right failed");
-
-						// Return false
-						return false;
-					}
-					
-					// Check if updating bed height offset failed
-					if(!eepromKeepFloatWithinRange(EEPROM_BED_HEIGHT_OFFSET_OFFSET, EEPROM_BED_HEIGHT_OFFSET_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_HEIGHT_OFFSET)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating bed height offset failed");
-
-						// Return false
-						return false;
-					}
-					
-					// Check if updating speed limit X failed
-					if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_X_OFFSET, EEPROM_SPEED_LIMIT_X_LENGTH, 120, 4800, DEFAULT_SPEED_LIMIT_X)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating speed limit X failed");
-
-						// Return false
-						return false;
-					}
-					
-					// Check if updating speed limit Y failed
-					if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_Y_OFFSET, EEPROM_SPEED_LIMIT_Y_LENGTH, 120, 4800, DEFAULT_SPEED_LIMIT_Y)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating speed limit Y failed");
-
-						// Return false
-						return false;
-					}
-					
-					// Check if updating speed limit Z failed
-					if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_Z_OFFSET, EEPROM_SPEED_LIMIT_Z_LENGTH, 30, 60, DEFAULT_SPEED_LIMIT_Z)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating speed limit Z failed");
-
-						// Return false
-						return false;
-					}
-					
-					// Check if updating speed limit E+ failed
-					if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET, EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH, 60, 600, DEFAULT_SPEED_LIMIT_E_POSITIVE)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating speed limit E+ failed");
-
-						// Return false
-						return false;
-					}
-					
-					// Check if updating speed limit E- failed
-					if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH, 60, 720, DEFAULT_SPEED_LIMIT_E_NEGATIVE)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating speed limit E- failed");
-
-						// Return false
-						return false;
-					}
-					
-					// Check if using iMe firmware
-					if(firmwareType == IME) {
-					
-						// Check if updating last recorded X value failed
-						if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, EEPROM_LAST_RECORDED_X_VALUE_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_LAST_RECORDED_X_VALUE)) {
-					
-							// Log if logging details
-							if(logFunction && logDetails)
-								logFunction("Updating last recorded X value failed");
-
-							// Return false
-							return false;
-						}
-					
-						// Check if updating last recorded Y value failed
-						if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_Y_VALUE_OFFSET, EEPROM_LAST_RECORDED_Y_VALUE_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_LAST_RECORDED_Y_VALUE)) {
-					
-							// Log if logging details
-							if(logFunction && logDetails)
-								logFunction("Updating last recorded Y value failed");
-
-							// Return false
-							return false;
-						}
-					}
-					
-					// Check if updating last recorded Z value failed
-					if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_LAST_RECORDED_Z_VALUE)) {
-					
-						// Log if logging details
-						if(logFunction && logDetails)
-							logFunction("Updating last recorded Z value failed");
-
-						// Return false
-						return false;
-					}
-					
-					// Get values
-					float backlashX = eepromGetFloat(EEPROM_BACKLASH_X_OFFSET, EEPROM_BACKLASH_X_LENGTH);
-					float backlashY = eepromGetFloat(EEPROM_BACKLASH_Y_OFFSET, EEPROM_BACKLASH_Y_LENGTH);
-					float backlashSpeed = eepromGetFloat(EEPROM_BACKLASH_SPEED_OFFSET, EEPROM_BACKLASH_SPEED_LENGTH);
-					uint8_t bedOrientationVersion = eepromGetInt(EEPROM_BED_ORIENTATION_VERSION_OFFSET, EEPROM_BED_ORIENTATION_VERSION_LENGTH);
-					float bedOrientationBackRight = eepromGetFloat(EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH);
-					float bedOrientationBackLeft = eepromGetFloat(EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET, EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH);
-					float bedOrientationFrontLeft = eepromGetFloat(EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH);
-					float bedOrientationFrontRight = eepromGetFloat(EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH);
-					float bedOffsetBackRight = eepromGetFloat(EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET, EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH);
-					float bedOffsetBackLeft = eepromGetFloat(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, EEPROM_BED_OFFSET_BACK_LEFT_LENGTH);
-					float bedOffsetFrontLeft = eepromGetFloat(EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET, EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH);
-					float bedOffsetFrontRight = eepromGetFloat(EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET, EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH);
-					float bedHeightOffset = eepromGetFloat(EEPROM_BED_HEIGHT_OFFSET_OFFSET, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
-					float speedLimitX = eepromGetFloat(EEPROM_SPEED_LIMIT_X_OFFSET, EEPROM_SPEED_LIMIT_X_LENGTH);
-					float speedLimitY = eepromGetFloat(EEPROM_SPEED_LIMIT_Y_OFFSET, EEPROM_SPEED_LIMIT_Y_LENGTH);
-					float speedLimitZ = eepromGetFloat(EEPROM_SPEED_LIMIT_Z_OFFSET, EEPROM_SPEED_LIMIT_Z_LENGTH);
-					float speedLimitEPositive = eepromGetFloat(EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET, EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH);
-					float speedLimitENegative = eepromGetFloat(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH);
-					uint8_t heaterCalibrationMode = eepromGetInt(EEPROM_HEATER_CALIBRATION_MODE_OFFSET, EEPROM_HEATER_CALIBRATION_MODE_LENGTH);
-					float heaterTemperatureMeasurementB = eepromGetFloat(EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_OFFSET, EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_LENGTH);
-					float heaterResistanceM = eepromGetFloat(EEPROM_HEATER_RESISTANCE_M_OFFSET, EEPROM_HEATER_RESISTANCE_M_LENGTH);
-					
-					// Log values if logging details
-					if(logFunction && logDetails) {
-						logFunction("Using " + to_string(backlashX) + "mm backlash X");
-						logFunction("Using " + to_string(backlashY) + "mm backlash Y");
-						logFunction("Using " + to_string(backlashSpeed) + "mm/min backlash speed");
-						logFunction("Using bed orientation version " + to_string(bedOrientationVersion));
-						logFunction("Using " + to_string(bedOrientationBackRight) + "mm bed orientation back right");
-						logFunction("Using " + to_string(bedOrientationBackLeft) + "mm bed orientation back left");
-						logFunction("Using " + to_string(bedOrientationFrontLeft) + "mm bed orientation front left");
-						logFunction("Using " + to_string(bedOrientationFrontRight) + "mm bed orientation front right");
-						logFunction("Using " + to_string(bedOffsetBackRight) + "mm bed offset back right");
-						logFunction("Using " + to_string(bedOffsetBackLeft) + "mm bed offset back left");
-						logFunction("Using " + to_string(bedOffsetFrontLeft) + "mm bed offset front left");
-						logFunction("Using " + to_string(bedOffsetFrontRight) + "mm bed offset front right");
-						logFunction("Using " + to_string(bedHeightOffset) + "mm bed height offset");
-						logFunction("Using " + to_string(speedLimitX) + "mm/min speed limit X");
-						logFunction("Using " + to_string(speedLimitY) + "mm/min speed limit Y");
-						logFunction("Using " + to_string(speedLimitZ) + "mm/min speed limit Z");
-						logFunction("Using " + to_string(speedLimitEPositive) + "mm/min speed limit E+");
-						logFunction("Using " + to_string(speedLimitENegative) + "mm/min speed limit E-");
-						logFunction("Using heater calibration mode " + to_string(heaterCalibrationMode));
-						logFunction("Using " + to_string(heaterTemperatureMeasurementB) + " heater temperature measurement B");
-						logFunction("Using " + to_string(heaterResistanceM) + " heater resistance M");
-					}
-					
+					// Return false
+					return false;
+				}
+				
+				// Get values
+				float backlashX = eepromGetFloat(EEPROM_BACKLASH_X_OFFSET, EEPROM_BACKLASH_X_LENGTH);
+				float backlashY = eepromGetFloat(EEPROM_BACKLASH_Y_OFFSET, EEPROM_BACKLASH_Y_LENGTH);
+				float backlashSpeed = eepromGetFloat(EEPROM_BACKLASH_SPEED_OFFSET, EEPROM_BACKLASH_SPEED_LENGTH);
+				uint8_t bedOrientationVersion = eepromGetInt(EEPROM_BED_ORIENTATION_VERSION_OFFSET, EEPROM_BED_ORIENTATION_VERSION_LENGTH);
+				float bedOrientationBackRight = eepromGetFloat(EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH);
+				float bedOrientationBackLeft = eepromGetFloat(EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET, EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH);
+				float bedOrientationFrontLeft = eepromGetFloat(EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH);
+				float bedOrientationFrontRight = eepromGetFloat(EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH);
+				float bedOffsetBackRight = eepromGetFloat(EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET, EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH);
+				float bedOffsetBackLeft = eepromGetFloat(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, EEPROM_BED_OFFSET_BACK_LEFT_LENGTH);
+				float bedOffsetFrontLeft = eepromGetFloat(EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET, EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH);
+				float bedOffsetFrontRight = eepromGetFloat(EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET, EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH);
+				float bedHeightOffset = eepromGetFloat(EEPROM_BED_HEIGHT_OFFSET_OFFSET, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
+				float speedLimitX = eepromGetFloat(EEPROM_SPEED_LIMIT_X_OFFSET, EEPROM_SPEED_LIMIT_X_LENGTH);
+				float speedLimitY = eepromGetFloat(EEPROM_SPEED_LIMIT_Y_OFFSET, EEPROM_SPEED_LIMIT_Y_LENGTH);
+				float speedLimitZ = eepromGetFloat(EEPROM_SPEED_LIMIT_Z_OFFSET, EEPROM_SPEED_LIMIT_Z_LENGTH);
+				float speedLimitEPositive = eepromGetFloat(EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET, EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH);
+				float speedLimitENegative = eepromGetFloat(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH);
+				uint8_t heaterCalibrationMode = eepromGetInt(EEPROM_HEATER_CALIBRATION_MODE_OFFSET, EEPROM_HEATER_CALIBRATION_MODE_LENGTH);
+				float heaterTemperatureMeasurementB = eepromGetFloat(EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_OFFSET, EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_LENGTH);
+				float heaterResistanceM = eepromGetFloat(EEPROM_HEATER_RESISTANCE_M_OFFSET, EEPROM_HEATER_RESISTANCE_M_LENGTH);
+				
+				// Log values if logging details
+				if(logFunction && logDetails) {
+					logFunction("Using " + to_string(backlashX) + "mm backlash X");
+					logFunction("Using " + to_string(backlashY) + "mm backlash Y");
+					logFunction("Using " + to_string(backlashSpeed) + "mm/min backlash speed");
+					logFunction("Using bed orientation version " + to_string(bedOrientationVersion));
+					logFunction("Using " + to_string(bedOrientationBackRight) + "mm bed orientation back right");
+					logFunction("Using " + to_string(bedOrientationBackLeft) + "mm bed orientation back left");
+					logFunction("Using " + to_string(bedOrientationFrontLeft) + "mm bed orientation front left");
+					logFunction("Using " + to_string(bedOrientationFrontRight) + "mm bed orientation front right");
+					logFunction("Using " + to_string(bedOffsetBackRight) + "mm bed offset back right");
+					logFunction("Using " + to_string(bedOffsetBackLeft) + "mm bed offset back left");
+					logFunction("Using " + to_string(bedOffsetFrontLeft) + "mm bed offset front left");
+					logFunction("Using " + to_string(bedOffsetFrontRight) + "mm bed offset front right");
+					logFunction("Using " + to_string(bedHeightOffset) + "mm bed height offset");
+					logFunction("Using " + to_string(speedLimitX) + "mm/min speed limit X");
+					logFunction("Using " + to_string(speedLimitY) + "mm/min speed limit Y");
+					logFunction("Using " + to_string(speedLimitZ) + "mm/min speed limit Z");
+					logFunction("Using " + to_string(speedLimitEPositive) + "mm/min speed limit E+");
+					logFunction("Using " + to_string(speedLimitENegative) + "mm/min speed limit E-");
+					logFunction("Using heater calibration mode " + to_string(heaterCalibrationMode));
+					logFunction("Using " + to_string(heaterTemperatureMeasurementB) + " heater temperature measurement B");
+					logFunction("Using " + to_string(heaterResistanceM) + " heater resistance M");
+				}
+				
+				// Check if reading EEPROM was successful
+				if(refreshEeprom())
+				
 					// Return true
 					return true;
-				}
 			}
 		}
 	
@@ -1753,6 +1770,17 @@ bool Printer::installFirmware(const string &file) {
 		// Log error
 		if(logFunction)
 			logFunction("Failed to collect printer information");
+		
+		// Return false
+		return false;
+	}
+	
+	// Check if reading EEPROM was failed
+	if(!refreshEeprom()) {
+	
+		// Log error
+		if(logFunction)
+			logFunction("Reading EEPROM failed");
 		
 		// Return false
 		return false;
@@ -2812,5 +2840,127 @@ string Printer::getFirmwareReleaseFromFirmwareVersion(uint32_t firmwareVersion) 
 		default:
 			string temp = to_string(firmwareVersion);
 			return temp.substr(2, 2) + '.' + temp.substr(4, 2) + '.' + temp.substr(6, 2) + '.' + temp.substr(8, 2);
+	}
+}
+
+double Printer::convertFeedRate(double feedRate) {
+
+	// Check if using M3D or M3D Mod firmware that uses converted feed rates
+	if((firmwareType == M3D || firmwareType == M3D_MOD) && stoi(getFirmwareRelease()) < 2015122112) {
+		
+		// Convert feed rate
+		double convertedFeedRate = feedRate / 60;
+	
+		// Force feed rate to adhere to limitations
+		if(convertedFeedRate > MAX_FEED_RATE)
+			convertedFeedRate = MAX_FEED_RATE;
+		
+		// Return converted feed rate
+		return 30 + (1 - convertedFeedRate / MAX_FEED_RATE) * 800;
+	}
+	
+	// Otherwise
+	else
+	
+		// Return feed rate
+		return feedRate;
+}
+
+vector<string> Printer::getEepromSettingsNames() {
+
+	// Get settings names
+	vector<string> settingsNames;
+	settingsNames.push_back("Backlash X");
+	settingsNames.push_back("Backlash Y");
+	settingsNames.push_back("Backlash speed");
+	settingsNames.push_back("Back right orientation");
+	settingsNames.push_back("Back left orientation");
+	settingsNames.push_back("Front left orientation");
+	settingsNames.push_back("Front right orientation");
+	settingsNames.push_back("Back right offset");
+	settingsNames.push_back("Back left offset");
+	settingsNames.push_back("Front left offset");
+	settingsNames.push_back("Front right offset");
+	settingsNames.push_back("Bed height offset");
+	settingsNames.push_back("Speed limit X");
+	settingsNames.push_back("Speed limit Y");
+	settingsNames.push_back("Speed limit Z");
+	settingsNames.push_back("Speed limit E+");
+	settingsNames.push_back("Speed limit E-");
+	
+	// Return settings names
+	return settingsNames;
+}
+
+void Printer::getEepromOffsetAndLength(const string &name, uint16_t &offset, uint8_t &length) {
+
+	// Set offset and length
+	if(name == "Backlash X") {
+		offset = EEPROM_BACKLASH_X_OFFSET;
+		length = EEPROM_BACKLASH_X_LENGTH;
+	}
+	else if(name == "Backlash Y") {
+		offset = EEPROM_BACKLASH_Y_OFFSET;
+		length = EEPROM_BACKLASH_Y_LENGTH;
+	}
+	else if(name == "Backlash speed") {
+		offset = EEPROM_BACKLASH_SPEED_OFFSET;
+		length = EEPROM_BACKLASH_SPEED_LENGTH;
+	}
+	else if(name == "Back right orientation") {
+		offset = EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET;
+		length = EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH;
+	}
+	else if(name == "Back left orientation") {
+		offset = EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET;
+		length = EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH;
+	}
+	else if(name == "Front left orientation") {
+		offset = EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET;
+		length = EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH;
+	}
+	else if(name == "Front right orientation") {
+		offset = EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET;
+		length = EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH;
+	}
+	else if(name == "Back right offset") {
+		offset = EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET;
+		length = EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH;
+	}
+	else if(name == "Back left offset") {
+		offset = EEPROM_BED_OFFSET_BACK_LEFT_OFFSET;
+		length = EEPROM_BED_OFFSET_BACK_LEFT_LENGTH;
+	}
+	else if(name == "Front left offset") {
+		offset = EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET;
+		length = EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH;
+	}
+	else if(name == "Front right offset") {
+		offset = EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET;
+		length = EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH;
+	}
+	else if(name == "Bed height offset") {
+		offset = EEPROM_BED_HEIGHT_OFFSET_OFFSET;
+		length = EEPROM_BED_HEIGHT_OFFSET_LENGTH;
+	}
+	else if(name == "Speed limit X") {
+		offset = EEPROM_SPEED_LIMIT_X_OFFSET;
+		length = EEPROM_SPEED_LIMIT_X_LENGTH;
+	}
+	else if(name == "Speed limit Y") {
+		offset = EEPROM_SPEED_LIMIT_Y_OFFSET;
+		length = EEPROM_SPEED_LIMIT_Y_LENGTH;
+	}
+	else if(name == "Speed limit Z") {
+		offset = EEPROM_SPEED_LIMIT_Z_OFFSET;
+		length = EEPROM_SPEED_LIMIT_Z_LENGTH;
+	}
+	else if(name == "Speed limit E+") {
+		offset = EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET;
+		length = EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH;
+	}
+	else if(name == "Speed limit E-") {
+		offset = EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET;
+		length = EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH;
 	}
 }
