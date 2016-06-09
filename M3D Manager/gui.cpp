@@ -48,6 +48,9 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	
 	// Set allow enabling controls
 	allowEnablingControls = true;
+	
+	// Clear fixing invalid values
+	fixingInvalidValues = false;
 
 	// Initialize PNG image handler
 	wxImage::AddHandler(new wxPNGHandler);
@@ -1285,16 +1288,23 @@ void MyFrame::changePrinterConnection(wxCommandEvent& event) {
 				
 				// Log printer mode
 				logToConsole(static_cast<string>("Printer is in ") + (printer.getOperatingMode() == BOOTLOADER ? "bootloader" : "firmware") + " mode");
+				
+				// Start status timer
+				statusTimer->Start(100);
+				
+				// Check invalid values
+				checkInvalidValues();
 			}
 			
 			// Otherwise
-			else
+			else {
 			
 				// Enable connection controls
 				enableConnectionControls(true);
-
-			// Start status timer
-			statusTimer->Start(100);
+				
+				// Start status timer
+				statusTimer->Start(100);
+			}
 		});
 	}
 	
@@ -1520,8 +1530,15 @@ void MyFrame::installImeFirmware(wxCommandEvent& event) {
 		// Start status timer
 		statusTimer->Start(100);
 		
-		// Display message
-		wxMessageBox(response.message, "M3D Manager", response.style);
+		// Check if not fixing invalid values
+		if(!fixingInvalidValues) {
+		
+			// Display message
+			wxMessageBox(response.message, "M3D Manager", response.style);
+			
+			// Check invalid values
+			checkInvalidValues();
+		}
 	});
 }
 
@@ -1616,8 +1633,15 @@ void MyFrame::installM3dFirmware(wxCommandEvent& event) {
 		// Start status timer
 		statusTimer->Start(100);
 		
-		// Display message
-		wxMessageBox(response.message, "M3D Manager", response.style);
+		// Check if not fixing invalid values
+		if(!fixingInvalidValues) {
+		
+			// Display message
+			wxMessageBox(response.message, "M3D Manager", response.style);
+			
+			// Check invalid values
+			checkInvalidValues();
+		}
 	});
 }
 
@@ -1702,8 +1726,15 @@ void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
 			// Start status timer
 			statusTimer->Start(100);
 		
-			// Display message
-			wxMessageBox(response.message, "M3D Manager", response.style);
+			// Check if not fixing invalid values
+			if(!fixingInvalidValues) {
+		
+				// Display message
+				wxMessageBox(response.message, "M3D Manager", response.style);
+			
+				// Check invalid values
+				checkInvalidValues();
+			}
 		});
 	}
 }
@@ -1917,73 +1948,77 @@ void MyFrame::updateLog(wxTimerEvent& event) {
 			// Otherwise
 			else {
 			
-				// Check if printer is switching modes
-				if(message == "Switching printer into bootloader mode" || message == "Switching printer into firmware mode") {
-				
-					// Disable movement controls
-					enableMovementControls(false);
-					
-					// Disable settings controls
-					enableSettingsControls(false);
-					
-					// Disable miscellaneous controls
-					enableMiscellaneousControls(false);
-				}
-				
-				// Otherwise check if printer is in firmware mode
-				else if(message == "Printer is in firmware mode") {
+				// Check if not fixing invalid values
+				if(!fixingInvalidValues) {
 			
-					// Set switch mode button label
-					switchToModeButton->SetLabel("Switch to bootloader mode");
-					
-					// Check if controls can be enabled
-					if(allowEnablingControls) {
-					
-						// Enable movement controls
-						enableMovementControls(true);
-						
-						// Disable settings controls
-						enableSettingsControls(false);
-						
-						// Enable miscellaneous controls
-						enableMiscellaneousControls(true);
-					}
-				}
-				
-				// Otherwise check if printer is in bootloader mode
-				else if(message == "Printer is in bootloader mode") {
-				
-					// Set switch mode button label
-					switchToModeButton->SetLabel("Switch to firmware mode");
-					
-					// Check if controls can be enabled
-					if(allowEnablingControls) {
-					
-						// Disable movement controls
-						enableMovementControls(false);
-						
-						// Enable settings controls
-						enableSettingsControls(true);
-						
-						// Disable miscellaneous controls
-						enableMiscellaneousControls(false);
-					}
-				}
-				
-				// Otherwise check if the printer has been disconnected
-				else if(message == "Printer has been disconnected") {
-				
-					// Check if controls can be enabled
-					if(allowEnablingControls) {
+					// Check if printer is switching modes
+					if(message == "Switching printer into bootloader mode" || message == "Switching printer into firmware mode") {
 				
 						// Disable movement controls
 						enableMovementControls(false);
-						
+					
 						// Disable settings controls
 						enableSettingsControls(false);
-						
+					
 						// Disable miscellaneous controls
 						enableMiscellaneousControls(false);
+					}
+				
+					// Otherwise check if printer is in firmware mode
+					else if(message == "Printer is in firmware mode") {
+			
+						// Set switch mode button label
+						switchToModeButton->SetLabel("Switch to bootloader mode");
+					
+						// Check if controls can be enabled
+						if(allowEnablingControls) {
+					
+							// Enable movement controls
+							enableMovementControls(true);
+						
+							// Disable settings controls
+							enableSettingsControls(false);
+						
+							// Enable miscellaneous controls
+							enableMiscellaneousControls(true);
+						}
+					}
+				
+					// Otherwise check if printer is in bootloader mode
+					else if(message == "Printer is in bootloader mode") {
+				
+						// Set switch mode button label
+						switchToModeButton->SetLabel("Switch to firmware mode");
+					
+						// Check if controls can be enabled
+						if(allowEnablingControls) {
+					
+							// Disable movement controls
+							enableMovementControls(false);
+						
+							// Enable settings controls
+							enableSettingsControls(true);
+						
+							// Disable miscellaneous controls
+							enableMiscellaneousControls(false);
+						}
+					}
+				
+					// Otherwise check if the printer has been disconnected
+					else if(message == "Printer has been disconnected") {
+				
+						// Check if controls can be enabled
+						if(allowEnablingControls) {
+				
+							// Disable movement controls
+							enableMovementControls(false);
+						
+							// Disable settings controls
+							enableSettingsControls(false);
+						
+							// Disable miscellaneous controls
+							enableMiscellaneousControls(false);
+						}
 					}
 				}
 		
@@ -2002,7 +2037,7 @@ void MyFrame::updateStatus(wxTimerEvent& event) {
 	// Check if getting printer status was successful
 	string status = printer.getStatus();
 	if(!status.empty()) {
-	
+		
 		// Check if printer is connected
 		if(status == "Connected") {
 	
@@ -2454,7 +2489,7 @@ void MyFrame::sendCommand(const string &command, function<void()> threadStartCal
 				}
 				
 				// Log response
-				if(response != "wait")
+				if(response != "wait" && response != "ait")
 					logToConsole("Receive: " + response);
 				
 				// Check if printer is in bootloader mode
@@ -2462,7 +2497,7 @@ void MyFrame::sendCommand(const string &command, function<void()> threadStartCal
 				
 					// Break
 					break;
-			} while(response.substr(0, 2) != "ok" && response.substr(0, 2) != "rs" && response.substr(0, 4) != "skip" && response.substr(0, 5) != "Error");
+			} while(response.substr(0, 2) != "ok" && response[0] != 'k' && response.substr(0, 2) != "rs" && response.substr(0, 4) != "skip" && response.substr(0, 5) != "Error");
 		}
 
 		// Return empty response
@@ -2471,6 +2506,503 @@ void MyFrame::sendCommand(const string &command, function<void()> threadStartCal
 	
 	// Append thread complete callback to queue
 	threadCompleteCallbackQueue.push(threadCompleteCallback ? threadCompleteCallback : [=](ThreadTaskResponse response) -> void {});
+}
+
+void MyFrame::checkInvalidValues() {
+
+	// Check if printer is connected
+	if(printer.isConnected()) {
+
+		// Lock
+		wxCriticalSectionLocker lock(criticalLock);
+
+		// Append thread start callback to queue
+		threadStartCallbackQueue.push([=]() -> void {});
+
+		// Append thread task to queue
+		threadTaskQueue.push([=]() -> ThreadTaskResponse {
+	
+			// Check if printer is in firmware mode
+			if(printer.getOperatingMode() == FIRMWARE)
+	
+				// Put printer into bootloader mode
+				printer.switchToBootloaderMode();
+
+			// Return empty response
+			return {"", 0};
+		});
+
+		// Append thread complete callback to queue
+		threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+
+			// Check if printer is still connected
+			if(printer.isConnected()) {
+
+				// Refresh EEPROM
+				printer.collectPrinterInformation(false);
+		
+				// Set calibrate bed orientation dialog
+				function<void()> calibrateBedOrientationDialog = [=]() -> void {
+
+					// Check if printer's bed orientation is invalid
+					if(!printer.hasValidBedOrientation()) {
+	
+						// Display bed orientation calibration dialog
+						wxMessageDialog *dial = new wxMessageDialog(NULL, "Bed orientation is invalid. Calibrate?", "M3D Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+		
+						// Check if calibrating bed orientation
+						if(dial->ShowModal() == wxID_YES) {
+		
+							// Lock
+							wxCriticalSectionLocker lock(criticalLock);
+
+							// Append thread start callback to queue
+							threadStartCallbackQueue.push([=]() -> void {
+					
+								// Stop status timer
+								statusTimer->Stop();
+					
+								// Set fixing invalid values
+								fixingInvalidValues = true;
+				
+								// Disable connection controls
+								enableConnectionControls(false);
+
+								// Disable firmware controls
+								enableFirmwareControls(false);
+	
+								// Disable movement controls
+								enableMovementControls(false);
+	
+								// Disable settings controls
+								enableSettingsControls(false);
+	
+								// Disable miscellaneous controls
+								enableMiscellaneousControls(false);
+								
+								// Set status text
+								statusText->SetLabel("Calibrating bed orientation");
+								statusText->SetForegroundColour(wxColour(255, 180, 0));
+							});
+
+							// Append thread task to queue
+							threadTaskQueue.push([=]() -> ThreadTaskResponse {
+					
+								// Check if printer is in bootloader mode
+								if(printer.getOperatingMode() == BOOTLOADER)
+	
+									// Put printer into firmware mode
+									printer.switchToFirmwareMode();
+
+								// Return empty response
+								return {"", 0};
+							});
+
+							// Append thread complete callback to queue
+							threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+					
+								// Clear fixing invalid values
+								fixingInvalidValues = false;
+					
+								// Start status timer
+								statusTimer->Start(100);
+					
+								// Check if printer is still connected
+								if(printer.isConnected()) {
+					
+									// Stop status timer
+									statusTimer->Stop();
+						
+									// Set fixing invalid values
+									fixingInvalidValues = true;
+					
+									// Disable connection controls
+									enableConnectionControls(false);
+	
+									// Disable firmware controls
+									enableFirmwareControls(false);
+		
+									// Disable movement controls
+									enableMovementControls(false);
+		
+									// Disable settings controls
+									enableSettingsControls(false);
+		
+									// Disable miscellaneous controls
+									enableMiscellaneousControls(false);
+					
+									// Send commands
+									sendCommand("G90");
+									sendCommand("G0 Z3 F90");
+									sendCommand("M109 S150");
+									sendCommand("M104 S0");
+									sendCommand("M107");
+									sendCommand("G32");
+						
+									// Append thread start callback to queue
+									threadStartCallbackQueue.push([=]() -> void {});
+
+									// Append thread task to queue
+									threadTaskQueue.push([=]() -> ThreadTaskResponse {
+
+										// Return empty response
+										return {"", 0};
+									});
+
+									// Append thread complete callback to queue
+									threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+						
+										// Clear fixing invalid values
+										fixingInvalidValues = false;
+							
+										// Start status timer
+										statusTimer->Start(100);
+						
+										// Enable connection button
+										connectionButton->Enable(true);
+					
+										// Check if printer is still connected
+										if(printer.isConnected()) {
+							
+											// Enable connection button
+											connectionButton->Enable(true);
+
+											// Enable firmware controls
+											enableFirmwareControls(true);
+								
+											// Enable movement controls
+											enableMovementControls(true);
+		
+											// Enable miscellaneous controls
+											enableMiscellaneousControls(true);
+									
+											// Log completion and printer mode
+											logToConsole("Done checking printer's invalid values");
+											logToConsole(static_cast<string>("Printer is in ") + (printer.getOperatingMode() == BOOTLOADER ? "bootloader" : "firmware") + " mode");
+								
+											// Display message
+											wxMessageBox("Bed orientation successfully calibrated", "M3D Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
+										}
+							
+										// Otherwise
+										else {
+							
+											// Enable connection controls
+											enableConnectionControls(true);
+								
+											// Display message
+											wxMessageBox("Failed to calibrate bed orientation", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+										}
+									});
+								}
+					
+								// Otherwise
+								else
+					
+									// Display message
+									wxMessageBox("Failed to calibrate bed orientation", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+							});
+						}
+				
+						// Otherwise
+						else {
+				
+							// Log completion and printer mode
+							logToConsole("Done checking printer's invalid values");
+							logToConsole(static_cast<string>("Printer is in ") + (printer.getOperatingMode() == BOOTLOADER ? "bootloader" : "firmware") + " mode");
+						}
+					}
+			
+					// Otherwise
+					else {
+			
+						// Log completion and printer mode
+						logToConsole("Done checking printer's invalid values");
+						logToConsole(static_cast<string>("Printer is in ") + (printer.getOperatingMode() == BOOTLOADER ? "bootloader" : "firmware") + " mode");
+					}
+				};
+		
+				// Set calibrate bed position dialog
+				function<void()> calibrateBedPositionDialog = [=]() -> void {
+
+					// Check if printer's bed position is invalid
+					if(!printer.hasValidBedPosition()) {
+	
+						// Display bed position calibration dialog
+						wxMessageDialog *dial = new wxMessageDialog(NULL, "Bed position is invalid. Calibrate?", "M3D Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+		
+						// Check if calibrating bed position
+						if(dial->ShowModal() == wxID_YES) {
+				
+							// Lock
+							wxCriticalSectionLocker lock(criticalLock);
+
+							// Append thread start callback to queue
+							threadStartCallbackQueue.push([=]() -> void {
+					
+								// Stop status timer
+								statusTimer->Stop();
+					
+								// Set fixing invalid values
+								fixingInvalidValues = true;
+				
+								// Disable connection controls
+								enableConnectionControls(false);
+
+								// Disable firmware controls
+								enableFirmwareControls(false);
+	
+								// Disable movement controls
+								enableMovementControls(false);
+	
+								// Disable settings controls
+								enableSettingsControls(false);
+	
+								// Disable miscellaneous controls
+								enableMiscellaneousControls(false);
+								
+								// Set status text
+								statusText->SetLabel("Calibrating bed position");
+								statusText->SetForegroundColour(wxColour(255, 180, 0));
+							});
+
+							// Append thread task to queue
+							threadTaskQueue.push([=]() -> ThreadTaskResponse {
+					
+								// Check if printer is in bootloader mode
+								if(printer.getOperatingMode() == BOOTLOADER)
+	
+									// Put printer into firmware mode
+									printer.switchToFirmwareMode();
+
+								// Return empty response
+								return {"", 0};
+							});
+
+							// Append thread complete callback to queue
+							threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+					
+								// Clear fixing invalid values
+								fixingInvalidValues = false;
+					
+								// Start status timer
+								statusTimer->Start(100);
+					
+								// Check if printer is still connected
+								if(printer.isConnected()) {
+					
+									// Stop status timer
+									statusTimer->Stop();
+						
+									// Set fixing invalid values
+									fixingInvalidValues = true;
+					
+									// Disable connection controls
+									enableConnectionControls(false);
+	
+									// Disable firmware controls
+									enableFirmwareControls(false);
+		
+									// Disable movement controls
+									enableMovementControls(false);
+		
+									// Disable settings controls
+									enableSettingsControls(false);
+		
+									// Disable miscellaneous controls
+									enableMiscellaneousControls(false);
+					
+									// Send commands
+									sendCommand("G91");
+									sendCommand("G0 Z3 F90");
+									sendCommand("G90");
+									sendCommand("M109 S150");
+									sendCommand("M104 S0");
+									sendCommand("M107");
+									sendCommand("G30");
+						
+									// Lock
+									wxCriticalSectionLocker lock(criticalLock);
+
+									// Append thread start callback to queue
+									threadStartCallbackQueue.push([=]() -> void {});
+
+									// Append thread task to queue
+									threadTaskQueue.push([=]() -> ThreadTaskResponse {
+
+										// Return empty response
+										return {"", 0};
+									});
+
+									// Append thread complete callback to queue
+									threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+						
+										// Clear fixing invalid values
+										fixingInvalidValues = false;
+							
+										// Start status timer
+										statusTimer->Start(100);
+						
+										// Enable connection button
+										connectionButton->Enable(true);
+					
+										// Check if printer is still connected
+										if(printer.isConnected()) {
+							
+											// Enable connection button
+											connectionButton->Enable(true);
+
+											// Enable firmware controls
+											enableFirmwareControls(true);
+								
+											// Enable movement controls
+											enableMovementControls(true);
+		
+											// Enable miscellaneous controls
+											enableMiscellaneousControls(true);
+											
+											// Display message
+											wxMessageBox("Bed position successfully calibrated", "M3D Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
+						
+											// Display calibrate bed orientation dialog
+											calibrateBedOrientationDialog();
+										}
+							
+										// Otherwise
+										else {
+							
+											// Enable connection controls
+											enableConnectionControls(true);
+								
+											// Display message
+											wxMessageBox("Failed to calibrate bed position", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+										}
+									});
+								}
+					
+								// Otherwise
+								else
+					
+									// Display message
+									wxMessageBox("Failed to calibrate bed position", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+							});
+						}
+				
+						// Otherwise
+						else
+			
+							// Display calibrate bed orientation dialog
+							calibrateBedOrientationDialog();
+					}
+			
+					// Otherwise
+					else
+			
+						// Display calibrate bed orientation dialog
+						calibrateBedOrientationDialog();
+				};
+		
+				// Set install firmware dialog
+				function<void()> installFirmwareDialog = [=]() -> void {
+
+					// Check if printer's firmware is corrupt
+					if(!printer.hasValidFirmware()) {
+	
+						// Get iMe version
+						string iMeVersion = static_cast<string>(TOSTRING(IME_ROM_VERSION_STRING)).substr(2);
+						for(uint8_t i = 0; i < 3; i++)
+							iMeVersion.insert(i * 2 + 2 + i, ".");
+		
+						// Display firmware installation dialog
+						wxMessageDialog *dial = new wxMessageDialog(NULL, "Firmware is corrupt. Install " + (printer.getFirmwareType() == "M3D" || printer.getFirmwareType() == "M3D Mod" ? "M3D V" TOSTRING(M3D_ROM_VERSION_STRING) : "iMe V" + iMeVersion) + "?", "M3D Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+		
+						// Check if installing firmware
+						if(dial->ShowModal() == wxID_YES) {
+				
+							// Set fixing invalid values
+							fixingInvalidValues = true;
+		
+							// Check if installing M3D firmware
+							if(printer.getFirmwareType() == "M3D" || printer.getFirmwareType() == "M3D Mod") {
+			
+								// Install M3D firmware
+								wxCommandEvent event(wxEVT_BUTTON, installM3dFirmwareButton->GetId());
+								installM3dFirmwareButton->GetEventHandler()->ProcessEvent(event);
+							}
+			
+							// Otherwise
+							else {
+			
+								// Install iMe firmware
+								wxCommandEvent event(wxEVT_BUTTON, installImeFirmwareButton->GetId());
+								installImeFirmwareButton->GetEventHandler()->ProcessEvent(event);
+							}
+					
+							// Lock
+							wxCriticalSectionLocker lock(criticalLock);
+
+							// Append thread start callback to queue
+							threadStartCallbackQueue.push([=]() -> void {});
+
+							// Append thread task to queue
+							threadTaskQueue.push([=]() -> ThreadTaskResponse {
+
+								// Return empty response
+								return {"", 0};
+							});
+
+							// Append thread complete callback to queue
+							threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+					
+								// Clear fixing invalid values
+								fixingInvalidValues = false;
+					
+								// Check if printer is still connected
+								if(printer.isConnected()) {
+								
+									// Display message
+									wxMessageBox("Firmware successfully installed", "M3D Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
+						
+									// Display calibrate bed position dialog
+									calibrateBedPositionDialog();
+								}
+						
+								// Otherwise
+								else
+						
+									// Display message
+									wxMessageBox("Failed to update firmware", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+							});
+						}
+				
+						// Otherwise
+						else
+				
+							// Display calibrate bed position dialog
+							calibrateBedPositionDialog();
+					}
+			
+					// Otherwise
+					else
+			
+						// Display calibrate bed position dialog
+						calibrateBedPositionDialog();
+				};
+		
+				// Check if printer has at least one invalid value
+				if(!printer.hasValidBedOrientation() || !printer.hasValidBedPosition() || !printer.hasValidFirmware())
+		
+					// Display install firmware dialog
+					installFirmwareDialog();
+			}
+		
+			// Otherwise
+			else
+
+				// Display message
+				wxMessageBox("Failed to check the printer's invalid values", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+		});
+	}
 }
 
 // Check if using Windows

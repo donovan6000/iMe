@@ -31,7 +31,6 @@
 using namespace std;
 
 
-
 // Definitions
 #define M3D_FIRMWARE_FLOAT_TO_INT_SCALAR 5170.635833481
 
@@ -616,13 +615,6 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					
 				// Get EEPROM CRC
 				uint32_t eepromCrc = eepromGetInt(EEPROM_FIRMWARE_CRC_OFFSET, EEPROM_FIRMWARE_CRC_LENGTH);
-				
-				// Set if firmware isn't corrupt
-				firmwareValid = chipCrc == eepromCrc;
-				
-				// Log if firmware is valid and logging details
-				if(logFunction && logDetails)
-					logFunction(static_cast<string>("Firmware is ") + (firmwareValid ? "valid" : "corrupt"));
 			
 				// Set firmware version
 				firmwareVersion = eepromGetInt(EEPROM_FIRMWARE_VERSION_OFFSET, EEPROM_FIRMWARE_VERSION_LENGTH);
@@ -1004,6 +996,18 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				float heaterTemperatureMeasurementB = eepromGetFloat(EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_OFFSET, EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_LENGTH);
 				float heaterResistanceM = eepromGetFloat(EEPROM_HEATER_RESISTANCE_M_OFFSET, EEPROM_HEATER_RESISTANCE_M_LENGTH);
 				
+				// Set if firmware is valid
+				validFirmware = chipCrc == eepromCrc;
+				
+				// Set if bed position is valid
+				if(firmwareType == IME)
+					validBedPosition = eepromGetInt(EEPROM_SAVED_X_STATE_OFFSET, EEPROM_SAVED_X_STATE_LENGTH) && eepromGetInt(EEPROM_SAVED_Y_STATE_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH) && eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH);
+				else
+					validBedPosition = eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH);
+				
+				// Set if bed orientation is valid
+				validBedOrientation = bedOrientationVersion && (bedOrientationBackRight || bedOrientationBackLeft || bedOrientationFrontLeft || bedOrientationFrontRight);
+				
 				// Log values if logging details
 				if(logFunction && logDetails) {
 					logFunction("Using " + to_string(backlashX) + "mm backlash X");
@@ -1027,6 +1031,9 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					logFunction("Using heater calibration mode " + to_string(heaterCalibrationMode));
 					logFunction("Using " + to_string(heaterTemperatureMeasurementB) + " heater temperature measurement B");
 					logFunction("Using " + to_string(heaterResistanceM) + " heater resistance M");
+					logFunction(static_cast<string>("Firmware is ") + (validFirmware ? "valid" : "corrupt"));
+					logFunction(static_cast<string>("Bed position is ") + (validBedPosition ? "valid" : "invalid"));
+					logFunction(static_cast<string>("Bed orientation is ") + (validBedOrientation ? "valid" : "invalid"));
 				}
 				
 				// Check if reading EEPROM was successful
@@ -1712,6 +1719,21 @@ bool Printer::installFirmware(const string &file) {
 			// Log last recorded Z value status
 			if(logFunction)
 				logFunction("Successfully saved converted last recorded Z value");
+				
+			// Check if clearing X and Y validity failed
+			if(!eepromWriteInt(EEPROM_SAVED_X_STATE_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_SAVED_X_STATE_OFFSET, 0)) {
+
+				// Log error
+				if(logFunction)
+					logFunction("Failed to clear X and Y validity");
+
+				// Return false
+				return false;
+			}
+			
+			// Log X and Y validity status
+			if(logFunction)
+				logFunction("Successfully cleared out X and Y validity");
 		}
 	}
 	
@@ -2963,4 +2985,22 @@ void Printer::getEepromOffsetAndLength(const string &name, uint16_t &offset, uin
 		offset = EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET;
 		length = EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH;
 	}
+}
+
+bool Printer::hasValidFirmware() {
+
+	// Return if firmware is valid
+	return validFirmware;
+}
+
+bool Printer::hasValidBedPosition() {
+
+	// Return if bed position is valid
+	return validBedPosition;
+}
+
+bool Printer::hasValidBedOrientation() {
+
+	// Return if bed orientation is valid
+	return validBedOrientation;
 }

@@ -239,6 +239,24 @@ class Printer {
 		Purpose: Returns all settings names for the EEPROM
 		*/
 		vector<string> getEepromSettingsNames();
+		
+		/*
+		Name: Has valid firmware
+		Purpose: Returns if the printer's firmware is valid
+		*/
+		bool hasValidFirmware();
+		
+		/*
+		Name: Has valid bed position
+		Purpose: Returns if the printer's bed position is valid
+		*/
+		bool hasValidBedPosition();
+		
+		/*
+		Name: Has valid bed orientation
+		Purpose: Returns if the printer's bed orientation is valid
+		*/
+		bool hasValidBedOrientation();
 	
 	// Private
 	private:
@@ -258,8 +276,14 @@ class Printer {
 		// EEPROM
 		string eeprom;
 		
-		// Firmware is valid
-		bool firmwareValid;
+		// Valid firmware
+		bool validFirmware;
+		
+		// Valid bed position
+		bool validBedPosition;
+		
+		// Valid bed orientation
+		bool validBedOrientation;
 		
 		// Firmware version
 		uint32_t firmwareVersion;

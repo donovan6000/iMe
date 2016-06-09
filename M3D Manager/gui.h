@@ -194,6 +194,12 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		*/
 		void savePrinterSetting(wxCommandEvent& event);
 		
+		/*
+		Name: Check invalid values
+		Purpose: Checks in the printer has invalid values and displays dialogs to fix them
+		*/
+		void checkInvalidValues();
+		
 		// Check if using Windows
 		#ifdef WINDOWS
 		
@@ -257,6 +263,9 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		
 		// Allow enabling controls
 		bool allowEnablingControls;
+		
+		// Fixing invalid values
+		bool fixingInvalidValues;
 };
 
 
