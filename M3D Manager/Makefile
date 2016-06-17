@@ -18,7 +18,7 @@ ifeq ($(TARGET_PLATFORM), WINDOWS32)
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
-		CFLAGS += -D USE_GUI `/usr/i686-w64-mingw32/bin/wx-config --cxxflags --libs --gl-libs --static`
+		CFLAGS += -D USE_GUI `/usr/i686-w64-mingw32/bin/wx-config --cxxflags --libs --static`
 	endif
 	SRCS += resource.o
 	WINDRES = i686-w64-mingw32-windres
@@ -33,7 +33,7 @@ ifeq ($(TARGET_PLATFORM), WINDOWS64)
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
-		CFLAGS += -D USE_GUI `/usr/x86_64-w64-mingw32/bin/wx-config --cxxflags --libs --gl-libs --static`
+		CFLAGS += -D USE_GUI `/usr/x86_64-w64-mingw32/bin/wx-config --cxxflags --libs --static`
 	endif
 	SRCS += resource.o
 	WINDRES = x86_64-w64-mingw32-windres
@@ -48,7 +48,7 @@ ifeq ($(TARGET_PLATFORM), OSX32)
 	BUNDLE = "M3D Manager.app"
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
-		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --gl-libs --static`
+		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --static`
 	endif
 endif
 
@@ -61,7 +61,7 @@ ifeq ($(TARGET_PLATFORM), OSX64)
 	BUNDLE = "M3D Manager.app"
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
-		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --gl-libs --static`
+		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --static`
 	endif
 endif
 
@@ -74,7 +74,7 @@ ifeq ($(TARGET_PLATFORM), LINUX32)
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
-		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --gl-libs --static` -lGL
+		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --static`
 	endif
 endif
 
@@ -87,7 +87,7 @@ ifeq ($(TARGET_PLATFORM), LINUX64)
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
-		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --gl-libs --static` -lGL
+		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --static`
 	endif
 endif
 

@@ -1720,12 +1720,12 @@ bool Printer::installFirmware(const string &file) {
 			if(logFunction)
 				logFunction("Successfully saved converted last recorded Z value");
 				
-			// Check if clearing X and Y validity failed
-			if(!eepromWriteInt(EEPROM_SAVED_X_STATE_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_SAVED_X_STATE_OFFSET, 0)) {
+			// Check if clearing X and Y value, direction, and validity in EEPROM failed
+			if(!eepromWriteInt(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_LAST_RECORDED_X_VALUE_OFFSET, 0)) {
 
 				// Log error
 				if(logFunction)
-					logFunction("Failed to clear X and Y validity");
+					logFunction("Failed to clear X and Y value, direction, and validity");
 
 				// Return false
 				return false;
@@ -1733,7 +1733,7 @@ bool Printer::installFirmware(const string &file) {
 			
 			// Log X and Y validity status
 			if(logFunction)
-				logFunction("Successfully cleared out X and Y validity");
+				logFunction("Successfully cleared out X and Y value, direction, and validity");
 		}
 	}
 	

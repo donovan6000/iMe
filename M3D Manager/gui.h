@@ -181,6 +181,7 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		void enableMovementControls(bool enable);
 		void enableSettingsControls(bool enable);
 		void enableMiscellaneousControls(bool enable);
+		void enableCalibrationControls(bool enable);
 		
 		/*
 		Name: Set printer setting value
@@ -246,6 +247,9 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		wxButton *motorsOffButton;
 		wxButton *fanOnButton;
 		wxButton *fanOffButton;
+		wxButton *calibrateBedPositionButton;
+		wxButton *calibrateBedOrientationButton;
+		wxButton *saveZAsZeroButton;
 		
 		// Critical lock
 		wxCriticalSection criticalLock;

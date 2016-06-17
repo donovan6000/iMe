@@ -303,10 +303,10 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	// Create switch to mode button
 	switchToModeButton = new wxButton(panel, wxID_ANY, "Switch to bootloader mode", wxPoint(
 	#ifdef WINDOWS
-		370, 147
+		373, 147
 	#endif
 	#ifdef OSX
-		345, 139
+		349, 139
 	#endif
 	#ifdef LINUX
 		347, 154
@@ -1041,6 +1041,125 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		sendCommand("M107");
 	});
 	
+	// Create calibration box
+	new wxStaticBox(panel, wxID_ANY, "Calibration", wxPoint(679, 250), wxSize(
+	#ifdef WINDOWS
+		205, 131
+	#endif
+	#ifdef OSX
+		205, 131
+	#endif
+	#ifdef LINUX
+		205, 131
+	#endif
+	));
+	
+	// Create calibrate bed position button
+	calibrateBedPositionButton = new wxButton(panel, wxID_ANY, "Calibrate bed position", wxPoint(
+	#ifdef WINDOWS
+		689, 270
+	#endif
+	#ifdef OSX
+		689, 270
+	#endif
+	#ifdef LINUX
+		689, 270
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		185, -1
+	#endif
+	#ifdef OSX
+		185, -1
+	#endif
+	#ifdef LINUX
+		185, -1
+	#endif
+	));
+	calibrateBedPositionButton->Enable(false);
+	calibrateBedPositionButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		// Send commands
+		sendCommand("G91");
+		sendCommand("G0 Z3 F90");
+		sendCommand("G90");
+		sendCommand("M109 S150");
+		sendCommand("M104 S0");
+		sendCommand("M107");
+		sendCommand("G30");
+	});
+	
+	// Create calibrate bed orientation button
+	calibrateBedOrientationButton = new wxButton(panel, wxID_ANY, "Calibrate bed orientation", wxPoint(
+	#ifdef WINDOWS
+		689, 306
+	#endif
+	#ifdef OSX
+		689, 306
+	#endif
+	#ifdef LINUX
+		689, 306
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		185, -1
+	#endif
+	#ifdef OSX
+		185, -1
+	#endif
+	#ifdef LINUX
+		185, -1
+	#endif
+	));
+	calibrateBedOrientationButton->Enable(false);
+	calibrateBedOrientationButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		// Send commands
+		sendCommand("G90");
+		sendCommand("G0 Z3 F90");
+		sendCommand("M109 S150");
+		sendCommand("M104 S0");
+		sendCommand("M107");
+		sendCommand("G32");
+	});
+	
+	// Create save Z as zero button
+	saveZAsZeroButton = new wxButton(panel, wxID_ANY, "Save Z as 0", wxPoint(
+	#ifdef WINDOWS
+		689, 342
+	#endif
+	#ifdef OSX
+		689, 342
+	#endif
+	#ifdef LINUX
+		689, 342
+	#endif
+	), wxSize(
+	#ifdef WINDOWS
+		185, -1
+	#endif
+	#ifdef OSX
+		185, -1
+	#endif
+	#ifdef LINUX
+		185, -1
+	#endif
+	));
+	saveZAsZeroButton->Enable(false);
+	saveZAsZeroButton->Bind(wxEVT_BUTTON, [=](wxCommandEvent& event) {
+	
+		//sendCommand("M618 S" + eepromOffsets["bedHeightOffset"]["offset"] + " T" + eepromOffsets["bedHeightOffset"]["bytes"] + " P" + floatToBinary(0),
+		//sendCommand("M619 S" + eepromOffsets["bedHeightOffset"]["offset"] + " T" + eepromOffsets["bedHeightOffset"]["bytes"],
+	
+		// Send commands
+		if(printer.getFirmwareType() == "M3D" || printer.getFirmwareType() == "M3D Mod") {
+			sendCommand("G91");
+			sendCommand("G0 Z0.1 F90");
+		}
+	
+		sendCommand("G33");
+	});
+	
 	// Create version text
 	versionText = new wxStaticText(panel, wxID_ANY, "M3D Manager V" TOSTRING(VERSION), wxDefaultPosition, wxSize(
 	#ifdef WINDOWS
@@ -1345,6 +1464,9 @@ void MyFrame::changePrinterConnection(wxCommandEvent& event) {
 			
 			// Disable miscellaneous controls
 			enableMiscellaneousControls(false);
+			
+			// Disable calibration controls
+			enableCalibrationControls(false);
 		
 			// Change connection button to connect
 			connectionButton->SetLabel("Connect");
@@ -1386,6 +1508,9 @@ void MyFrame::switchToMode(wxCommandEvent& event) {
 		
 		// Disable miscellaneous controls
 		enableMiscellaneousControls(false);
+		
+		// Disable calibration controls
+		enableCalibrationControls(false);
 	});
 	
 	// Append thread task to queue
@@ -1467,6 +1592,9 @@ void MyFrame::installImeFirmware(wxCommandEvent& event) {
 		
 		// Disable miscellaneous controls
 		enableMiscellaneousControls(false);
+		
+		// Disable calibration controls
+		enableCalibrationControls(false);
 	
 		// Set status text
 		statusText->SetLabel("Installing firmware");
@@ -1570,6 +1698,9 @@ void MyFrame::installM3dFirmware(wxCommandEvent& event) {
 		
 		// Disable miscellaneous controls
 		enableMiscellaneousControls(false);
+		
+		// Disable calibration controls
+		enableCalibrationControls(false);
 	
 		// Set status text
 		statusText->SetLabel("Installing firmware");
@@ -1682,6 +1813,9 @@ void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
 			
 			// Disable miscellaneous controls
 			enableMiscellaneousControls(false);
+			
+			// Disable calibration controls
+			enableCalibrationControls(false);
 	
 			// Set status text
 			statusText->SetLabel("Installing firmware");
@@ -1962,6 +2096,9 @@ void MyFrame::updateLog(wxTimerEvent& event) {
 					
 						// Disable miscellaneous controls
 						enableMiscellaneousControls(false);
+						
+						// Disable calibration controls
+						enableCalibrationControls(false);
 					}
 				
 					// Otherwise check if printer is in firmware mode
@@ -1981,6 +2118,9 @@ void MyFrame::updateLog(wxTimerEvent& event) {
 						
 							// Enable miscellaneous controls
 							enableMiscellaneousControls(true);
+							
+							// Enable calibration controls
+							enableCalibrationControls(true);
 						}
 					}
 				
@@ -2001,6 +2141,9 @@ void MyFrame::updateLog(wxTimerEvent& event) {
 						
 							// Disable miscellaneous controls
 							enableMiscellaneousControls(false);
+							
+							// Disable calibration controls
+							enableCalibrationControls(false);
 						}
 					}
 				
@@ -2018,6 +2161,9 @@ void MyFrame::updateLog(wxTimerEvent& event) {
 						
 							// Disable miscellaneous controls
 							enableMiscellaneousControls(false);
+							
+							// Disable calibration controls
+							enableCalibrationControls(false);
 						}
 					}
 				}
@@ -2072,6 +2218,9 @@ void MyFrame::updateStatus(wxTimerEvent& event) {
 				
 				// Disable miscellaneous controls
 				enableMiscellaneousControls(false);
+				
+				// Disable calibration controls
+				enableCalibrationControls(false);
 		
 				// Change connection button to connect
 				connectionButton->SetLabel("Connect");
@@ -2247,6 +2396,14 @@ void MyFrame::enableMiscellaneousControls(bool enable) {
 	fanOffButton->Enable(enable);
 }
 
+void MyFrame::enableCalibrationControls(bool enable) {
+
+	// Enable or disable calibration controls
+	calibrateBedPositionButton->Enable(enable);
+	calibrateBedOrientationButton->Enable(enable);
+	saveZAsZeroButton->Enable(enable);
+}
+
 ThreadTaskResponse MyFrame::installFirmware(const string &firmwareLocation) {
 
 	// Check if firmware ROM doesn't exists
@@ -2325,6 +2482,9 @@ void MyFrame::sendCommandManually(wxCommandEvent& event) {
 					
 					// Disable miscellaneous controls
 					enableMiscellaneousControls(false);
+					
+					// Disable calibration controls
+					enableCalibrationControls(false);
 					
 					// Disable settings controls
 					enableSettingsControls(false);
@@ -2580,6 +2740,9 @@ void MyFrame::checkInvalidValues() {
 								// Disable miscellaneous controls
 								enableMiscellaneousControls(false);
 								
+								// Disable calibration controls
+								enableCalibrationControls(false);
+								
 								// Set status text
 								statusText->SetLabel("Calibrating bed orientation");
 								statusText->SetForegroundColour(wxColour(255, 180, 0));
@@ -2630,14 +2793,13 @@ void MyFrame::checkInvalidValues() {
 		
 									// Disable miscellaneous controls
 									enableMiscellaneousControls(false);
+									
+									// Disable calibration controls
+									enableCalibrationControls(false);
 					
-									// Send commands
-									sendCommand("G90");
-									sendCommand("G0 Z3 F90");
-									sendCommand("M109 S150");
-									sendCommand("M104 S0");
-									sendCommand("M107");
-									sendCommand("G32");
+									// Calibrate bed orientation
+									wxCommandEvent event(wxEVT_BUTTON, calibrateBedOrientationButton->GetId());
+									calibrateBedOrientationButton->GetEventHandler()->ProcessEvent(event);
 						
 									// Append thread start callback to queue
 									threadStartCallbackQueue.push([=]() -> void {});
@@ -2675,6 +2837,9 @@ void MyFrame::checkInvalidValues() {
 		
 											// Enable miscellaneous controls
 											enableMiscellaneousControls(true);
+											
+											// Enable calibration controls
+											enableCalibrationControls(true);
 									
 											// Log completion and printer mode
 											logToConsole("Done checking printer's invalid values");
@@ -2761,6 +2926,9 @@ void MyFrame::checkInvalidValues() {
 								// Disable miscellaneous controls
 								enableMiscellaneousControls(false);
 								
+								// Disable calibration controls
+								enableCalibrationControls(false);
+								
 								// Set status text
 								statusText->SetLabel("Calibrating bed position");
 								statusText->SetForegroundColour(wxColour(255, 180, 0));
@@ -2811,15 +2979,13 @@ void MyFrame::checkInvalidValues() {
 		
 									// Disable miscellaneous controls
 									enableMiscellaneousControls(false);
+									
+									// Disable calibration controls
+									enableCalibrationControls(false);
 					
-									// Send commands
-									sendCommand("G91");
-									sendCommand("G0 Z3 F90");
-									sendCommand("G90");
-									sendCommand("M109 S150");
-									sendCommand("M104 S0");
-									sendCommand("M107");
-									sendCommand("G30");
+									// Calibrate bed position
+									wxCommandEvent event(wxEVT_BUTTON, calibrateBedPositionButton->GetId());
+									calibrateBedPositionButton->GetEventHandler()->ProcessEvent(event);
 						
 									// Lock
 									wxCriticalSectionLocker lock(criticalLock);
@@ -2860,6 +3026,9 @@ void MyFrame::checkInvalidValues() {
 		
 											// Enable miscellaneous controls
 											enableMiscellaneousControls(true);
+											
+											// Enable calibration controls
+											enableCalibrationControls(true);
 											
 											// Display message
 											wxMessageBox("Bed position successfully calibrated", "M3D Manager", wxOK | wxICON_INFORMATION | wxCENTRE);

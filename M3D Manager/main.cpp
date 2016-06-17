@@ -63,7 +63,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		#endif
 
 		// Create and show window
-		MyFrame *frame = new MyFrame("M3D Manager", wxDefaultPosition, wxSize(1118, 482), wxDEFAULT_FRAME_STYLE & ~(wxRESIZE_BORDER | wxMAXIMIZE_BOX));
+		MyFrame *frame = new MyFrame("M3D Manager", wxDefaultPosition, wxSize(559, 482), wxDEFAULT_FRAME_STYLE & ~(wxRESIZE_BORDER | wxMAXIMIZE_BOX));
 		frame->Center();
 		frame->Show(true);
 		
