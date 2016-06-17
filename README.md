@@ -24,11 +24,11 @@ iMe is also fully compatible with [M3D Fio](https://github.com/donovan6000/M3D-F
 ### Usage
 Every time the printer powers on it'll be in bootloader mode, so you'll need to click the 'Switch to firmware mode' button in M3D Manager to put the printer into a mode where other 3D printing software can communicate with it. Make sure to disconnect the printer from M3D Manager or close M3D Manager before using the printer with other software so that the printer's serial port doesn't remain busy.
 
-M3D Manager will let you know which serial port the printer is using when it switches it into firmware mode, so in order to use the printer you just have connect to that serial port at a baudrate of 115200 with the 3D printing software that you want to use.
+M3D Manager will let you know which serial port the printer is using when it switches it into firmware mode, so in order to use the printer you just have connect to that serial port at a baud rate of 115200 with the 3D printing software that you want to use.
 
 ### Images
 M3D Manager can be used on Windows, OS X, and Linux. In addition to installing iMe, it also allows manually sending commands to the printer in both bootloader and firmware mode which can be used to manage all aspects of the printer.
-![alt text](http://exploitkings.com/public/ime_manager.png "M3D Manager")
+![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/m3d%20manager.png "M3D Manager")
 So far iMe has been tested on [Cura](https://ultimaker.com/en/products/cura-software), [OctoPrint](http://octoprint.org/), [Simplify3D](https://www.simplify3d.com/), [Repetier-Host](https://www.repetier.com/), [Printrun](http://www.pronterface.com/), [MatterControl](http://www.mattercontrol.com/), and [CraftWare](https://craftunique.com/craftware).
 ![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/cura.png "Cura")
 ![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/octoprint.png "OctoPrint")
