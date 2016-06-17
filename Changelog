@@ -1,5 +1,10 @@
 Changelog:
 
+V00.00.00.10 June 16, 2016
+
+	* Fixed compatibility with MatterControl
+	* M3D Manager includes button to install M3D firmware
+
 V00.00.00.09 June 1, 2016
 
 	* Fixed compatibility with Simplify3D and Repetier-Host

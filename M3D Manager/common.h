@@ -29,6 +29,7 @@ using namespace std;
 #include "icon_png.h"
 #include "refresh_png.h"
 #include TOSTRING(IME_HEADER)
+#include TOSTRING(M3D_HEADER)
 #include "M3D_cat.h"
 #include "M3D_inf.h"
 #include "_90_m3d_local_rules.h"

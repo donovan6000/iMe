@@ -89,17 +89,22 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		void switchToMode(wxCommandEvent& event);
 		
 		/*
-		Name: Install iMe
-		Purpose: Installs iMe as the printer's firmware
+		Name: Install iMe firmware
+		Purpose: Installs iMe firmware as the printer's firmware
 		*/
-		void installIMe(wxCommandEvent& event);
+		void installImeFirmware(wxCommandEvent& event);
+		
+		/*
+		Name: Install M3D firmware
+		Purpose: Installs M3D firmware as the printer's firmware
+		*/
+		void installM3dFirmware(wxCommandEvent& event);
 		
 		/*
 		Name: Install drivers
 		Purpose: Installs device drivers for the printer
 		*/
 		void installDrivers(wxCommandEvent& event);
-		
 		
 		/*
 		Name: Log to console
@@ -156,10 +161,45 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		ThreadTaskResponse installFirmware(const string &firmwareLocation);
 		
 		/*
+		Name: Update distance movement text
+		Purpose: Changes distance movement's text to the current distance set by the slider
+		*/
+		void updateDistanceMovementText();
+		
+		/*
 		Name: Update feed rate movement text
 		Purpose: Changes feed rate movement's text to the current feed rate set by the slider
 		*/
 		void updateFeedRateMovementText();
+		
+		/*
+		Name: Enable controls
+		Purpose: Enables or disabled groups of controls
+		*/
+		void enableConnectionControls(bool enable);
+		void enableFirmwareControls(bool enable);
+		void enableMovementControls(bool enable);
+		void enableSettingsControls(bool enable);
+		void enableMiscellaneousControls(bool enable);
+		void enableCalibrationControls(bool enable);
+		
+		/*
+		Name: Set printer setting value
+		Purpose: Sets the value displayed in the printer setting input to the selected printer setting
+		*/
+		void setPrinterSettingValue();
+		
+		/*
+		Name: Save printer setting
+		Purpose: Saves the selected printer setting to be the provided value
+		*/
+		void savePrinterSetting(wxCommandEvent& event);
+		
+		/*
+		Name: Check invalid values
+		Purpose: Checks in the printer has invalid values and displays dialogs to fix them
+		*/
+		void checkInvalidValues();
 		
 		// Check if using Windows
 		#ifdef WINDOWS
@@ -182,10 +222,11 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		wxStaticText *statusText;
 		wxButton *installFirmwareFromFileButton;
 		wxButton *installImeFirmwareButton;
+		wxButton *installM3dFirmwareButton;
 		wxButton *switchToModeButton;
 		wxTimer *statusTimer;
-		wxTextCtrl* commandInput;
-		wxTextCtrl* consoleOutput;
+		wxTextCtrl *commandInput;
+		wxTextCtrl *consoleOutput;
 		wxButton *sendCommandButton;
 		wxButton *installDriversButton;
 		wxButton *backwardMovementButton;
@@ -195,8 +236,20 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		wxButton *upMovementButton;
 		wxButton *downMovementButton;
 		wxButton *homeMovementButton;
-		wxSlider *feedRateMovementSlider;
+		wxStaticText *distanceMovementText;
 		wxStaticText *feedRateMovementText;
+		wxSlider *distanceMovementSlider;
+		wxSlider *feedRateMovementSlider;
+		wxChoice *printerSettingChoice;
+		wxTextCtrl *printerSettingInput;
+		wxButton *savePrinterSettingButton;
+		wxButton *motorsOnButton;
+		wxButton *motorsOffButton;
+		wxButton *fanOnButton;
+		wxButton *fanOffButton;
+		wxButton *calibrateBedPositionButton;
+		wxButton *calibrateBedOrientationButton;
+		wxButton *saveZAsZeroButton;
 		
 		// Critical lock
 		wxCriticalSection criticalLock;
@@ -212,8 +265,11 @@ class MyFrame: public wxFrame, public wxThreadHelper {
 		// Printer
 		Printer printer;
 		
-		// Establishing printer connection
-		bool establishingPrinterConnection;
+		// Allow enabling controls
+		bool allowEnablingControls;
+		
+		// Fixing invalid values
+		bool fixingInvalidValues;
 };
 
 

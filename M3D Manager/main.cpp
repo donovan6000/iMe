@@ -63,7 +63,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		#endif
 
 		// Create and show window
-		MyFrame *frame = new MyFrame("M3D Manager", wxDefaultPosition, wxSize(559, 446), wxDEFAULT_FRAME_STYLE & ~(wxRESIZE_BORDER | wxMAXIMIZE_BOX));
+		MyFrame *frame = new MyFrame("M3D Manager", wxDefaultPosition, wxSize(559, 482), wxDEFAULT_FRAME_STYLE & ~(wxRESIZE_BORDER | wxMAXIMIZE_BOX));
 		frame->Center();
 		frame->Show(true);
 		
@@ -74,10 +74,15 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 	#else
 	
 		// Display version
-		string iMeVersion = static_cast<string>(TOSTRING(IME_ROM_VERSION_STRING)).substr(2);
-		for(uint8_t i = 0; i < 3; i++)
-			iMeVersion.insert(i * 2 + 2 + i, ".");
-		cout << "M3D Manager V" TOSTRING(VERSION) " - iMe V" << iMeVersion << endl << endl;
+		cout << "M3D Manager V" TOSTRING(VERSION) << endl << endl;
+		
+		// Set printer's log function
+		printer.setLogFunction([=](const string &message) -> void {
+	
+			// Log message to console
+			if(message != "Remove last line")
+				cout << message << endl;
+		});
 	
 		// Check if using command line interface
 		if(argc > 1) {
@@ -87,15 +92,20 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		
 				// Check if help is requested
 				if(!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
+				
+					string iMeVersion = static_cast<string>(TOSTRING(IME_ROM_VERSION_STRING)).substr(2);
+					for(uint8_t i = 0; i < 3; i++)
+						iMeVersion.insert(i * 2 + 2 + i, ".");
 		
 					// Display help
-					cout << "Usage: \"M3D Manager\" -d -f -b -i -m -r firmware.rom serialport" << endl;
+					cout << "Usage: \"M3D Manager\" -d -f -b -i -3 -m -r firmware.rom serialport" << endl;
 					#ifndef OSX
 						cout << "-d | --drivers: Install device drivers" << endl;
 					#endif
 					cout << "-f | --firmware: Switches printer into firmware mode" << endl;
 					cout << "-b | --bootloader: Switches printer into bootloader mode" << endl;
-					cout << "-i | --ime: Installs iMe firmware" << endl;
+					cout << "-i | --ime: Installs iMe V" << iMeVersion << endl;
+					cout << "-3 | --m3d: Installs M3D V" TOSTRING(M3D_ROM_VERSION_STRING) << endl;
 					cout << "-r | --rom: Installs the provided firmware" << endl;
 					cout << "-m | --manual: Allows manually sending commands to the printer" << endl;
 					cout << "serialport: The printer's serial port or it will automatically find the printer if not specified" << endl << endl;
@@ -396,6 +406,46 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 					// Return
 					return EXIT_SUCCESS;
 				}
+				
+				// Otherwise check installing M3D firmware
+				else if(!strcmp(argv[i], "-3") || !strcmp(argv[i], "--m3d")) {
+		
+					// Display message
+					cout << "Installing M3D firmware" << endl;
+		
+					// Set firmware location
+					string firmwareLocation = getTemporaryLocation() + "M3D " TOSTRING(M3D_ROM_VERSION_STRING) ".hex";
+		
+					// Check if creating M3D firmware ROM failed
+					ofstream fout(firmwareLocation, ios::binary);
+					if(fout.fail()) {
+					
+						// Display error
+						cout << "Failed to unpack M3D firmware" << endl;
+					
+						// Return
+						return EXIT_FAILURE;
+					}
+				
+					// Unpack M3D ROM
+					for(uint64_t i = 0; i < M3D_HEX_SIZE; i++)
+						fout.put(M3D_HEX_DATA[i]);
+					fout.close();
+			
+					// Set serial port
+					string serialPort;
+					if(i < argc - 1)
+						serialPort = argv[argc - 1];
+		
+					// Install firmware
+					if(!installFirmware(firmwareLocation, serialPort))
+					
+						// Return
+						return EXIT_FAILURE;
+			
+					// Return
+					return EXIT_SUCCESS;
+				}
 		
 				// Otherwise check if a firmware ROM is provided
 				else if(!strcmp(argv[i], "-r") || !strcmp(argv[i], "--firmwarerom")) {
@@ -577,7 +627,7 @@ void breakHandler(int signal) {
 		int8_t beginningOfNumbers = endOfNumbers;
 		for(; beginningOfNumbers >= 0 && isdigit(firmwareLocation[beginningOfNumbers]); beginningOfNumbers--);
 
-		if(beginningOfNumbers != endOfNumbers - 10)
+		if(beginningOfNumbers != endOfNumbers - 10) {
 
 			// Display error
 			cout << "Invalid firmware ROM name" << endl;

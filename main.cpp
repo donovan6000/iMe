@@ -271,7 +271,7 @@ int main() {
 										case 105:
 			
 											// Set response to temperature
-											strcpy(responseBuffer, "ok T:");
+											strcpy(responseBuffer, "ok\nT:");
 											ftoa(heater.getTemperature(), numberBuffer);
 											strcat(responseBuffer, numberBuffer);
 										break;
@@ -297,10 +297,9 @@ int main() {
 										case 114:
 						
 											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
+											strcpy(responseBuffer, "ok\nX:");
 							
 											// Append motors current X to response
-											strcat(responseBuffer, " X:");
 											ftoa(motors.currentValues[X], numberBuffer);
 											strcat(responseBuffer, numberBuffer);
 						
@@ -333,7 +332,7 @@ int main() {
 											else {
 				
 												// Put device details into response
-												strcpy(responseBuffer, "ok PROTOCOL:RepRap FIRMWARE_NAME:" TOSTRING(FIRMWARE_NAME) " FIRMWARE_VERSION:" TOSTRING(FIRMWARE_VERSION) " MACHINE_TYPE:Micro_3D SERIAL_NUMBER:");
+												strcpy(responseBuffer, "ok\nPROTOCOL:RepRap FIRMWARE_NAME:" TOSTRING(FIRMWARE_NAME) " FIRMWARE_VERSION:" TOSTRING(FIRMWARE_VERSION) " MACHINE_TYPE:Micro_3D SERIAL_NUMBER:");
 												strcat(responseBuffer, serialNumber);
 											}
 										break;
@@ -342,7 +341,7 @@ int main() {
 										case 117:
 						
 											// Set response to valid values
-											strcpy(responseBuffer, "ok XV:");
+											strcpy(responseBuffer, "ok\nXV:");
 											strcat(responseBuffer, motors.currentStateOfValues[X] ? "1" : "0");
 											strcat(responseBuffer, " YV:");
 											strcat(responseBuffer, motors.currentStateOfValues[Y] ? "1" : "0");
@@ -354,7 +353,7 @@ int main() {
 										case 404:
 										
 											// Set response to reset cause
-											strcpy(responseBuffer, "ok RC:");
+											strcpy(responseBuffer, "ok\nRC:");
 											ulltoa(reset_cause_get_causes(), numberBuffer);
 											strcat(responseBuffer, numberBuffer);
 										break;
@@ -373,7 +372,7 @@ int main() {
 										case 583:
 										
 											// Set response to if gantry clips are detected
-											strcpy(responseBuffer, "ok C");
+											strcpy(responseBuffer, "ok\nC");
 											strcat(responseBuffer, motors.gantryClipsDetected() ? "1" : "0");
 										break;
 					
@@ -391,7 +390,7 @@ int main() {
 												if(offset >= 0 && length && length <= sizeof(UINT32_MAX) && offset + length < EEPROM_SIZE) {
 								
 													// Set response to offset
-													strcpy(responseBuffer, "ok PT:");
+													strcpy(responseBuffer, "ok\nPT:");
 													ulltoa(offset, numberBuffer);
 													strcat(responseBuffer, numberBuffer);
 									
