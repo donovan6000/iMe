@@ -3,6 +3,8 @@ Firmware that allows using the Micro 3D printer with third-party 3D printing sof
 
 © 2015-2016 Exploit Kings. All rights reserved.
 
+iMe has been discontinued on June 21st, 2016. I no longer feel like developing software for a product created by a company like M3D.
+
 ### Description
 iMe is firmware for the Micro 3D printer that attempts to fix the printer's biggest problem: limited software compatibility. iMe uses RepRap G-code protocol, so it allows you to use the Micro 3D printer with any 3D printing software that supports that protocol. It also features builtin backlash and bed compensation which makes creating good looking prints with other software possible since the G-code never has to be pre-processed beforehand.
 
