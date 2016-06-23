@@ -32,7 +32,7 @@ using namespace std;
 #include TOSTRING(M3D_HEADER)
 #include "M3D_cat.h"
 #include "M3D_inf.h"
-#include "_90_m3d_local_rules.h"
+#include "_90_micro_3d_local_rules.h"
 
 
 // Function prototypes

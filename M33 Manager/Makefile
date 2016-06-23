@@ -1,5 +1,5 @@
 # Target platform options: WINDOWS32, WINDOWS64, OSX32, OSX64, LINUX32, LINUX64
-PROGRAM_NAME = M3D\ Manager
+PROGRAM_NAME = M33\ Manager
 VERSION = 0.06
 TARGET_PLATFORM = LINUX64
 USE_GUI = TRUE
@@ -14,7 +14,7 @@ ifeq ($(TARGET_PLATFORM), WINDOWS32)
 	EXECUTABLE = $(PROGRAM_NAME).exe
 	CC = i686-w64-mingw32-g++
 	CFLAGS += -static-libgcc -static-libstdc++ -lsetupapi
-	ARCHIVE = "M3D Manager Windows.zip"
+	ARCHIVE = "M33 Manager Windows.zip"
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
@@ -29,7 +29,7 @@ ifeq ($(TARGET_PLATFORM), WINDOWS64)
 	EXECUTABLE = $(PROGRAM_NAME).exe
 	CC = x86_64-w64-mingw32-g++
 	CFLAGS += -static-libgcc -static-libstdc++ -lsetupapi
-	ARCHIVE = "M3D Manager Windows.zip"
+	ARCHIVE = "M33 Manager Windows.zip"
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
@@ -44,8 +44,8 @@ ifeq ($(TARGET_PLATFORM), OSX32)
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = clang++
 	CFLAGS += -framework IOKit -framework CoreFoundation -stdlib=libc++ -m32
-	ARCHIVE = "M3D Manager OS X.zip"
-	BUNDLE = "M3D Manager.app"
+	ARCHIVE = "M33 Manager OS X.zip"
+	BUNDLE = "M33 Manager.app"
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
 		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --static`
@@ -57,8 +57,8 @@ ifeq ($(TARGET_PLATFORM), OSX64)
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = clang++
 	CFLAGS += -framework IOKit -framework CoreFoundation -stdlib=libc++ -m64
-	ARCHIVE = "M3D Manager OS X.zip"
-	BUNDLE = "M3D Manager.app"
+	ARCHIVE = "M33 Manager OS X.zip"
+	BUNDLE = "M33 Manager.app"
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
 		CFLAGS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --static`
@@ -70,7 +70,7 @@ ifeq ($(TARGET_PLATFORM), LINUX32)
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = g++
 	CFLAGS += -pthread -static-libgcc -static-libstdc++ -m32
-	ARCHIVE = "M3D Manager Linux.zip"
+	ARCHIVE = "M33 Manager Linux.zip"
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
@@ -83,7 +83,7 @@ ifeq ($(TARGET_PLATFORM), LINUX64)
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = g++
 	CFLAGS += -pthread -static-libgcc -static-libstdc++ -m64
-	ARCHIVE = "M3D Manager Linux.zip"
+	ARCHIVE = "M33 Manager Linux.zip"
 	BUNDLE = $(EXECUTABLE)
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
@@ -99,14 +99,14 @@ $(EXECUTABLE): $(SRCS)
 	./bin2h "resources/files/refresh.png"
 	./bin2h "../iMe $(IME_ROM_VERSION_STRING).hex"
 	./bin2h "resources/files/M3D $(M3D_ROM_VERSION_STRING).hex"
-	./bin2h "resources/Linux/90-m3d-local.rules"
+	./bin2h "resources/Linux/90-micro-3d-local.rules"
 	./bin2h "resources/Windows/M3D.cat"
 	./bin2h "resources/Windows/M3D.inf"
 	$(CC) -o $(EXECUTABLE) $(SRCS) $(LIBS) -D $(PLATFORM) $(CFLAGS)
-	rm -f "resource.o" "bin2h" "icon_png.h" "refresh_png.h" "iMe $(IME_ROM_VERSION_STRING)_hex.h" "M3D $(M3D_ROM_VERSION_STRING)_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
+	rm -f "resource.o" "bin2h" "icon_png.h" "refresh_png.h" "iMe $(IME_ROM_VERSION_STRING)_hex.h" "M3D $(M3D_ROM_VERSION_STRING)_hex.h" "_90_micro_3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
 
 clean:
-	rm -rf $(EXECUTABLE) $(BUNDLE) $(ARCHIVE) "resource.o" "applet.iconset" "icon.ico" "bin2h" "icon_png.h" "refresh_png.h" "iMe $(IME_ROM_VERSION_STRING)_hex.h" "M3D $(M3D_ROM_VERSION_STRING)_hex.h" "_90_m3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
+	rm -rf $(EXECUTABLE) $(BUNDLE) $(ARCHIVE) "resource.o" "applet.iconset" "icon.ico" "bin2h" "icon_png.h" "refresh_png.h" "iMe $(IME_ROM_VERSION_STRING)_hex.h" "M3D $(M3D_ROM_VERSION_STRING)_hex.h" "_90_micro_3d_local_rules.h" "M3D_cat.h" "M3D_inf.h"
 
 run:
 	./$(EXECUTABLE)
@@ -121,9 +121,9 @@ resourceFile:
 	rm -f "icon.ico"
 
 app:
-	rm -rf "M3D Manager.app" "applet.iconset"
-	cp -r "resources/OS X/M3D Manager.app" .
-	mv $(EXECUTABLE) "M3D Manager.app/Contents/MacOS"
+	rm -rf "M33 Manager.app" "applet.iconset"
+	cp -r "resources/OS X/M33 Manager.app" .
+	mv $(EXECUTABLE) "M33 Manager.app/Contents/MacOS"
 	mkdir "applet.iconset"
 	sips -z 16 16 "resources/files/icon.png" --out "applet.iconset/icon_16x16.png"
 	sips -z 32 32 "resources/files/icon.png" --out "applet.iconset/icon_16x16@2x.png"
@@ -137,7 +137,7 @@ app:
 	sips -z 1024 1024 "resources/files/icon.png" --out "applet.iconset/icon_512x512@2x.png"
 	iconutil --convert icns "applet.iconset"
 	rm -rf "applet.iconset"
-	mv "applet.icns" "M3D Manager.app/Contents/Resources"
+	mv "applet.icns" "M33 Manager.app/Contents/Resources"
 
 package:
 	rm -f $(ARCHIVE)

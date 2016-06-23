@@ -63,7 +63,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		#endif
 
 		// Create and show window
-		MyFrame *frame = new MyFrame("M3D Manager", wxDefaultPosition, wxSize(559, 482), wxDEFAULT_FRAME_STYLE & ~(wxRESIZE_BORDER | wxMAXIMIZE_BOX));
+		MyFrame *frame = new MyFrame("M33 Manager", wxDefaultPosition, wxSize(559, 482), wxDEFAULT_FRAME_STYLE & ~(wxRESIZE_BORDER | wxMAXIMIZE_BOX));
 		frame->Center();
 		frame->Show(true);
 		
@@ -74,7 +74,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 	#else
 	
 		// Display version
-		cout << "M3D Manager V" TOSTRING(VERSION) << endl << endl;
+		cout << "M33 Manager V" TOSTRING(VERSION) << endl << endl;
 		
 		// Set printer's log function
 		printer.setLogFunction([=](const string &message) -> void {
@@ -98,7 +98,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 						iMeVersion.insert(i * 2 + 2 + i, ".");
 		
 					// Display help
-					cout << "Usage: \"M3D Manager\" -d -f -b -i -3 -m -r firmware.rom serialport" << endl;
+					cout << "Usage: \"M33 Manager\" -d -f -b -i -3 -m -r firmware.rom serialport" << endl;
 					#ifndef OSX
 						cout << "-d | --drivers: Install device drivers" << endl;
 					#endif
@@ -225,7 +225,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 							}
 			
 							// Check if creating udev rule file failed
-							ofstream fout("/etc/udev/rules.d/90-m3d-local.rules", ios::binary);
+							ofstream fout("/etc/udev/rules.d/90-micro-3d-local.rules", ios::binary);
 							if(fout.fail()) {
 					
 								// Display error
@@ -236,8 +236,8 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 							}
 					
 							// Unpack udev rule
-							for(uint64_t i = 0; i < _90_m3d_local_rulesSize; i++)
-								fout.put(_90_m3d_local_rulesData[i]);
+							for(uint64_t i = 0; i < _90_micro_3d_local_rulesSize; i++)
+								fout.put(_90_micro_3d_local_rulesData[i]);
 							fout.close();
 			
 							// Check if applying udev rule failed

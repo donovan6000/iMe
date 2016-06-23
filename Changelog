@@ -3,25 +3,25 @@ Changelog:
 V00.00.00.10 June 16, 2016
 
 	* Fixed compatibility with MatterControl
-	* M3D Manager includes button to install M3D firmware
+	* M33 Manager includes button to install M3D firmware
 
 V00.00.00.09 June 1, 2016
 
 	* Fixed compatibility with Simplify3D and Repetier-Host
-	* M3D Manager now allows switching to bootloader mode
+	* M33 Manager now allows switching to bootloader mode
 	* Added delays to allow voltages to stabilize before reading them with the ADC
 
 V00.00.00.08 May 25, 2016
 
 	* Decreased homing accelerometer sensitivity
 	* Added 'ok' response for M999 commands
-	* First stable release of M3D Manager
+	* First stable release of M33 Manager
 
 V00.00.00.07 May 18, 2016
 
 	* Prevents X and Y movements from going out of bounds
 	* Writing to the EEPROM has been moved to a timer interrupt to reduce how much it bottlenecked the movement speed
-	* Fixed serial port detection in the OS X version of M3D Manager
+	* Fixed serial port detection in the OS X version of M33 Manager
 
 V00.00.00.06 May 12, 2016
 
