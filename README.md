@@ -21,7 +21,7 @@ The latest version of iMe is V00.00.00.10 released on June 16th, 2016, and an en
 ### Installation
 The easiest way to install iMe is with M3D Manager, which is available for [Windows](https://raw.githubusercontent.com/donovan6000/iMe/master/M3D%20Manager/M3D%20Manager%20Windows.zip), [OS X](https://raw.githubusercontent.com/donovan6000/iMe/master/M3D%20Manager/M3D%20Manager%20OS%20X.zip),  and [Linux](https://raw.githubusercontent.com/donovan6000/iMe/master/M3D%20Manager/M3D%20Manager%20Linux.zip). Just connect the printer to M3D Manager and click the 'Install iMe firmware' button to install iMe.
 
-iMe is also fully compatible with [M3D Fio](https://github.com/donovan6000/M3D-Fio), and it can be installed from there as well.
+iMe is also fully compatible with [M33 Fio](https://github.com/donovan6000/M33-Fio), and it can be installed from there as well.
 
 ### Usage
 Every time the printer powers on it'll be in bootloader mode, so you'll need to click the 'Switch to firmware mode' button in M3D Manager to put the printer into a mode where other 3D printing software can communicate with it. Make sure to disconnect the printer from M3D Manager or close M3D Manager before using the printer with other software so that the printer's serial port doesn't remain busy.
