@@ -1161,7 +1161,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	});
 	
 	// Create version text
-	versionText = new wxStaticText(panel, wxID_ANY, "M3D Manager V" TOSTRING(VERSION), wxDefaultPosition, wxSize(
+	versionText = new wxStaticText(panel, wxID_ANY, "M33 Manager V" TOSTRING(VERSION), wxDefaultPosition, wxSize(
 	#ifdef WINDOWS
 		-1, 15
 	#endif
@@ -1560,7 +1560,7 @@ void MyFrame::switchToMode(wxCommandEvent& event) {
 			enableConnectionControls(true);
 		
 		// Display message
-		wxMessageBox(response.message, "M3D Manager", response.style);
+		wxMessageBox(response.message, "M33 Manager", response.style);
 	});
 }
 
@@ -1662,7 +1662,7 @@ void MyFrame::installImeFirmware(wxCommandEvent& event) {
 		if(!fixingInvalidValues) {
 		
 			// Display message
-			wxMessageBox(response.message, "M3D Manager", response.style);
+			wxMessageBox(response.message, "M33 Manager", response.style);
 			
 			// Check invalid values
 			checkInvalidValues();
@@ -1768,7 +1768,7 @@ void MyFrame::installM3dFirmware(wxCommandEvent& event) {
 		if(!fixingInvalidValues) {
 		
 			// Display message
-			wxMessageBox(response.message, "M3D Manager", response.style);
+			wxMessageBox(response.message, "M33 Manager", response.style);
 			
 			// Check invalid values
 			checkInvalidValues();
@@ -1864,7 +1864,7 @@ void MyFrame::installFirmwareFromFile(wxCommandEvent& event) {
 			if(!fixingInvalidValues) {
 		
 				// Display message
-				wxMessageBox(response.message, "M3D Manager", response.style);
+				wxMessageBox(response.message, "M33 Manager", response.style);
 			
 				// Check invalid values
 				checkInvalidValues();
@@ -1991,7 +1991,7 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 			else {
 
 				// Check if creating udev rule failed
-				ofstream fout("/etc/udev/rules.d/90-m3d-local.rules", ios::binary);
+				ofstream fout("/etc/udev/rules.d/90-micro-3d-local.rules", ios::binary);
 				if(fout.fail())
 				
 					// Return message
@@ -2001,8 +2001,8 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 				else {
 
 					// Unpack udev rule
-					for(uint64_t i = 0; i < _90_m3d_local_rulesSize; i++)
-						fout.put(_90_m3d_local_rulesData[i]);
+					for(uint64_t i = 0; i < _90_micro_3d_local_rulesSize; i++)
+						fout.put(_90_micro_3d_local_rulesData[i]);
 					fout.close();
 
 					// Check if applying udev rule failed
@@ -2031,7 +2031,7 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 		installDriversButton->Enable(true);
 	
 		// Display message
-		wxMessageBox(response.message, "M3D Manager", response.style);
+		wxMessageBox(response.message, "M33 Manager", response.style);
 	});
 }
 
@@ -2566,7 +2566,7 @@ void MyFrame::savePrinterSetting(wxCommandEvent& event) {
 					enableSettingsControls(true);
 				
 				// Display message
-				wxMessageBox(response.message, "M3D Manager", response.style);
+				wxMessageBox(response.message, "M33 Manager", response.style);
 			});
 		}
 	}
@@ -2708,7 +2708,7 @@ void MyFrame::checkInvalidValues() {
 					if(!printer.hasValidBedOrientation()) {
 	
 						// Display bed orientation calibration dialog
-						wxMessageDialog *dial = new wxMessageDialog(NULL, "Bed orientation is invalid. Calibrate?", "M3D Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+						wxMessageDialog *dial = new wxMessageDialog(NULL, "Bed orientation is invalid. Calibrate?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
 		
 						// Check if calibrating bed orientation
 						if(dial->ShowModal() == wxID_YES) {
@@ -2846,7 +2846,7 @@ void MyFrame::checkInvalidValues() {
 											logToConsole(static_cast<string>("Printer is in ") + (printer.getOperatingMode() == BOOTLOADER ? "bootloader" : "firmware") + " mode");
 								
 											// Display message
-											wxMessageBox("Bed orientation successfully calibrated", "M3D Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
+											wxMessageBox("Bed orientation successfully calibrated", "M33 Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
 										}
 							
 										// Otherwise
@@ -2856,7 +2856,7 @@ void MyFrame::checkInvalidValues() {
 											enableConnectionControls(true);
 								
 											// Display message
-											wxMessageBox("Failed to calibrate bed orientation", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+											wxMessageBox("Failed to calibrate bed orientation", "M33 Manager", wxOK | wxICON_ERROR | wxCENTRE);
 										}
 									});
 								}
@@ -2865,7 +2865,7 @@ void MyFrame::checkInvalidValues() {
 								else
 					
 									// Display message
-									wxMessageBox("Failed to calibrate bed orientation", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+									wxMessageBox("Failed to calibrate bed orientation", "M33 Manager", wxOK | wxICON_ERROR | wxCENTRE);
 							});
 						}
 				
@@ -2894,7 +2894,7 @@ void MyFrame::checkInvalidValues() {
 					if(!printer.hasValidBedPosition()) {
 	
 						// Display bed position calibration dialog
-						wxMessageDialog *dial = new wxMessageDialog(NULL, "Bed position is invalid. Calibrate?", "M3D Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+						wxMessageDialog *dial = new wxMessageDialog(NULL, "Bed position is invalid. Calibrate?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
 		
 						// Check if calibrating bed position
 						if(dial->ShowModal() == wxID_YES) {
@@ -3031,7 +3031,7 @@ void MyFrame::checkInvalidValues() {
 											enableCalibrationControls(true);
 											
 											// Display message
-											wxMessageBox("Bed position successfully calibrated", "M3D Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
+											wxMessageBox("Bed position successfully calibrated", "M33 Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
 						
 											// Display calibrate bed orientation dialog
 											calibrateBedOrientationDialog();
@@ -3044,7 +3044,7 @@ void MyFrame::checkInvalidValues() {
 											enableConnectionControls(true);
 								
 											// Display message
-											wxMessageBox("Failed to calibrate bed position", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+											wxMessageBox("Failed to calibrate bed position", "M33 Manager", wxOK | wxICON_ERROR | wxCENTRE);
 										}
 									});
 								}
@@ -3053,7 +3053,7 @@ void MyFrame::checkInvalidValues() {
 								else
 					
 									// Display message
-									wxMessageBox("Failed to calibrate bed position", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+									wxMessageBox("Failed to calibrate bed position", "M33 Manager", wxOK | wxICON_ERROR | wxCENTRE);
 							});
 						}
 				
@@ -3083,7 +3083,7 @@ void MyFrame::checkInvalidValues() {
 							iMeVersion.insert(i * 2 + 2 + i, ".");
 		
 						// Display firmware installation dialog
-						wxMessageDialog *dial = new wxMessageDialog(NULL, "Firmware is corrupt. Install " + (printer.getFirmwareType() == "M3D" || printer.getFirmwareType() == "M3D Mod" ? "M3D V" TOSTRING(M3D_ROM_VERSION_STRING) : "iMe V" + iMeVersion) + "?", "M3D Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+						wxMessageDialog *dial = new wxMessageDialog(NULL, "Firmware is corrupt. Install " + (printer.getFirmwareType() == "M3D" || printer.getFirmwareType() == "M3D Mod" ? "M3D V" TOSTRING(M3D_ROM_VERSION_STRING) : "iMe V" + iMeVersion) + "?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
 		
 						// Check if installing firmware
 						if(dial->ShowModal() == wxID_YES) {
@@ -3130,7 +3130,7 @@ void MyFrame::checkInvalidValues() {
 								if(printer.isConnected()) {
 								
 									// Display message
-									wxMessageBox("Firmware successfully installed", "M3D Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
+									wxMessageBox("Firmware successfully installed", "M33 Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
 						
 									// Display calibrate bed position dialog
 									calibrateBedPositionDialog();
@@ -3140,7 +3140,7 @@ void MyFrame::checkInvalidValues() {
 								else
 						
 									// Display message
-									wxMessageBox("Failed to update firmware", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+									wxMessageBox("Failed to update firmware", "M33 Manager", wxOK | wxICON_ERROR | wxCENTRE);
 							});
 						}
 				
@@ -3169,7 +3169,7 @@ void MyFrame::checkInvalidValues() {
 			else
 
 				// Display message
-				wxMessageBox("Failed to check the printer's invalid values", "M3D Manager", wxOK | wxICON_ERROR | wxCENTRE);
+				wxMessageBox("Failed to check the printer's invalid values", "M33 Manager", wxOK | wxICON_ERROR | wxCENTRE);
 		});
 	}
 }
