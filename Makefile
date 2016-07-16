@@ -1,7 +1,7 @@
 # Firmware name and version
 FIRMWARE_NAME = iMe
-FIRMWARE_VERSION = 00.00.00.10
-ROM_VERSION_STRING = 1900000010
+FIRMWARE_VERSION = 00.00.00.11
+ROM_VERSION_STRING = 1900000011
 
 # Tool locations
 ifeq ($(OS), Windows_NT)
@@ -9,7 +9,7 @@ ifeq ($(OS), Windows_NT)
 	COPY = "C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe"
 	SIZE = "C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-size.exe"
 	DUMP = "C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objdump.exe"
-	M33MANAGER = "M33 Manager/M33 Manager.exe"
+	M33MANAGER = "M33 Manager\M33 Manager.exe"
 else
 	CC = /opt/avr-toolchain/bin/avr-gcc
 	COPY = /opt/avr-toolchain/bin/avr-objcopy
@@ -94,7 +94,7 @@ INCPATH = . \
 	src/config
 
 # Compiler flags
-FLAGS = -D BOARD=USER_BOARD -D FIRMWARE_NAME=$(FIRMWARE_NAME) -D FIRMWARE_VERSION=$(FIRMWARE_VERSION) -Os -mmcu=atxmega32c4 -Wall -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -fno-strict-aliasing  -Werror-implicit-function-declaration -Wpointer-arith -mcall-prologues -mstrict-X -maccumulate-args -fno-tree-ter -mrelax -fno-math-errno -fno-signed-zeros -flto -flto-partition=1to1
+FLAGS = -D BOARD=USER_BOARD -D FIRMWARE_NAME=$(FIRMWARE_NAME) -D FIRMWARE_VERSION=$(FIRMWARE_VERSION) -Os -mmcu=atxmega32c4 -Wall -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -fno-strict-aliasing -Werror-implicit-function-declaration -Wpointer-arith -mcall-prologues -mstrict-X -maccumulate-args -fno-tree-ter -mrelax -fno-math-errno -fno-signed-zeros -flto -flto-partition=1to1
 ASFLAGS = -std=c++14 -x assembler-with-cpp
 CFLAGS = -std=gnu99 -x c -Wstrict-prototypes -Wmissing-prototypes
 CPPFLAGS = -std=c++14 -x c++
@@ -102,10 +102,10 @@ LFLAGS = -Wl,--section-start=.BOOT=0x8000 -Wl,--start-group -Wl,--end-group -Wl,
 
 # Make - Compiles firmware
 all:
-	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(ASFLAGS) -c $(ASSRCS)
-	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CFLAGS) -c $(CSRCS)
-	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(CPPFLAGS) -c $(CPPSRCS)
-	$(CC) $(foreach INC, $(addprefix , $(INCPATH)), -I $(INC)) $(FLAGS) $(LFLAGS) *.o -o $(FIRMWARE_NAME).elf
+	$(CC) $(foreach INC, $(addprefix , $(INCPATH)),-I $(INC)) $(FLAGS) $(ASFLAGS) -c $(ASSRCS)
+	$(CC) $(foreach INC, $(addprefix , $(INCPATH)),-I $(INC)) $(FLAGS) $(CFLAGS) -c $(CSRCS)
+	$(CC) $(foreach INC, $(addprefix , $(INCPATH)),-I $(INC)) $(FLAGS) $(CPPFLAGS) -c $(CPPSRCS)
+	$(CC) $(foreach INC, $(addprefix , $(INCPATH)),-I $(INC)) $(FLAGS) $(LFLAGS) *.o -o $(FIRMWARE_NAME).elf
 	@$(COPY) -O binary $(FIRMWARE_NAME).elf "$(FIRMWARE_NAME) $(ROM_VERSION_STRING).hex"
 	@$(SIZE) --mcu=atxmega32c4 -C $(FIRMWARE_NAME).elf
 	@rm -f *.o $(FIRMWARE_NAME).elf
@@ -118,6 +118,7 @@ clean:
 # Make run - Flashes and runs compiled firmware
 run:
 	@$(M33MANAGER) -r "$(FIRMWARE_NAME) $(ROM_VERSION_STRING).hex"
+	@$(M33MANAGER) -f
 
 # Make production debug - Adds debug information to a production elf named production.elf
 productionDebug:

@@ -2006,7 +2006,7 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 					fout.close();
 
 					// Check if applying udev rule failed
-					if(system("/etc/init.d/udev restart"))
+					if(system("udevadm control --reload-rules") || system("udevadm trigger"))
 					
 						// Return message
 						return {"Failed to apply udev rule", wxOK | wxICON_ERROR | wxCENTRE};

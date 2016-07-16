@@ -1,4 +1,8 @@
-// ATxmega32C4 http://www.atmel.com/Images/Atmel-8493-8-and-32-bit-AVR-XMEGA-Microcontrollers-ATxmega16C4-ATxmega32C4_Datasheet.pdf
+// ATxmega32C4 microcontroller http://www.atmel.com/Images/Atmel-8493-8-and-32-bit-AVR-XMEGA-Microcontrollers-ATxmega16C4-ATxmega32C4_Datasheet.pdf
+// 5V 4A 2.1mmx5.5mm DC power supply
+// USB type B connection
+
+
 // Header files
 extern "C" {
 	#include <asf.h>
@@ -280,26 +284,18 @@ int main() {
 										case 106:
 										case 107:
 						
-											// Check if speed is valid
-											int32_t speed;
-											speed = requests[currentProcessingRequest].valueM == 107 || !(requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET) ? 0 : requests[currentProcessingRequest].valueS;
-											if(speed >= 0) {
-					
-												// Set fan's speed
-												fan.setSpeed(min(FAN_MAX_SPEED, speed));
-							
-												// Set response to confirmation
-												strcpy(responseBuffer, "ok");
-											}
+											// Set fan's speed
+											fan.setSpeed(requests[currentProcessingRequest].valueM == 106 && requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET ? requests[currentProcessingRequest].valueS : FAN_MIN_SPEED);
+						
+											// Set response to confirmation
+											strcpy(responseBuffer, "ok");
 										break;
 						
 										// M114
 										case 114:
 						
-											// Set response to confirmation
+											// Set response to confirmation and motors current X
 											strcpy(responseBuffer, "ok\nX:");
-							
-											// Append motors current X to response
 											ftoa(motors.currentValues[X], numberBuffer);
 											strcat(responseBuffer, numberBuffer);
 						
@@ -331,7 +327,7 @@ int main() {
 											// Otherwise
 											else {
 				
-												// Put device details into response
+												// Set response to device and firmware details
 												strcpy(responseBuffer, "ok\nPROTOCOL:RepRap FIRMWARE_NAME:" TOSTRING(FIRMWARE_NAME) " FIRMWARE_VERSION:" TOSTRING(FIRMWARE_VERSION) " MACHINE_TYPE:Micro_3D SERIAL_NUMBER:");
 												strcat(responseBuffer, serialNumber);
 											}
@@ -362,7 +358,7 @@ int main() {
 										case 420:
 										
 											// Set LED's brightness
-											led.setBrightness(min(LED_MAX_BRIGHTNESS, requests[currentProcessingRequest].commandParameters & PARAMETER_T_OFFSET ? requests[currentProcessingRequest].valueT : LED_MAX_BRIGHTNESS));
+											led.setBrightness(requests[currentProcessingRequest].commandParameters & PARAMETER_T_OFFSET ? requests[currentProcessingRequest].valueT : LED_MAX_BRIGHTNESS);
 							
 											// Set response to confirmation
 											strcpy(responseBuffer, "ok");
@@ -664,7 +660,7 @@ int main() {
 			disableSendingWaitResponses();
 		
 			// Reset all peripherals
-			fan.setSpeed(0);
+			fan.setSpeed(FAN_MIN_SPEED);
 			heater.reset();
 			led.setBrightness(LED_MAX_BRIGHTNESS);
 			motors.reset();

@@ -81,5 +81,11 @@ Purpose: Returns a value limited by the ranges min and max
 */
 float getValueInRange(float value, float minValue, float maxValue);
 
+/*
+Name: Minimum one ceil
+Purpose: Returns the ceiling of the value that is at least one
+*/
+uint32_t minimumOneCeil(float value);
+
 
 #endif

@@ -1,4 +1,6 @@
-// MMA8652FC http://cache.nxp.com/files/sensors/doc/data_sheet/MMA8652FC.pdf
+// MMA8652FC accelerometer http://cache.nxp.com/files/sensors/doc/data_sheet/MMA8652FC.pdf
+
+
 // Header files
 extern "C" {
 	#include <asf.h>
@@ -50,7 +52,7 @@ enum {ACCELERATION_X, ACCELERATION_Y, ACCELERATION_Z, NUMBER_OF_ACCELERATION_AXE
 // Supporting function implementation
 void Accelerometer::initialize() {
 	
-	// Configure enable, SDA and SCL pins
+	// Configure enable, SDA, and SCL pins
 	ioport_set_pin_dir(ACCELEROMETER_ENABLE_PIN, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_level(ACCELEROMETER_ENABLE_PIN, ACCELEROMETER_ENABLE);
 	ioport_set_pin_mode(ACCELEROMETER_SDA_PIN, IOPORT_MODE_WIREDANDPULL);

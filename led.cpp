@@ -4,6 +4,7 @@ extern "C" {
 }
 #include "led.h"
 #include "fan.h"
+#include "common.h"
 
 
 // Definitions
@@ -26,5 +27,5 @@ void Led::initialize() {
 void Led::setBrightness(uint8_t brightness) {
 
 	// Set brightness
-	tc_write_cc(&LED_TIMER, LED_CHANNEL, static_cast<float>(brightness) * LED_TIMER_PERIOD / LED_MAX_BRIGHTNESS);
+	tc_write_cc(&LED_TIMER, LED_CHANNEL, getValueInRange(brightness, LED_MIN_BRIGHTNESS, LED_MAX_BRIGHTNESS) * LED_TIMER_PERIOD / LED_MAX_BRIGHTNESS);
 }

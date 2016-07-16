@@ -1,5 +1,11 @@
 Changelog:
 
+V00.00.00.11 July X, 2016
+
+	* Sped up movements
+	* No longer adjusts the motor E current since it might be putting too much stress on the motor when no filament is present and when the nozzle is clogged
+	* Compiled with the latest Atmel AVR 8-bit Toolchain V3.5.3 and Atmel Software Framework V3.31
+
 V00.00.00.10 June 16, 2016
 
 	* Fixed compatibility with MatterControl

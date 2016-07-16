@@ -1,9 +1,9 @@
 # Target platform options: WINDOWS32, WINDOWS64, OSX32, OSX64, LINUX32, LINUX64
 PROGRAM_NAME = M33\ Manager
-VERSION = 0.06
+VERSION = 0.07
 TARGET_PLATFORM = LINUX64
 USE_GUI = TRUE
-IME_ROM_VERSION_STRING = 1900000010
+IME_ROM_VERSION_STRING = 1900000011
 M3D_ROM_VERSION_STRING = 2016040401
 
 SRCS = main.cpp printer.cpp gcode.cpp common.cpp
@@ -91,9 +91,7 @@ ifeq ($(TARGET_PLATFORM), LINUX64)
 	endif
 endif
 
-all: $(EXECUTABLE)
-
-$(EXECUTABLE): $(SRCS)
+all:
 	$(CC) $(CFLAGS) "bin2h.cpp" -o "bin2h"
 	./bin2h "resources/files/icon.png"
 	./bin2h "resources/files/refresh.png"
