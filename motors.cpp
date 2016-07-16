@@ -6,7 +6,6 @@
 extern "C" {
 	#include <asf.h>
 }
-#include <string.h>
 #include <math.h>
 #include "motors.h"
 #include "eeprom.h"
