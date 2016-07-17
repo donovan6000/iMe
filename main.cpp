@@ -25,6 +25,13 @@ extern "C" {
 // Unknown pin (Connected to transistors above the microcontroller. Maybe related to detecting if USB is connected)
 #define UNKNOWN_PIN IOPORT_CREATE_PIN(PORTA, 1)
 
+// Unused pins (None of them are connected to anything, so they could be used to easily connect additional hardware to the printer)
+#define UNUSED_PIN_1 IOPORT_CREATE_PIN(PORTA, 6)
+#define UNUSED_PIN_2 IOPORT_CREATE_PIN(PORTB, 0)
+#define UNUSED_PIN_3 IOPORT_CREATE_PIN(PORTE, 0)
+#define UNUSED_PIN_4 IOPORT_CREATE_PIN(PORTR, 0)
+#define UNUSED_PIN_5 IOPORT_CREATE_PIN(PORTR, 1)
+
 
 // Global variables
 char serialNumber[EEPROM_SERIAL_NUMBER_LENGTH];
