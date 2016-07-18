@@ -114,6 +114,18 @@ int main() {
 	ioport_set_pin_dir(UNKNOWN_PIN, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_level(UNKNOWN_PIN, IOPORT_PIN_LEVEL_LOW);
 	
+	// Configure unused pins
+	ioport_set_pin_dir(UNUSED_PIN_1, IOPORT_DIR_INPUT);
+	ioport_set_pin_mode(UNUSED_PIN_1, IOPORT_MODE_PULLUP);
+	ioport_set_pin_dir(UNUSED_PIN_2, IOPORT_DIR_INPUT);
+	ioport_set_pin_mode(UNUSED_PIN_2, IOPORT_MODE_PULLUP);
+	ioport_set_pin_dir(UNUSED_PIN_3, IOPORT_DIR_INPUT);
+	ioport_set_pin_mode(UNUSED_PIN_3, IOPORT_MODE_PULLUP);
+	ioport_set_pin_dir(UNUSED_PIN_4, IOPORT_DIR_INPUT);
+	ioport_set_pin_mode(UNUSED_PIN_4, IOPORT_MODE_PULLUP);
+	ioport_set_pin_dir(UNUSED_PIN_5, IOPORT_DIR_INPUT);
+	ioport_set_pin_mode(UNUSED_PIN_5, IOPORT_MODE_PULLUP);
+	
 	// Configure send wait interrupt
 	tc_set_overflow_interrupt_callback(&WAIT_TIMER, []() -> void {
 	
