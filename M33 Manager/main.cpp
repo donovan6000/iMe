@@ -98,7 +98,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 						iMeVersion.insert(i * 2 + 2 + i, ".");
 		
 					// Display help
-					cout << "Usage: \"M33 Manager\" -d -f -b -i -3 -m -r firmware.rom serialport" << endl;
+					cout << "Usage: \"M33 Manager\" -d -f -b -i -3 -r firmware.rom -m serialport" << endl;
 					#ifndef OSX
 						cout << "-d | --drivers: Install device drivers" << endl;
 					#endif
@@ -239,9 +239,9 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 							for(uint64_t i = 0; i < _90_micro_3d_local_rulesSize; i++)
 								fout.put(_90_micro_3d_local_rulesData[i]);
 							fout.close();
-			
+							
 							// Check if applying udev rule failed
-							if(system("/etc/init.d/udev restart")) {
+							if(system("udevadm control --reload-rules") || system("udevadm trigger")) {
 				
 								// Display error
 								cout << "Failed to install drivers" << endl;

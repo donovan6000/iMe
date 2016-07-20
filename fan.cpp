@@ -1,3 +1,6 @@
+// 5V 0.2A 25x25x7mm brushless axial DC fan with a PH2.0-2P connector
+
+
 // Header files
 extern "C" {
 	#include <asf.h>
@@ -28,7 +31,7 @@ void Fan::initialize() {
 	tc_write_clock_source(&FAN_TIMER, TC_CLKSEL_DIV64_gc);
 	
 	// Turn off fan
-	setSpeed(0);
+	setSpeed(FAN_MIN_SPEED);
 }
 
 void Fan::setSpeed(uint8_t speed) {
@@ -40,5 +43,5 @@ void Fan::setSpeed(uint8_t speed) {
 	nvm_eeprom_read_buffer(EEPROM_FAN_SCALE_OFFSET, &fanScale, EEPROM_FAN_SCALE_LENGTH);
 	
 	// Set speed
-	tc_write_cc(&FAN_TIMER, FAN_CHANNEL, !speed ? 0 : (speed * fanScale + fanOffset) * FAN_TIMER_PERIOD / FAN_MAX_SPEED);
+	tc_write_cc(&FAN_TIMER, FAN_CHANNEL, speed <= FAN_MIN_SPEED ? 0 : (getValueInRange(speed, FAN_MIN_SPEED, FAN_MAX_SPEED) * fanScale + fanOffset) * FAN_TIMER_PERIOD / FAN_MAX_SPEED);
 }

@@ -3,7 +3,6 @@
 #include <stdexcept>
 #include <algorithm>
 #include <cstring>
-#include <cfloat>
 #include <cmath>
 #include <iomanip>
 #include <sstream>
@@ -239,13 +238,13 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 	// Restore current serial port if not connecting to a new printer
 	if(!connectingToNewPrinter)
 		currentSerialPort = savedSerialPort;
-        
-        // Attempt to connect to a specified port several times or all available ports once
-        string lastAttemptedSerialPort, initialSerialPort;
-        for(uint8_t i = 0; i < 5; i += serialPort.length() || !connectingToNewPrinter ? 1 : 0) {
-        
-        	// Wait 100 milliseconds if connecting to a specified port
-        	if(serialPort.length() || !connectingToNewPrinter)
+	
+	// Attempt to connect to a specified port several times or all available ports once
+	string lastAttemptedSerialPort, initialSerialPort;
+	for(uint8_t i = 0; i < 5; i += serialPort.length() || !connectingToNewPrinter ? 1 : 0) {
+	
+		// Wait 100 milliseconds if connecting to a specified port
+		if(serialPort.length() || !connectingToNewPrinter)
 			sleepUs(100000);
 		
 		// Save current serial port
@@ -345,7 +344,7 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 									
 									// Log end of successful connection
 									if(logFunction)
-										logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareType() + " firmware V" + getFirmwareRelease());
+										logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareTypeAsString(firmwareType) + " firmware V" + getFirmwareRelease());
 
 									// Return true
 									return true;
@@ -467,7 +466,7 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 								
 								// Log end of successful connection
 								if(logFunction)
-									logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareType() + " firmware V" + getFirmwareRelease());
+									logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareTypeAsString(firmwareType) + " firmware V" + getFirmwareRelease());
 
 								// Return true
 								return true;
@@ -738,7 +737,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					}
 					
 					// Check if updating backlash speed failed
-					if(!eepromWriteFloat(EEPROM_BACKLASH_SPEED_OFFSET, EEPROM_BACKLASH_SPEED_LENGTH, DEFAULT_BACKLASH_SPEED)) {
+					if(!eepromWriteFloat(EEPROM_BACKLASH_SPEED_OFFSET, EEPROM_BACKLASH_SPEED_LENGTH, EEPROM_BACKLASH_SPEED_DEFAULT)) {
 	
 						// Log if logging details
 						if(logFunction && logDetails)
@@ -750,7 +749,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating backlash X failed
-				if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_X_OFFSET, EEPROM_BACKLASH_X_LENGTH, 0, 2, DEFAULT_BACKLASH_X)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_X_OFFSET, EEPROM_BACKLASH_X_LENGTH, EEPROM_BACKLASH_X_MIN, EEPROM_BACKLASH_X_MAX, EEPROM_BACKLASH_X_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -761,7 +760,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating backlash Y failed
-				if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_Y_OFFSET, EEPROM_BACKLASH_Y_LENGTH, 0, 2, DEFAULT_BACKLASH_Y)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_Y_OFFSET, EEPROM_BACKLASH_Y_LENGTH, EEPROM_BACKLASH_Y_MIN, EEPROM_BACKLASH_Y_MAX, EEPROM_BACKLASH_Y_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -772,7 +771,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating backlash speed failed
-				if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_SPEED_OFFSET, EEPROM_BACKLASH_SPEED_LENGTH, 1, 5000, DEFAULT_BACKLASH_SPEED)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_BACKLASH_SPEED_OFFSET, EEPROM_BACKLASH_SPEED_LENGTH, EEPROM_BACKLASH_SPEED_MIN, EEPROM_BACKLASH_SPEED_MAX, EEPROM_BACKLASH_SPEED_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -783,7 +782,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating bed orientation back right failed
-				if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_BACK_RIGHT)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH, EEPROM_BED_ORIENTATION_BACK_RIGHT_MIN, EEPROM_BED_ORIENTATION_BACK_RIGHT_MAX, EEPROM_BED_ORIENTATION_BACK_RIGHT_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -794,7 +793,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating bed orientation back left failed
-				if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET, EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_BACK_LEFT)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET, EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH, EEPROM_BED_ORIENTATION_BACK_LEFT_MIN, EEPROM_BED_ORIENTATION_BACK_LEFT_MAX, EEPROM_BED_ORIENTATION_BACK_LEFT_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -805,7 +804,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating bed orientation front left failed
-				if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_FRONT_LEFT)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH, EEPROM_BED_ORIENTATION_FRONT_LEFT_MIN, EEPROM_BED_ORIENTATION_FRONT_LEFT_MAX, EEPROM_BED_ORIENTATION_FRONT_LEFT_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -816,7 +815,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating bed orientation front right failed
-				if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH, -3, 3, DEFAULT_BED_ORIENTATION_FRONT_RIGHT)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET, EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH, EEPROM_BED_ORIENTATION_FRONT_RIGHT_MIN, EEPROM_BED_ORIENTATION_FRONT_RIGHT_MAX, EEPROM_BED_ORIENTATION_FRONT_RIGHT_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -827,7 +826,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating bed offset back right failed
-				if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET, EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_BACK_RIGHT)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET, EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH, EEPROM_BED_OFFSET_BACK_RIGHT_MIN, EEPROM_BED_OFFSET_BACK_RIGHT_MAX, EEPROM_BED_OFFSET_BACK_RIGHT_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -838,7 +837,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating bed offset back left failed
-				if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, EEPROM_BED_OFFSET_BACK_LEFT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_BACK_LEFT)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_BACK_LEFT_OFFSET, EEPROM_BED_OFFSET_BACK_LEFT_LENGTH, EEPROM_BED_OFFSET_BACK_LEFT_MIN, EEPROM_BED_OFFSET_BACK_LEFT_MAX, EEPROM_BED_OFFSET_BACK_LEFT_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -849,7 +848,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating bed offset front left failed
-				if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET, EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_FRONT_LEFT)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET, EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH, EEPROM_BED_OFFSET_FRONT_LEFT_MIN, EEPROM_BED_OFFSET_FRONT_LEFT_MAX, EEPROM_BED_OFFSET_FRONT_LEFT_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -860,7 +859,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating bed offset front right failed
-				if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET, EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_OFFSET_FRONT_RIGHT)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET, EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH, EEPROM_BED_OFFSET_FRONT_RIGHT_MIN, EEPROM_BED_OFFSET_FRONT_RIGHT_MAX, EEPROM_BED_OFFSET_FRONT_RIGHT_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -871,7 +870,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating bed height offset failed
-				if(!eepromKeepFloatWithinRange(EEPROM_BED_HEIGHT_OFFSET_OFFSET, EEPROM_BED_HEIGHT_OFFSET_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_BED_HEIGHT_OFFSET)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_BED_HEIGHT_OFFSET_OFFSET, EEPROM_BED_HEIGHT_OFFSET_LENGTH, EEPROM_BED_HEIGHT_OFFSET_MIN, EEPROM_BED_HEIGHT_OFFSET_MAX, EEPROM_BED_HEIGHT_OFFSET_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -882,7 +881,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating speed limit X failed
-				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_X_OFFSET, EEPROM_SPEED_LIMIT_X_LENGTH, 120, 4800, DEFAULT_SPEED_LIMIT_X)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_X_OFFSET, EEPROM_SPEED_LIMIT_X_LENGTH, EEPROM_SPEED_LIMIT_X_MIN, EEPROM_SPEED_LIMIT_X_MAX, EEPROM_SPEED_LIMIT_X_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -893,7 +892,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating speed limit Y failed
-				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_Y_OFFSET, EEPROM_SPEED_LIMIT_Y_LENGTH, 120, 4800, DEFAULT_SPEED_LIMIT_Y)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_Y_OFFSET, EEPROM_SPEED_LIMIT_Y_LENGTH, EEPROM_SPEED_LIMIT_Y_MIN, EEPROM_SPEED_LIMIT_Y_MAX, EEPROM_SPEED_LIMIT_Y_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -904,7 +903,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating speed limit Z failed
-				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_Z_OFFSET, EEPROM_SPEED_LIMIT_Z_LENGTH, 30, 60, DEFAULT_SPEED_LIMIT_Z)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_Z_OFFSET, EEPROM_SPEED_LIMIT_Z_LENGTH, EEPROM_SPEED_LIMIT_Z_MIN, EEPROM_SPEED_LIMIT_Z_MAX, EEPROM_SPEED_LIMIT_Z_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -915,7 +914,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating speed limit E+ failed
-				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET, EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH, 60, 600, DEFAULT_SPEED_LIMIT_E_POSITIVE)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET, EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH, EEPROM_SPEED_LIMIT_E_POSITIVE_MIN, EEPROM_SPEED_LIMIT_E_POSITIVE_MAX, EEPROM_SPEED_LIMIT_E_POSITIVE_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -926,7 +925,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating speed limit E- failed
-				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH, 60, 720, DEFAULT_SPEED_LIMIT_E_NEGATIVE)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH, EEPROM_SPEED_LIMIT_E_NEGATIVE_MIN, EEPROM_SPEED_LIMIT_E_NEGATIVE_MAX, EEPROM_SPEED_LIMIT_E_NEGATIVE_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -940,7 +939,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				if(firmwareType == IME) {
 				
 					// Check if updating last recorded X value failed
-					if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, EEPROM_LAST_RECORDED_X_VALUE_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_LAST_RECORDED_X_VALUE)) {
+					if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, EEPROM_LAST_RECORDED_X_VALUE_LENGTH, EEPROM_LAST_RECORDED_X_VALUE_MIN, EEPROM_LAST_RECORDED_X_VALUE_MAX, EEPROM_LAST_RECORDED_X_VALUE_DEFAULT)) {
 				
 						// Log if logging details
 						if(logFunction && logDetails)
@@ -951,7 +950,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					}
 				
 					// Check if updating last recorded Y value failed
-					if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_Y_VALUE_OFFSET, EEPROM_LAST_RECORDED_Y_VALUE_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_LAST_RECORDED_Y_VALUE)) {
+					if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_Y_VALUE_OFFSET, EEPROM_LAST_RECORDED_Y_VALUE_LENGTH, EEPROM_LAST_RECORDED_Y_VALUE_MIN, EEPROM_LAST_RECORDED_Y_VALUE_MAX, EEPROM_LAST_RECORDED_Y_VALUE_DEFAULT)) {
 				
 						// Log if logging details
 						if(logFunction && logDetails)
@@ -963,7 +962,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				}
 				
 				// Check if updating last recorded Z value failed
-				if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, -FLT_MAX, FLT_MAX, DEFAULT_LAST_RECORDED_Z_VALUE)) {
+				if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, EEPROM_LAST_RECORDED_Z_VALUE_MIN, EEPROM_LAST_RECORDED_Z_VALUE_MAX, EEPROM_LAST_RECORDED_Z_VALUE_DEFAULT)) {
 				
 					// Log if logging details
 					if(logFunction && logDetails)
@@ -1163,12 +1162,12 @@ void Printer::disconnect() {
 		status = "Disconnected";
 
 	// Check if file descriptor is open
-        if(fd) {
-        
-        	// Check if using Windows
-        	#ifdef WINDOWS
-        	
-        		// Close device
+	if(fd) {
+	
+		// Check if using Windows
+		#ifdef WINDOWS
+		
+			// Close device
 			CloseHandle(fd);
 		
 		// Otherwise
@@ -1810,7 +1809,7 @@ bool Printer::installFirmware(const string &file) {
 	
 	// Log printer details
 	if(logFunction)
-		logFunction("Printer is running " + getFirmwareType() + " firmware V" + getFirmwareRelease());
+		logFunction("Printer is running " + getFirmwareTypeAsString(firmwareType) + " firmware V" + getFirmwareRelease());
 
 	// Return true
 	return true;
@@ -2459,22 +2458,22 @@ void Printer::updateAvailableSerialPorts() {
 		
 			// Create device info string
 			stringstream deviceInfoStringStream;
-			deviceInfoStringStream << "USB:V" << setfill('0') << setw(4) << hex << uppercase << PRINTER_VENDOR_ID << 'P' << setfill('0') << setw(4) << hex << uppercase << PRINTER_PRODUCT_ID;    
+			deviceInfoStringStream << "USB:V" << setfill('0') << setw(4) << hex << uppercase << PRINTER_VENDOR_ID << 'P' << setfill('0') << setw(4) << hex << uppercase << PRINTER_PRODUCT_ID;
 			string deviceInfoString = deviceInfoStringStream.str();
 			
 			// Go through all serial devices
 			dirent *entry;
-		        while((entry = readdir(path))) {
-		        
-		        	// Check if current device is a serial device
-		                if(strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && !strncmp("ttyACM", entry->d_name, 6)) {
-		                
-		                	// Check if uevent file exists for the device
-		                	ifstream device(static_cast<string>("/sys/class/tty/") + entry->d_name + "/device/modalias", ios::binary);
-		                	if(device.good()) {
-		                	
-				        	// Read in file
-				        	string info;
+			while((entry = readdir(path))) {
+			
+				// Check if current device is a serial device
+				if(strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..") && !strncmp("ttyACM", entry->d_name, 6)) {
+				
+					// Check if uevent file exists for the device
+					ifstream device(static_cast<string>("/sys/class/tty/") + entry->d_name + "/device/modalias", ios::binary);
+					if(device.good()) {
+					
+						// Read in file
+						string info;
 						while(device.peek() != EOF)
 							info.push_back(toupper(device.get()));
 						
@@ -2551,10 +2550,10 @@ string Printer::getNewSerialPort(string lastAttemptedPort, string stopAtPort) {
 	for(uint8_t i = 0; i < availableSerialPorts.size(); i++)
 	
 		// Check if current serial port exists
-        	if(currentSerialPort == availableSerialPorts[i])
-        	
-        		// Return current serial port
-        		return currentSerialPort;
+		if(currentSerialPort == availableSerialPorts[i])
+		
+			// Return current serial port
+			return currentSerialPort;
 	
 	// Go through all available serial ports
 	for(uint8_t i = 0; i < availableSerialPorts.size(); i++) {
@@ -2780,16 +2779,22 @@ string Printer::getSerialNumber() {
 	return serialNumber.substr(0, 2) + '-' + serialNumber.substr(2, 2) + '-' + serialNumber.substr(4, 2) + '-' + serialNumber.substr(6, 2) + '-' + serialNumber.substr(8, 2) + '-' + serialNumber.substr(10, 3) + '-' + serialNumber.substr(13, 13);
 }
 
-string Printer::getFirmwareType() {
+firmwareTypes Printer::getFirmwareType() {
 
-	// Return firmware type as string
-	return getFirmwareTypeAsString(firmwareType);
+	// Return firmware type
+	return firmwareType;
 }
 
 string Printer::getFirmwareRelease() {
 
 	// Return firmware release from firmare version
 	return getFirmwareReleaseFromFirmwareVersion(firmwareVersion);
+}
+
+uint32_t Printer::getFirmwareVersion() {
+
+	// Return firmware version
+	return firmwareVersion;
 }
 
 void Printer::setLogFunction(function<void(const string &message)> function) {
@@ -2857,7 +2862,7 @@ string Printer::getFirmwareReleaseFromFirmwareVersion(uint32_t firmwareVersion) 
 			return to_string(firmwareVersion);
 		
 		case M3D_MOD:
-			return to_string(firmwareVersion  - 100000000);
+			return to_string(firmwareVersion - 100000000);
 		
 		default:
 			string temp = to_string(firmwareVersion);

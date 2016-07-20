@@ -116,7 +116,7 @@ int64_t strtoll(const char *nptr, char **endptr) {
 float strtof(const char *nptr, char **endptr) {
 
 	// Initialize variables
-	float value = 0;
+	float value;
 	bool negative = false;
 	
 	// Check if value contains a sign
@@ -129,28 +129,57 @@ float strtof(const char *nptr, char **endptr) {
 		nptr++;
 	}
 	
-	// Go through all characters
-	for(; isdigit(*nptr); nptr++) {
+	// Get the integer and fractional part of the value
+	for(bool firstPass = true;; firstPass = false) {
 	
-		// Set digit in value
-		value *= 10;
-		value += *nptr - 0x30;
-	}
-	
-	// Check if value contains a decimal
-	if(*nptr == '.' && isdigit(nptr[1])) {
+		// Initialize variables
+		float *currentValue;
+		float decimalValue;
+		
+		// Check if getting integer part of the value
+		if(firstPass) 
+		
+			// Set current value
+			currentValue = &value;
+		
+		// Otherwise
+		else {
+		
+			// Set current value
+			currentValue = &decimalValue;
+		
+			// Check if a value contains a fractional part
+			if(*nptr == '.' && isdigit(nptr[1]))
 
-		// Move to first decimal digit
-		nptr++;
+				// Move to first decimal digit
+				nptr++;
+		}
+		
+		// Clear current value
+		*currentValue = 0;
 	
-		// Go through all decimal values
-		for(uint32_t i = 10; isdigit(*nptr); nptr++)
-
-			// Set decimal digit in value
-			if(i < UINT32_MAX / 10) {
-				value += static_cast<float>(*nptr - 0x30) / i;
-				i *= 10;
-			}
+		// Go through all characters
+		uint8_t numberOfDigits = 0;
+		for(; isdigit(*nptr); nptr++, numberOfDigits++) {
+	
+			// Set digit in current value
+			*currentValue *= 10;
+			*currentValue += *nptr - 0x30;
+		}
+		
+		// Check if getting fractional part of the value
+		if(!firstPass) {
+		
+			// Convert current value into a fractional value
+			for(uint8_t i = 0; i < numberOfDigits; i++)
+				decimalValue /= 10;
+	
+			// Append fractional value to integer value
+			value += decimalValue;
+			
+			// Break
+			break;
+		}
 	}
 	
 	// Set end pointer to last valid character
@@ -175,4 +204,10 @@ float getValueInRange(float value, float minValue, float maxValue) {
 
 	// Return value limited by range
 	return min(maxValue, max(minValue, value));
+}
+
+uint32_t minimumOneCeil(float value) {
+
+	// Return ceiling of value that is at least one
+	return max(1, ceil(value));
 }

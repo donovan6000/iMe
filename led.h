@@ -4,6 +4,7 @@
 
 
 // Definitions
+#define LED_MIN_BRIGHTNESS 0
 #define LED_MAX_BRIGHTNESS 100
 #define LED_CHANNEL_CAPTURE_COMPARE TC_CCDEN
 

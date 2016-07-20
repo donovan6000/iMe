@@ -4,8 +4,8 @@
 
 
 // Header files
-#include "compiler.h"
-#include "eeprom.h"
+#include <compiler.h>
+#include <eeprom.h>
 
 
 // Device definitions

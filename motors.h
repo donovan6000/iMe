@@ -20,6 +20,10 @@
 #define BED_LEVELING_TASK (1 << 1)
 #define SAVE_CHANGES_TASK (1 << 2)
 
+// State changes
+#define saveState(motor, parameter) changeState(true, motor, parameter)
+#define restoreState() changeState()
+
 // Modes
 enum MODES {RELATIVE, ABSOLUTE};
 
@@ -28,6 +32,9 @@ enum AXES {X, Y, Z, E, F};
 
 // Backlash direction
 enum BACKLASH_DIRECTION {NONE, POSITIVE, NEGATIVE};
+
+// Axes parameter
+enum AXES_PARAMETER {DIRECTION, VALIDITY, VALUE};
 
 
 // Motors class
@@ -87,7 +94,7 @@ class Motors {
 	private:
 	
 		// Change state
-		void changeState(bool save = false, AXES motor = X);
+		void changeState(bool save = false, AXES motor = X, AXES_PARAMETER parameter = DIRECTION);
 		
 		// Move to height
 		void moveToHeight(float height);

@@ -1,5 +1,13 @@
 Changelog:
 
+V00.00.00.12 July 20, 2016
+
+	* Sped up movements
+	* No longer adjusts the motor E current since it might be putting too much stress on the motor when no filament is present and when the nozzle is clogged
+	* Compiled with the latest Atmel AVR 8-bit Toolchain V3.5.3 and Atmel Software Framework V3.31
+	* Fixed issue where the bed orientation version in the printer's EEPROM would be updated after running a G32 command
+	* Sets unused pins as inputs with pull-up resistors enabled
+
 V00.00.00.10 June 16, 2016
 
 	* Fixed compatibility with MatterControl
