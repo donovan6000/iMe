@@ -1152,7 +1152,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 		//sendCommand("M619 S" + eepromOffsets["bedHeightOffset"]["offset"] + " T" + eepromOffsets["bedHeightOffset"]["bytes"],
 	
 		// Send commands
-		if(printer.getFirmwareType() == "M3D" || printer.getFirmwareType() == "M3D Mod") {
+		if(printer.getFirmwareType() == M3D || printer.getFirmwareType() == M3D_MOD) {
 			sendCommand("G91");
 			sendCommand("G0 Z0.1 F90");
 		}
@@ -3083,7 +3083,7 @@ void MyFrame::checkInvalidValues() {
 							iMeVersion.insert(i * 2 + 2 + i, ".");
 		
 						// Display firmware installation dialog
-						wxMessageDialog *dial = new wxMessageDialog(NULL, "Firmware is corrupt. Install " + (printer.getFirmwareType() == "M3D" || printer.getFirmwareType() == "M3D Mod" ? "M3D V" TOSTRING(M3D_ROM_VERSION_STRING) : "iMe V" + iMeVersion) + "?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+						wxMessageDialog *dial = new wxMessageDialog(NULL, "Firmware is corrupt. Install " + (printer.getFirmwareType() == M3D || printer.getFirmwareType() == M3D_MOD ? "M3D V" TOSTRING(M3D_ROM_VERSION_STRING) : "iMe V" + iMeVersion) + "?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
 		
 						// Check if installing firmware
 						if(dial->ShowModal() == wxID_YES) {
@@ -3092,7 +3092,7 @@ void MyFrame::checkInvalidValues() {
 							fixingInvalidValues = true;
 		
 							// Check if installing M3D firmware
-							if(printer.getFirmwareType() == "M3D" || printer.getFirmwareType() == "M3D Mod") {
+							if(printer.getFirmwareType() == M3D || printer.getFirmwareType() == M3D_MOD) {
 			
 								// Install M3D firmware
 								wxCommandEvent event(wxEVT_BUTTON, installM3dFirmwareButton->GetId());
@@ -3143,6 +3143,96 @@ void MyFrame::checkInvalidValues() {
 									wxMessageBox("Failed to update firmware", "M33 Manager", wxOK | wxICON_ERROR | wxCENTRE);
 							});
 						}
+						
+						// Otherwise
+						else
+			
+							// Disconnect printer
+							printer.disconnect();
+					}
+						
+					// Otherwise check if firmware is incompatible or outdated
+					else if(printer.getFirmwareType() == UNKNOWN_FIRMWARE || ((printer.getFirmwareType() == M3D || printer.getFirmwareType() == M3D_MOD) && stoi(printer.getFirmwareRelease()) < M3D_ROM_VERSION_STRING) || (printer.getFirmwareType() == IME && printer.getFirmwareVersion() < IME_ROM_VERSION_STRING)) {
+					
+						// Set if firmware is incompatible
+						bool incompatible = true;
+						if((printer.getFirmwareType() == M3D || printer.getFirmwareType() == M3D_MOD) && stoi(printer.getFirmwareRelease()) >= 2015122112)
+							incompatible = false;
+						else if(printer.getFirmwareType() == IME && printer.getFirmwareVersion() >= 1900000006)
+							incompatible = false;
+						
+						// Get iMe version
+						string iMeVersion = static_cast<string>(TOSTRING(IME_ROM_VERSION_STRING)).substr(2);
+						for(uint8_t i = 0; i < 3; i++)
+							iMeVersion.insert(i * 2 + 2 + i, ".");
+	
+						// Display firmware installation dialog
+						wxMessageDialog *dial = new wxMessageDialog(NULL, static_cast<string>(incompatible ? "Firmware is incompatible" : "Newer firmware available") + ". Update to " + (printer.getFirmwareType() == M3D || printer.getFirmwareType() == M3D_MOD ? "M3D V" TOSTRING(M3D_ROM_VERSION_STRING) : "iMe V" + iMeVersion) + "?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+	
+						// Check if installing firmware
+						if(dial->ShowModal() == wxID_YES) {
+			
+							// Set fixing invalid values
+							fixingInvalidValues = true;
+	
+							// Check if installing M3D firmware
+							if(printer.getFirmwareType() == M3D || printer.getFirmwareType() == M3D_MOD) {
+		
+								// Install M3D firmware
+								wxCommandEvent event(wxEVT_BUTTON, installM3dFirmwareButton->GetId());
+								installM3dFirmwareButton->GetEventHandler()->ProcessEvent(event);
+							}
+		
+							// Otherwise
+							else {
+		
+								// Install iMe firmware
+								wxCommandEvent event(wxEVT_BUTTON, installImeFirmwareButton->GetId());
+								installImeFirmwareButton->GetEventHandler()->ProcessEvent(event);
+							}
+				
+							// Lock
+							wxCriticalSectionLocker lock(criticalLock);
+
+							// Append thread start callback to queue
+							threadStartCallbackQueue.push([=]() -> void {});
+
+							// Append thread task to queue
+							threadTaskQueue.push([=]() -> ThreadTaskResponse {
+
+								// Return empty response
+								return {"", 0};
+							});
+
+							// Append thread complete callback to queue
+							threadCompleteCallbackQueue.push([=](ThreadTaskResponse response) -> void {
+				
+								// Clear fixing invalid values
+								fixingInvalidValues = false;
+				
+								// Check if printer is still connected
+								if(printer.isConnected()) {
+							
+									// Display message
+									wxMessageBox("Firmware successfully installed", "M33 Manager", wxOK | wxICON_INFORMATION | wxCENTRE);
+					
+									// Display calibrate bed position dialog
+									calibrateBedPositionDialog();
+								}
+					
+								// Otherwise
+								else
+					
+									// Display message
+									wxMessageBox("Failed to update firmware", "M33 Manager", wxOK | wxICON_ERROR | wxCENTRE);
+							});
+						}
+						
+						// Otherwise check if firmware is incompatible
+						else if(incompatible)
+						
+							// Disconnect printer
+							printer.disconnect();
 				
 						// Otherwise
 						else

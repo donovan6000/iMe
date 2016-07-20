@@ -174,13 +174,19 @@ class Printer {
 		Name: Get firmware type
 		Purpose: Returns the printer's firmware type
 		*/
-		string getFirmwareType();
+		firmwareTypes getFirmwareType();
 		
 		/*
 		Name: Get firmware release
 		Purpose: Returns the printer's firmware release number
 		*/
 		string getFirmwareRelease();
+		
+		/*
+		Name: Get firmware version
+		Purpose: Returns the printer's firmware version number
+		*/
+		uint32_t getFirmwareVersion();
 		
 		/*
 		Name: Set log function

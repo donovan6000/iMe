@@ -344,7 +344,7 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 									
 									// Log end of successful connection
 									if(logFunction)
-										logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareType() + " firmware V" + getFirmwareRelease());
+										logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareTypeAsString(firmwareType) + " firmware V" + getFirmwareRelease());
 
 									// Return true
 									return true;
@@ -466,7 +466,7 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 								
 								// Log end of successful connection
 								if(logFunction)
-									logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareType() + " firmware V" + getFirmwareRelease());
+									logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareTypeAsString(firmwareType) + " firmware V" + getFirmwareRelease());
 
 								// Return true
 								return true;
@@ -1809,7 +1809,7 @@ bool Printer::installFirmware(const string &file) {
 	
 	// Log printer details
 	if(logFunction)
-		logFunction("Printer is running " + getFirmwareType() + " firmware V" + getFirmwareRelease());
+		logFunction("Printer is running " + getFirmwareTypeAsString(firmwareType) + " firmware V" + getFirmwareRelease());
 
 	// Return true
 	return true;
@@ -2779,16 +2779,22 @@ string Printer::getSerialNumber() {
 	return serialNumber.substr(0, 2) + '-' + serialNumber.substr(2, 2) + '-' + serialNumber.substr(4, 2) + '-' + serialNumber.substr(6, 2) + '-' + serialNumber.substr(8, 2) + '-' + serialNumber.substr(10, 3) + '-' + serialNumber.substr(13, 13);
 }
 
-string Printer::getFirmwareType() {
+firmwareTypes Printer::getFirmwareType() {
 
-	// Return firmware type as string
-	return getFirmwareTypeAsString(firmwareType);
+	// Return firmware type
+	return firmwareType;
 }
 
 string Printer::getFirmwareRelease() {
 
 	// Return firmware release from firmare version
 	return getFirmwareReleaseFromFirmwareVersion(firmwareVersion);
+}
+
+uint32_t Printer::getFirmwareVersion() {
+
+	// Return firmware version
+	return firmwareVersion;
 }
 
 void Printer::setLogFunction(function<void(const string &message)> function) {
