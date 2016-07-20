@@ -18,6 +18,7 @@ extern "C" {
 #define SEGMENT_LENGTH 2.0
 #define HOMING_FEED_RATE 1500.0
 #define CALIBRATING_Z_FEED_RATE 17.0
+#define BED_ORIENTATION_VERSION 1
 //#define REGULATE_EXTRUDER_CURRENT
 
 // Bed dimensions
@@ -1518,8 +1519,15 @@ void Motors::calibrateBedOrientation() {
 		moveToHeight(3);
 	}
 	
-	// Update bed changes
-	updateBedChanges(false);
+	// Check if emergency stop hasn't occured
+	if(!emergencyStopOccured) {
+	
+		// Save bed orientation version
+		nvm_eeprom_write_byte(EEPROM_BED_ORIENTATION_VERSION_OFFSET, BED_ORIENTATION_VERSION);
+	
+		// Update bed changes
+		updateBedChanges(false);
+	}
 	
 	// Restore mode
 	mode = savedMode;
