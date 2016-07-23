@@ -800,16 +800,6 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		
 		// Turn on motors
 		turnOn();
-		
-		// Check if regulating extruder current
-		#ifdef REGULATE_EXTRUDER_CURRENT
-		
-			// Check if motor E moves
-			if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm)
-		
-				// Wait enough time for motor E voltage to stabilize
-				delay_us(500);
-		#endif
 	
 		// Start motors step timer
 		startMotorsStepTimer();
@@ -822,6 +812,9 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 	
 				// Check if motor E is moving
 				if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm) {
+				
+					// Wait enough time for motor E voltage to stabilize
+					delay_us(500);
 		
 					// Prevent updating temperature
 					tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);

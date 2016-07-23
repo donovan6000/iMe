@@ -1,5 +1,10 @@
 Changelog:
 
+V00.00.00.13 July X, 2016
+
+	* Compiled with the latest Atmel Software Framework V3.32
+	* Uses intrinsic delays
+
 V00.00.00.12 July 20, 2016
 
 	* Sped up movements

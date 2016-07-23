@@ -3,6 +3,10 @@
 #define CONF_CLOCK_H
 
 
+// Use cycle accurate delays
+#define __DELAY_CYCLE_INTRINSICS__
+
+
 // Use internal oscillator at 24MHz
 #define CONFIG_SYSCLK_SOURCE SYSCLK_SRC_RC32MHZ
 #define CONFIG_SYSCLK_PSADIV SYSCLK_PSADIV_2

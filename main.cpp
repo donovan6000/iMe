@@ -159,9 +159,6 @@ int main() {
 	// Main loop
 	while(true) {
 	
-		// Delay to allow enough time for a response to be received
-		delay_us(1);
-		
 		// Check if a current processing request is ready
 		if(requests[currentProcessingRequest].commandParameters) {
 		
@@ -270,24 +267,25 @@ int main() {
 										// M104 or M109
 										case 104:
 										case 109:
-						
-											// Check if temperature is valid
-											int32_t temperature;
-											temperature = requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET ? requests[currentProcessingRequest].valueS : 0;
-											if(!temperature || (temperature >= HEATER_MIN_TEMPERATURE && temperature <= HEATER_MAX_TEMPERATURE)) {
+										
+											{
+												// Check if temperature is valid
+												int32_t temperature = requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET ? requests[currentProcessingRequest].valueS : 0;
+												if(!temperature || (temperature >= HEATER_MIN_TEMPERATURE && temperature <= HEATER_MAX_TEMPERATURE)) {
 							
-												// Set temperature
-												heater.setTemperature(temperature, temperature && requests[currentProcessingRequest].valueM == 109);
+													// Set temperature
+													heater.setTemperature(temperature, temperature && requests[currentProcessingRequest].valueM == 109);
 						
-												// Set response to confirmation
-												strcpy(responseBuffer, "ok");
+													// Set response to confirmation
+													strcpy(responseBuffer, "ok");
+												}
+							
+												// Otherwise
+												else
+							
+													// Set response to temperature range
+													strcpy(responseBuffer, "Error: Temperature must be between " TOSTRING(HEATER_MIN_TEMPERATURE) " and " TOSTRING(HEATER_MAX_TEMPERATURE) " degrees Celsius");
 											}
-							
-											// Otherwise
-											else
-							
-												// Set response to temperature range
-												strcpy(responseBuffer, "Error: Temperature must be between " TOSTRING(HEATER_MIN_TEMPERATURE) " and " TOSTRING(HEATER_MAX_TEMPERATURE) " degrees Celsius");
 										break;
 						
 										// M105
@@ -505,11 +503,20 @@ int main() {
 				
 										// G4
 										case 4:
-				
-											// Delay specified time
-											uint32_t delayTime;
-											if((delayTime = requests[currentProcessingRequest].valueP + requests[currentProcessingRequest].valueS * 1000))
-												delay_ms(delayTime);
+										
+											{
+												// Delay specified number of milliseconds
+												int32_t delayTime = requests[currentProcessingRequest].valueP;
+												if(delayTime > 0)
+													for(int32_t i = 0; i < delayTime; i++)
+														delay_ms(1);
+												
+												// Delay specified number of seconds
+												delayTime = requests[currentProcessingRequest].valueS;
+												if(delayTime > 0)
+													for(int32_t i = 0; i < delayTime; i++)
+														delay_s(1);
+											}
 					
 											// Set response to confirmation
 											strcpy(responseBuffer, "ok");
