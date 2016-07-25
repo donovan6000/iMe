@@ -65,7 +65,6 @@ extern "C" {
 #define MOTOR_X_VREF_CHANNEL_CAPTURE_COMPARE TC_CCBEN
 #define MOTOR_X_CURRENT_IDLE 0.692018779
 #define MOTOR_X_CURRENT_ACTIVE 0.723004695
-#define MOTOR_X_STEPS_PER_MM 19.3067875
 
 // Motor Y settings
 #define MOTOR_Y_DIRECTION_PIN IOPORT_CREATE_PIN(PORTD, 5)
@@ -75,7 +74,6 @@ extern "C" {
 #define MOTOR_Y_VREF_CHANNEL_CAPTURE_COMPARE TC_CCDEN
 #define MOTOR_Y_CURRENT_IDLE 0.692018779
 #define MOTOR_Y_CURRENT_ACTIVE 0.82629108
-#define MOTOR_Y_STEPS_PER_MM 18.00885
 
 // Motor Z settings
 #define MOTOR_Z_DIRECTION_PIN IOPORT_CREATE_PIN(PORTD, 4)
@@ -85,7 +83,6 @@ extern "C" {
 #define MOTOR_Z_VREF_CHANNEL_CAPTURE_COMPARE TC_CCCEN
 #define MOTOR_Z_CURRENT_IDLE 0.196244131
 #define MOTOR_Z_CURRENT_ACTIVE 0.650704225
-#define MOTOR_Z_STEPS_PER_MM 646.3295
 
 // Motor E settings
 #define MOTOR_E_DIRECTION_PIN IOPORT_CREATE_PIN(PORTC, 3)
@@ -100,7 +97,6 @@ extern "C" {
 #define MOTOR_E_VREF_CHANNEL TC_CCA
 #define MOTOR_E_VREF_CHANNEL_CAPTURE_COMPARE TC_CCAEN
 #define MOTOR_E_CURRENT_IDLE 0.299530516
-#define MOTOR_E_STEPS_PER_MM 128.451375
 
 // Pin states
 #define MOTORS_ON IOPORT_PIN_LEVEL_LOW
@@ -607,18 +603,18 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				currentValues[i] = newValue;
 		
 				// Set direction change, steps per mm, motor direction, speed limit, and min/max feed rates
+				bool directionChange;
 				float stepsPerMm;
 				float speedLimit;
 				float maxFeedRate;
 				float minFeedRate;
-				bool directionChange;
 				bool savesValidValue = true;
 				switch(i) {
 				
 					case X:
 					
 						directionChange = ioport_get_pin_level(MOTOR_X_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT);
-						stepsPerMm = MOTOR_X_STEPS_PER_MM;
+						nvm_eeprom_read_buffer(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_X_MOTOR_STEPS_PER_MM_LENGTH);
 						ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT);
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_X_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_X_LENGTH);
 						maxFeedRate = EEPROM_SPEED_LIMIT_X_MAX;
@@ -628,7 +624,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 					case Y:
 					
 						directionChange = ioport_get_pin_level(MOTOR_Y_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
-						stepsPerMm = MOTOR_Y_STEPS_PER_MM;
+						nvm_eeprom_read_buffer(EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH);
 						ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Y_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Y_LENGTH);
 						maxFeedRate = EEPROM_SPEED_LIMIT_Y_MAX;
@@ -638,7 +634,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 					case Z:
 					
 						directionChange = ioport_get_pin_level(MOTOR_Z_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_DOWN : DIRECTION_UP);
-						stepsPerMm = MOTOR_Z_STEPS_PER_MM;
+						nvm_eeprom_read_buffer(EEPROM_Z_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Z_MOTOR_STEPS_PER_MM_LENGTH);
 						ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, lowerNewValue ? DIRECTION_DOWN : DIRECTION_UP);
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Z_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Z_LENGTH);
 						maxFeedRate = EEPROM_SPEED_LIMIT_Z_MAX;
@@ -648,7 +644,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 					default:
 					
 						directionChange = ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_RETRACT : DIRECTION_EXTRUDE);
-						stepsPerMm = MOTOR_E_STEPS_PER_MM;
+						nvm_eeprom_read_buffer(EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH);
 						if(lowerNewValue) {
 							ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, DIRECTION_RETRACT);
 							nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH);
@@ -1211,9 +1207,10 @@ void Motors::homeXY(bool adjustHeight) {
 		int16_t jerkAcceleration;
 		void (*setMotorStepInterruptLevel)(volatile void *tc, TC_INT_LEVEL_t level);
 		float distance;
+		float stepsPerMm;
 		if(i) {
 			distance = max(max(BED_LOW_MAX_Y, BED_MEDIUM_MAX_Y), BED_HIGH_MAX_Y) - min(min(BED_LOW_MIN_Y, BED_MEDIUM_MIN_Y), BED_HIGH_MIN_Y) + 5;
-			motorsNumberOfSteps[i] = round(distance * MOTOR_Y_STEPS_PER_MM * MICROSTEPS_PER_STEP);
+			nvm_eeprom_read_buffer(EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH);
 			ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
 			setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
 			
@@ -1226,7 +1223,7 @@ void Motors::homeXY(bool adjustHeight) {
 		}
 		else {
 			distance = max(max(BED_LOW_MAX_X, BED_MEDIUM_MAX_X), BED_HIGH_MAX_X) - min(min(BED_LOW_MIN_X, BED_MEDIUM_MIN_X), BED_HIGH_MIN_X) + 5;
-			motorsNumberOfSteps[i] = round(distance * MOTOR_X_STEPS_PER_MM * MICROSTEPS_PER_STEP);
+			nvm_eeprom_read_buffer(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_X_MOTOR_STEPS_PER_MM_LENGTH);
 			ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
 			setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
 			
@@ -1237,6 +1234,9 @@ void Motors::homeXY(bool adjustHeight) {
 			// Set motor X Vref to active
 			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		}
+		
+		// Set number of steps
+		motorsNumberOfSteps[i] = round(distance * stepsPerMm * MICROSTEPS_PER_STEP);
 		
 		// Clear number of remaining steps
 		motorsNumberOfRemainingSteps[i] = 0;
@@ -1354,10 +1354,14 @@ void Motors::moveToZ0() {
 		// Clear number of remaining steps
 		motorsNumberOfRemainingSteps[Z] = 0;
 		
+		// Get steps per mm
+		float stepsPerMm;
+		nvm_eeprom_read_buffer(EEPROM_Z_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Z_MOTOR_STEPS_PER_MM_LENGTH);
+		
 		// Set motor delay to achieve desired feed rate
 		motorsStepDelayCounter[Z] = motorsDelaySkipsCounter[Z] = 0;
-		motorsStepDelay[Z] = minimumOneCeil(((motorsNumberOfSteps[Z] / (MOTOR_Z_STEPS_PER_MM * MICROSTEPS_PER_STEP)) * 60 * sysclk_get_cpu_hz()) / (CALIBRATING_Z_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * (motorsNumberOfSteps[Z] / (MOTOR_Z_STEPS_PER_MM * MICROSTEPS_PER_STEP)) * MOTOR_Z_STEPS_PER_MM * MICROSTEPS_PER_STEP));
-		float denominator = ((motorsNumberOfSteps[Z] / (MOTOR_Z_STEPS_PER_MM * MICROSTEPS_PER_STEP)) * 60 * sysclk_get_cpu_hz()) / (CALIBRATING_Z_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * (motorsNumberOfSteps[Z] / (MOTOR_Z_STEPS_PER_MM * MICROSTEPS_PER_STEP)) * MOTOR_Z_STEPS_PER_MM * MICROSTEPS_PER_STEP * motorsStepDelay[Z]) - 1;
+		motorsStepDelay[Z] = minimumOneCeil(((motorsNumberOfSteps[Z] / (stepsPerMm * MICROSTEPS_PER_STEP)) * 60 * sysclk_get_cpu_hz()) / (CALIBRATING_Z_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * (motorsNumberOfSteps[Z] / (stepsPerMm * MICROSTEPS_PER_STEP)) * stepsPerMm * MICROSTEPS_PER_STEP));
+		float denominator = ((motorsNumberOfSteps[Z] / (stepsPerMm * MICROSTEPS_PER_STEP)) * 60 * sysclk_get_cpu_hz()) / (CALIBRATING_Z_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * (motorsNumberOfSteps[Z] / (stepsPerMm * MICROSTEPS_PER_STEP)) * stepsPerMm * MICROSTEPS_PER_STEP * motorsStepDelay[Z]) - 1;
 		motorsDelaySkips[Z] = denominator ? round(1 / denominator) : 0;
 		
 		// Set motor Z Vref to active
@@ -1397,7 +1401,7 @@ void Motors::moveToZ0() {
 		stopMotorsStepTimer();
 		
 		// Set current Z
-		currentValues[Z] -= (static_cast<float>(UINT32_MAX) - motorsNumberOfSteps[Z]) / (MOTOR_Z_STEPS_PER_MM * MICROSTEPS_PER_STEP);
+		currentValues[Z] -= (static_cast<float>(UINT32_MAX) - motorsNumberOfSteps[Z]) / (stepsPerMm * MICROSTEPS_PER_STEP);
 		
 		// Check if emergency stop has occured
 		if(emergencyStopOccured)

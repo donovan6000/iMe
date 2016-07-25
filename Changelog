@@ -6,6 +6,7 @@ V00.00.00.13 July X, 2016
 	* Uses intrinsic delays
 	* Fixed accumulating rounding error that occurs due moving a fractional number of steps
 	* Decreased X homing accelerometer sensitivity
+	* Allows setting the steps/mm for each of the motors
 
 V00.00.00.12 July 20, 2016
 
