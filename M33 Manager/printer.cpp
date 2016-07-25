@@ -1697,11 +1697,8 @@ bool Printer::installFirmware(const string &file) {
 	if(logFunction)
 		logFunction("Obtained EEPROM");
 					
-	// Get old EEPROM CRC
-	uint32_t oldEepromCrc = eepromGetInt(EEPROM_FIRMWARE_CRC_OFFSET, EEPROM_FIRMWARE_CRC_LENGTH);
-	
-	// Check if last Z recorded is invalid or previous firmware was corrupt
-	if(!eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH) || oldFirmwareCrc != oldEepromCrc) {
+	// Check if last Z recorded is invalid
+	if(!eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH)) {
 	
 		// Check if clearing last recorded Z value in EEPROM failed
 		if(!eepromWriteInt(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, 0)) {
@@ -1719,88 +1716,92 @@ bool Printer::installFirmware(const string &file) {
 			logFunction("Successfully cleared out last recorded Z value");
 	}
 	
-	// Otherwise
-	else {
+	// Get old firmware type
+	firmwareTypes oldFirmwareType = getFirmwareTypeFromFirmwareVersion(eepromGetInt(EEPROM_FIRMWARE_VERSION_OFFSET, EEPROM_FIRMWARE_VERSION_LENGTH));
 	
-		// Get old firmware type
-		firmwareTypes oldFirmwareType = getFirmwareTypeFromFirmwareVersion(eepromGetInt(EEPROM_FIRMWARE_VERSION_OFFSET, EEPROM_FIRMWARE_VERSION_LENGTH));
-		
-		// Get new firmware type
-		firmwareTypes newFirmwareType = getFirmwareTypeFromFirmwareVersion(romVersion);
-		
-		// Check if going from M3D or M3D Mod firmware to iMe firmware
-		if((oldFirmwareType == M3D || oldFirmwareType == M3D_MOD) && newFirmwareType == IME) {
-		
+	// Get new firmware type
+	firmwareTypes newFirmwareType = getFirmwareTypeFromFirmwareVersion(romVersion);
+	
+	// Check if going from M3D or M3D Mod firmware to iMe firmware
+	if((oldFirmwareType == M3D || oldFirmwareType == M3D_MOD) && newFirmwareType == IME) {
+	
+		// Check if last Z recorded is valid
+		if(eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH)) {
+	
 			// Convert last recorded Z value to single-precision floating-point format used by iMe firmware
 			float lastRecordedZValue = eepromGetInt(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH) / M3D_FIRMWARE_FLOAT_TO_INT_SCALAR;
-			
+		
 			// Check if saving last recorded Z value in EEPROM failed
 			if(!eepromWriteFloat(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, lastRecordedZValue)) {
-			
+		
 				// Log error
 				if(logFunction)
 					logFunction("Failed to save converted last recorded Z value");
-				
+			
 				// Return false
 				return false;
 			}
-			
+		
 			// Log last recorded Z value status
 			if(logFunction)
 				logFunction("Successfully saved converted last recorded Z value");
 		}
-		
-		// Otherwise check if going from iMe firmware to M3D or M3D Mod firmware
-		else if(oldFirmwareType == IME && (newFirmwareType == M3D || newFirmwareType == M3D_MOD)) {
-		
+	}
+	
+	// Otherwise check if going from iMe firmware to M3D or M3D Mod firmware
+	else if(oldFirmwareType == IME && (newFirmwareType == M3D || newFirmwareType == M3D_MOD)) {
+	
+		// Check if last Z recorded is valid
+		if(eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH)) {
+	
 			// Convert last recorded Z value to unsigned 32-bit integer format used by M3D and M3D Mod firmwares
 			uint32_t lastRecordedZValue = round(eepromGetFloat(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH) * M3D_FIRMWARE_FLOAT_TO_INT_SCALAR);
-			
+		
 			// Check if saving last recorded Z value in EEPROM failed
 			if(!eepromWriteInt(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, lastRecordedZValue)) {
-			
+		
 				// Log error
 				if(logFunction)
 					logFunction("Failed to save converted last recorded Z value");
-				
+			
 				// Return false
 				return false;
 			}
-			
+		
 			// Log last recorded Z value status
 			if(logFunction)
 				logFunction("Successfully saved converted last recorded Z value");
-				
-			// Check if clearing X and Y value, direction, and validity in EEPROM failed
-			if(!eepromWriteInt(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_LAST_RECORDED_X_VALUE_OFFSET, 0)) {
-
-				// Log error
-				if(logFunction)
-					logFunction("Failed to clear X and Y value, direction, and validity");
-
-				// Return false
-				return false;
-			}
-			
-			// Log X and Y value, direction, and validity status
-			if(logFunction)
-				logFunction("Successfully cleared out X and Y value, direction, and validity");
-			
-			// Check if clearing motor's steps/mm failed
-			if(!eepromWriteInt(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH + EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET - EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, 0)) {
-	
-				// Log error
-				if(logFunction)
-					logFunction("Failed to clear out motor's steps/mm");
-
-				// Return false
-				return false;
-			}
-			
-			// Log operation status
-			if(logFunction)
-				logFunction("Successfully cleared out motor's steps/mm");
 		}
+			
+		// Check if clearing X and Y value, direction, and validity in EEPROM failed
+		if(!eepromWriteInt(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_LAST_RECORDED_X_VALUE_OFFSET, 0)) {
+
+			// Log error
+			if(logFunction)
+				logFunction("Failed to clear X and Y value, direction, and validity");
+
+			// Return false
+			return false;
+		}
+		
+		// Log X and Y value, direction, and validity status
+		if(logFunction)
+			logFunction("Successfully cleared out X and Y value, direction, and validity");
+		
+		// Check if clearing motor's steps/mm failed
+		if(!eepromWriteInt(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH + EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET - EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, 0)) {
+
+			// Log error
+			if(logFunction)
+				logFunction("Failed to clear out motor's steps/mm");
+
+			// Return false
+			return false;
+		}
+		
+		// Log operation status
+		if(logFunction)
+			logFunction("Successfully cleared out motor's steps/mm");
 	}
 
 	// Check if updating firmware version in EEPROM failed

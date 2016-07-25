@@ -364,21 +364,21 @@ void Motors::initialize() {
 	// Reset
 	reset();
 	
-	// Set 8 microsteps per step
+	// Set 8 microsteps/step
 	#if MICROSTEPS_PER_STEP == 8 
 	
 		// Configure motor's step control
 		ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_OUTPUT);
 		ioport_set_pin_level(MOTORS_STEP_CONTROL_PIN, IOPORT_PIN_LEVEL_LOW);
 	
-	// Otherwise set 16 microsteps per step
+	// Otherwise set 16 microsteps/step
 	#elif MICROSTEPS_PER_STEP == 16
 	
 		// Configure motor's step control
 		ioport_set_pin_dir(MOTORS_STEP_CONTROL_PIN, IOPORT_DIR_OUTPUT);
 		ioport_set_pin_level(MOTORS_STEP_CONTROL_PIN, IOPORT_PIN_LEVEL_HIGH);
 	
-	// Otherwise set 32 microsteps per step
+	// Otherwise set 32 microsteps/step
 	#else
 	
 		// Configure motor's step control
@@ -602,7 +602,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Set current value
 				currentValues[i] = newValue;
 		
-				// Set direction change, steps per mm, motor direction, speed limit, and min/max feed rates
+				// Set direction change, steps/mm, motor direction, speed limit, and min/max feed rates
 				bool directionChange;
 				float stepsPerMm;
 				float speedLimit;
@@ -1354,7 +1354,7 @@ void Motors::moveToZ0() {
 		// Clear number of remaining steps
 		motorsNumberOfRemainingSteps[Z] = 0;
 		
-		// Get steps per mm
+		// Get steps/mm
 		float stepsPerMm;
 		nvm_eeprom_read_buffer(EEPROM_Z_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Z_MOTOR_STEPS_PER_MM_LENGTH);
 		

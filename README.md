@@ -15,6 +15,7 @@ The latest version of iMe is V00.00.00.13 released on July Xth, 2016, and an ent
 * Builtin backlash and bed compensation
 * Prevents moving the extruder out of bounds in the X and Y directions
 * Faster printing
+* Allows configuring the steps/mm for each of the motors
 
 ### Installation
 The easiest way to install iMe is with M33 Manager, which is available for [Windows](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20Windows.zip), [OS X](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20OS%20X.zip), and [Linux](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20Linux.zip). Just connect the printer to M33 Manager and click the 'Install iMe firmware' button to install iMe.
