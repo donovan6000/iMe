@@ -126,6 +126,7 @@ uint32_t motorsDelaySkipsCounter[NUMBER_OF_MOTORS];
 uint32_t motorsStepDelay[NUMBER_OF_MOTORS];
 uint32_t motorsStepDelayCounter[NUMBER_OF_MOTORS];
 uint32_t motorsNumberOfSteps[NUMBER_OF_MOTORS];
+float motorsNumberOfRemainingSteps[NUMBER_OF_MOTORS] = {};
 
 
 // Supporting function implementation
@@ -281,6 +282,9 @@ bool isPointInTriangle(const Vector &pt, const Vector &v1, const Vector &v2, con
 }
 
 void startMotorsStepTimer() {
+
+	// Turn on motors
+	self->turnOn();
 
 	// Update motors step timer interrupts
 	updateMotorsStepTimerInterrupts();
@@ -602,22 +606,18 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Set current value
 				currentValues[i] = newValue;
 		
-				// Set steps per mm, motor direction, speed limit, and min/max feed rates
+				// Set direction change, steps per mm, motor direction, speed limit, and min/max feed rates
 				float stepsPerMm;
 				float speedLimit;
 				float maxFeedRate;
 				float minFeedRate;
+				bool directionChange;
 				bool savesValidValue = true;
 				switch(i) {
 				
 					case X:
-						
-						// Check if direction changed
-						if(currentMotorDirections[X] != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT))
-						
-							// Set backlash direction X
-							backlashDirectionX = lowerNewValue ? NEGATIVE : POSITIVE;
-						
+					
+						directionChange = ioport_get_pin_level(MOTOR_X_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT);
 						stepsPerMm = MOTOR_X_STEPS_PER_MM;
 						ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT);
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_X_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_X_LENGTH);
@@ -627,12 +627,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 					
 					case Y:
 					
-						// Check if direction changed
-						if(currentMotorDirections[Y] != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD))
-						
-							// Set backlash direction Y
-							backlashDirectionY = lowerNewValue ? NEGATIVE : POSITIVE;
-					
+						directionChange = ioport_get_pin_level(MOTOR_Y_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
 						stepsPerMm = MOTOR_Y_STEPS_PER_MM;
 						ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Y_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Y_LENGTH);
@@ -642,6 +637,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 					
 					case Z:
 					
+						directionChange = ioport_get_pin_level(MOTOR_Z_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_DOWN : DIRECTION_UP);
 						stepsPerMm = MOTOR_Z_STEPS_PER_MM;
 						ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, lowerNewValue ? DIRECTION_DOWN : DIRECTION_UP);
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Z_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Z_LENGTH);
@@ -650,6 +646,8 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 					break;
 					
 					default:
+					
+						directionChange = ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_RETRACT : DIRECTION_EXTRUDE);
 						stepsPerMm = MOTOR_E_STEPS_PER_MM;
 						if(lowerNewValue) {
 							ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, DIRECTION_RETRACT);
@@ -668,8 +666,32 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 						savesValidValue = false;
 				}
 				
+				// Check if direction changes
+				if(directionChange)
+				
+					// Set number of remaining steps to account for direction change
+					motorsNumberOfRemainingSteps[i] *= -1;
+				
+				// Set total number of steps
+				float totalNumberOfSteps = distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP + motorsNumberOfRemainingSteps[i];
+				
+				// Update number of remaining steps
+				motorsNumberOfRemainingSteps[i] = totalNumberOfSteps - static_cast<uint32_t>(totalNumberOfSteps);
+				
 				// Check if motor moves
-				if((motorMoves[i] = round(distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP))) {
+				if(totalNumberOfSteps > 0 && (motorMoves[i] = totalNumberOfSteps)) {
+					
+					// Check if X direction changed
+					if(i == X && currentMotorDirections[X] != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT))
+					
+						// Set backlash direction X
+						backlashDirectionX = lowerNewValue ? NEGATIVE : POSITIVE;
+				
+					// Otherwise check if Y direction changed
+					else if(i == Y && currentMotorDirections[Y] != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD))
+					
+						// Set backlash direction Y
+						backlashDirectionY = lowerNewValue ? NEGATIVE : POSITIVE;
 				
 					// Check if saving changes and saves if motor's state is valid
 					if(tasks & SAVE_CHANGES_TASK && savesValidValue) {
@@ -797,9 +819,6 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 			motorsDelaySkipsCounter[i] = 0;
 			motorsDelaySkips[i] = slowestRoundedTime != motorsTotalRoundedTime[i] ? round(static_cast<float>(motorsTotalRoundedTime[i]) / (slowestRoundedTime - motorsTotalRoundedTime[i])) : 0;
 		}
-		
-		// Turn on motors
-		turnOn();
 	
 		// Start motors step timer
 		startMotorsStepTimer();
@@ -1219,6 +1238,9 @@ void Motors::homeXY(bool adjustHeight) {
 			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		}
 		
+		// Clear number of remaining steps
+		motorsNumberOfRemainingSteps[i] = 0;
+		
 		// Set motor delay to achieve desired feed rate
 		motorsStepDelayCounter[i] = motorsDelaySkipsCounter[i] = 0;
 		motorsStepDelay[i] = minimumOneCeil((distance * 60 * sysclk_get_cpu_hz()) / (HOMING_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * motorsNumberOfSteps[i]));
@@ -1227,9 +1249,6 @@ void Motors::homeXY(bool adjustHeight) {
 		
 		// Enable motor step interrupt 
 		(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
-		
-		// Turn on motors
-		turnOn();
 
 		// Start motors step timer
 		startMotorsStepTimer();
@@ -1332,6 +1351,9 @@ void Motors::moveToZ0() {
 		ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, DIRECTION_DOWN);
 		tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 		
+		// Clear number of remaining steps
+		motorsNumberOfRemainingSteps[Z] = 0;
+		
 		// Set motor delay to achieve desired feed rate
 		motorsStepDelayCounter[Z] = motorsDelaySkipsCounter[Z] = 0;
 		motorsStepDelay[Z] = minimumOneCeil(((motorsNumberOfSteps[Z] / (MOTOR_Z_STEPS_PER_MM * MICROSTEPS_PER_STEP)) * 60 * sysclk_get_cpu_hz()) / (CALIBRATING_Z_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * (motorsNumberOfSteps[Z] / (MOTOR_Z_STEPS_PER_MM * MICROSTEPS_PER_STEP)) * MOTOR_Z_STEPS_PER_MM * MICROSTEPS_PER_STEP));
@@ -1343,6 +1365,9 @@ void Motors::moveToZ0() {
 		
 		// Turn on motors
 		turnOn();
+		
+		// Wait enough time for still movement to stabilize
+		delay_ms(100);
 		
 		// Get still value
 		accelerometer.readAccelerationValues();
@@ -1399,7 +1424,7 @@ void Motors::moveToZ0() {
 	
 	// Set motor Z Vref to idle
 	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
-
+	
 	// Check if Z was previously valid and an emergency stop didn't happen
 	if(validZ && !emergencyStopOccured)
 	

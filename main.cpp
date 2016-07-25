@@ -25,7 +25,7 @@ extern "C" {
 // Unknown pin (Connected to transistors above the microcontroller. Maybe related to detecting if USB is connected)
 #define UNKNOWN_PIN IOPORT_CREATE_PIN(PORTA, 1)
 
-// Unused pins (None of them are connected to anything, so they could be used to easily connect additional hardware to the printer)
+// Unused pins (None of them are connected to anything, so they could be used to easily interface additional hardware to the printer)
 #define UNUSED_PIN_1 IOPORT_CREATE_PIN(PORTA, 6)
 #define UNUSED_PIN_2 IOPORT_CREATE_PIN(PORTB, 0)
 #define UNUSED_PIN_3 IOPORT_CREATE_PIN(PORTE, 0)
@@ -140,7 +140,7 @@ int main() {
 		}
 	});
 	
-	// Fix writing to EEPROM addresses above 0x2E0 by first writing to an address less than that
+	// Fix writing to EEPROM addresses above 0x2E0 by first writing to an address less than that (This is either a silicon error or an error in Atmel's ASF library)
 	nvm_eeprom_write_byte(0, nvm_eeprom_read_byte(0));
 	
 	// Read serial number from EEPROM
@@ -775,7 +775,7 @@ void cdcRxNotifyCallback(uint8_t port) {
 
 void cdcDisconnectCallback(uint8_t port) {
 
-	// Prepare to reattach to the host
+	// Prepare to reattach to the host (This function should get called when the device is disconnected, but it gets called when the device is reattached which makes it necessary to make sure that data being sent over USB can actually be sent to prevent a buffer from overflowing when the device is disconnected. This is either a silicon error or an error in Atmel's ASF library)
 	udc_detach();
 	udc_attach();
 }
