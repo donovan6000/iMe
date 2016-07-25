@@ -89,6 +89,9 @@ class Motors {
 		
 		// Emergency stop occured
 		bool emergencyStopOccured;
+		
+		// Number of remaining steps
+		float numberOfRemainingSteps[NUMBER_OF_MOTORS];
 	
 	// Private
 	private:
