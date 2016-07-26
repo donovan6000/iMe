@@ -122,7 +122,6 @@ uint32_t motorsDelaySkipsCounter[NUMBER_OF_MOTORS];
 uint32_t motorsStepDelay[NUMBER_OF_MOTORS];
 uint32_t motorsStepDelayCounter[NUMBER_OF_MOTORS];
 uint32_t motorsNumberOfSteps[NUMBER_OF_MOTORS];
-float motorsNumberOfRemainingSteps[NUMBER_OF_MOTORS] = {};
 
 
 // Supporting function implementation
@@ -602,8 +601,7 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Set current value
 				currentValues[i] = newValue;
 		
-				// Set direction change, steps/mm, motor direction, speed limit, and min/max feed rates
-				bool directionChange;
+				// Set steps/mm, motor direction, speed limit, and min/max feed rates
 				float stepsPerMm;
 				float speedLimit;
 				float maxFeedRate;
@@ -613,7 +611,12 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				
 					case X:
 					
-						directionChange = ioport_get_pin_level(MOTOR_X_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT);
+						// Check if direction changed
+						if(currentMotorDirections[X] != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT))
+						
+							// Set backlash direction X
+							backlashDirectionX = lowerNewValue ? NEGATIVE : POSITIVE;
+					
 						nvm_eeprom_read_buffer(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_X_MOTOR_STEPS_PER_MM_LENGTH);
 						ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT);
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_X_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_X_LENGTH);
@@ -623,7 +626,12 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 					
 					case Y:
 					
-						directionChange = ioport_get_pin_level(MOTOR_Y_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
+						// Check if direction changed
+						if(currentMotorDirections[Y] != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD))
+						
+							// Set backlash direction Y
+							backlashDirectionY = lowerNewValue ? NEGATIVE : POSITIVE;
+					
 						nvm_eeprom_read_buffer(EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH);
 						ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Y_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Y_LENGTH);
@@ -633,7 +641,6 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 					
 					case Z:
 					
-						directionChange = ioport_get_pin_level(MOTOR_Z_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_DOWN : DIRECTION_UP);
 						nvm_eeprom_read_buffer(EEPROM_Z_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Z_MOTOR_STEPS_PER_MM_LENGTH);
 						ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, lowerNewValue ? DIRECTION_DOWN : DIRECTION_UP);
 						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Z_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Z_LENGTH);
@@ -643,7 +650,6 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 					
 					default:
 					
-						directionChange = ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_RETRACT : DIRECTION_EXTRUDE);
 						nvm_eeprom_read_buffer(EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH);
 						if(lowerNewValue) {
 							ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, DIRECTION_RETRACT);
@@ -662,32 +668,8 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 						savesValidValue = false;
 				}
 				
-				// Check if direction changes
-				if(directionChange)
-				
-					// Set number of remaining steps to account for direction change
-					motorsNumberOfRemainingSteps[i] *= -1;
-				
-				// Set total number of steps
-				float totalNumberOfSteps = distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP + motorsNumberOfRemainingSteps[i];
-				
-				// Update number of remaining steps
-				motorsNumberOfRemainingSteps[i] = totalNumberOfSteps - static_cast<uint32_t>(totalNumberOfSteps);
-				
 				// Check if motor moves
-				if(totalNumberOfSteps > 0 && (motorMoves[i] = totalNumberOfSteps)) {
-					
-					// Check if X direction changed
-					if(i == X && currentMotorDirections[X] != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT))
-					
-						// Set backlash direction X
-						backlashDirectionX = lowerNewValue ? NEGATIVE : POSITIVE;
-				
-					// Otherwise check if Y direction changed
-					else if(i == Y && currentMotorDirections[Y] != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD))
-					
-						// Set backlash direction Y
-						backlashDirectionY = lowerNewValue ? NEGATIVE : POSITIVE;
+				if((motorMoves[i] = round(distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP))) {
 				
 					// Check if saving changes and saves if motor's state is valid
 					if(tasks & SAVE_CHANGES_TASK && savesValidValue) {
@@ -1238,9 +1220,6 @@ void Motors::homeXY(bool adjustHeight) {
 		// Set number of steps
 		motorsNumberOfSteps[i] = round(distance * stepsPerMm * MICROSTEPS_PER_STEP);
 		
-		// Clear number of remaining steps
-		motorsNumberOfRemainingSteps[i] = 0;
-		
 		// Set motor delay to achieve desired feed rate
 		motorsStepDelayCounter[i] = motorsDelaySkipsCounter[i] = 0;
 		motorsStepDelay[i] = minimumOneCeil((distance * 60 * sysclk_get_cpu_hz()) / (HOMING_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * motorsNumberOfSteps[i]));
@@ -1350,9 +1329,6 @@ void Motors::moveToZ0() {
 		motorsNumberOfSteps[Z] = UINT32_MAX;
 		ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, DIRECTION_DOWN);
 		tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
-		
-		// Clear number of remaining steps
-		motorsNumberOfRemainingSteps[Z] = 0;
 		
 		// Get steps/mm
 		float stepsPerMm;
