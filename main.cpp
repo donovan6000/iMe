@@ -363,13 +363,13 @@ int main() {
 										break;
 										
 										// M404
-										case 404:
+										/*case 404:
 										
 											// Set response to reset cause
 											strcpy(responseBuffer, "ok\nRC:");
 											ulltoa(reset_cause_get_causes(), numberBuffer);
 											strcat(responseBuffer, numberBuffer);
-										break;
+										break;*/
 						
 										// M420
 										case 420:
@@ -382,12 +382,12 @@ int main() {
 										break;
 										
 										// M583
-										case 583:
+										/*case 583:
 										
 											// Set response to if gantry clips are detected
 											strcpy(responseBuffer, "ok\nC");
 											strcat(responseBuffer, motors.gantryClipsDetected() ? "1" : "0");
-										break;
+										break;*/
 					
 										// M618 or M619
 										case 618:
@@ -443,7 +443,7 @@ int main() {
 										break;
 										
 										// M5321
-										case 5321:
+										/*case 5321:
 										
 											// Check if hours is provided
 											if(requests[currentProcessingRequest].commandParameters & PARAMETER_X_OFFSET) {
@@ -457,7 +457,7 @@ int main() {
 												// Set response to confirmation
 												strcpy(responseBuffer, "ok");
 											}
-										break;
+										break;*/
 						
 										// M20, M21, M80, M82, M83, M84, M110, M111, or M999
 										case 20:
