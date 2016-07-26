@@ -122,6 +122,7 @@ uint32_t motorsDelaySkipsCounter[NUMBER_OF_MOTORS];
 uint32_t motorsStepDelay[NUMBER_OF_MOTORS];
 uint32_t motorsStepDelayCounter[NUMBER_OF_MOTORS];
 uint32_t motorsNumberOfSteps[NUMBER_OF_MOTORS];
+float motorsNumberOfRemainingSteps[NUMBER_OF_MOTORS] = {};
 
 
 // Supporting function implementation
@@ -352,10 +353,6 @@ void Motors::initialize() {
 
 	// Set mode
 	mode = ABSOLUTE;
-	
-	// Clear number of remaining steps
-	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
-		numberOfRemainingSteps[i] = 0;
 	
 	// Set initial values
 	currentValues[E] = 0;
@@ -669,13 +666,13 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				if(directionChange)
 				
 					// Set number of remaining steps to account for direction change
-					numberOfRemainingSteps[i] *= -1;
+					motorsNumberOfRemainingSteps[i] *= -1;
 				
 				// Set total number of steps
-				float totalNumberOfSteps = distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP + numberOfRemainingSteps[i];
+				float totalNumberOfSteps = distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP + motorsNumberOfRemainingSteps[i];
 				
 				// Update number of remaining steps
-				numberOfRemainingSteps[i] = totalNumberOfSteps - static_cast<uint32_t>(totalNumberOfSteps);
+				motorsNumberOfRemainingSteps[i] = totalNumberOfSteps - static_cast<uint32_t>(totalNumberOfSteps);
 				
 				// Check if motor moves
 				if(totalNumberOfSteps > 0 && (motorMoves[i] = totalNumberOfSteps)) {
@@ -1242,7 +1239,7 @@ void Motors::homeXY(bool adjustHeight) {
 		motorsNumberOfSteps[i] = round(distance * stepsPerMm * MICROSTEPS_PER_STEP);
 		
 		// Clear number of remaining steps
-		numberOfRemainingSteps[i] = 0;
+		motorsNumberOfRemainingSteps[i] = 0;
 		
 		// Set motor delay to achieve desired feed rate
 		motorsStepDelayCounter[i] = motorsDelaySkipsCounter[i] = 0;
@@ -1355,7 +1352,7 @@ void Motors::moveToZ0() {
 		tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 		
 		// Clear number of remaining steps
-		numberOfRemainingSteps[Z] = 0;
+		motorsNumberOfRemainingSteps[Z] = 0;
 		
 		// Get steps/mm
 		float stepsPerMm;
