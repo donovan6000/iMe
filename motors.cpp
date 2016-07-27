@@ -55,7 +55,7 @@ extern "C" {
 #define MOTORS_SAVE_TIMER FAN_TIMER
 #define MOTORS_SAVE_TIMER_PERIOD FAN_TIMER_PERIOD
 #define MOTORS_STEP_TIMER TCC0
-#define MOTORS_STEP_TIMER_PERIOD 0x400
+#define MOTORS_STEP_TIMER_PERIOD (8192 / MICROSTEPS_PER_STEP)
 
 // Motor X settings
 #define MOTOR_X_DIRECTION_PIN IOPORT_CREATE_PIN(PORTC, 2)
@@ -122,6 +122,7 @@ uint32_t motorsDelaySkipsCounter[NUMBER_OF_MOTORS];
 uint32_t motorsStepDelay[NUMBER_OF_MOTORS];
 uint32_t motorsStepDelayCounter[NUMBER_OF_MOTORS];
 uint32_t motorsNumberOfSteps[NUMBER_OF_MOTORS];
+float motorsNumberOfRemainingSteps[NUMBER_OF_MOTORS] = {};
 
 
 // Supporting function implementation
@@ -352,10 +353,6 @@ void Motors::initialize() {
 
 	// Set mode
 	mode = ABSOLUTE;
-	
-	// Clear number of remaining steps
-	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
-		numberOfRemainingSteps[i] = 0;
 	
 	// Set initial values
 	currentValues[E] = 0;
@@ -665,64 +662,48 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 						savesValidValue = false;
 				}
 				
-				// Check if direction changes
-				if(directionChange)
+				// Update number of remaining steps
+				motorsNumberOfRemainingSteps[i] = distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP + (directionChange ? -motorsNumberOfRemainingSteps[i] : motorsNumberOfRemainingSteps[i]);
 				
-					// Set number of remaining steps to account for direction change
-					numberOfRemainingSteps[i] *= -1;
-				
-				// Set total number of steps
-				float totalNumberOfSteps = distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP + numberOfRemainingSteps[i];
-				
-				// Check if there's more remaining steps in the opposite direction
-				if(totalNumberOfSteps <= 0)
-				
-					// Update number of remaining steps
-					numberOfRemainingSteps[i] = totalNumberOfSteps;
-				
-				// Otherwise
-				else {
+				// Check if moving at least one step in the current direction
+				if(motorsNumberOfRemainingSteps[i] >= 1) {
 				
 					// Set motor moves
-					motorMoves[i] = totalNumberOfSteps;
+					motorMoves[i] = motorsNumberOfRemainingSteps[i];
 				
 					// Update number of remaining steps
-					numberOfRemainingSteps[i] = totalNumberOfSteps - motorMoves[i];
-				
-					// Check if motor moves
-					if(motorMoves[i]) {
+					motorsNumberOfRemainingSteps[i] -= motorMoves[i];
 					
-						// Check if X direction changed
-						if(i == X && currentMotorDirections[X] != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT))
-					
-							// Set backlash direction X
-							backlashDirectionX = lowerNewValue ? NEGATIVE : POSITIVE;
+					// Check if X direction changed
+					if(i == X && currentMotorDirections[X] != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT))
 				
-						// Otherwise check if Y direction changed
-						else if(i == Y && currentMotorDirections[Y] != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD))
-					
-							// Set backlash direction Y
-							backlashDirectionY = lowerNewValue ? NEGATIVE : POSITIVE;
+						// Set backlash direction X
+						backlashDirectionX = lowerNewValue ? NEGATIVE : POSITIVE;
+			
+					// Otherwise check if Y direction changed
+					else if(i == Y && currentMotorDirections[Y] != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD))
 				
-						// Check if saving changes and current motor's validity gets saved
-						if(tasks & SAVE_CHANGES_TASK && savesValidValue) {
-				
-							// Save if value is valid
-							validValues[i] = currentStateOfValues[i];
+						// Set backlash direction Y
+						backlashDirectionY = lowerNewValue ? NEGATIVE : POSITIVE;
+			
+					// Check if saving changes and current motor's validity gets saved
+					if(tasks & SAVE_CHANGES_TASK && savesValidValue) {
+			
+						// Save if value is valid
+						validValues[i] = currentStateOfValues[i];
 
-							// Set that value is invalid
-							currentStateOfValues[i] = INVALID;
-						}
-				
-						// Set motor feedrate
-						float motorFeedRate = min(currentValues[F], speedLimit);
-				
-						// Enforce min/max feed rates
-						motorFeedRate = getValueInRange(motorFeedRate, minFeedRate, maxFeedRate);
-		
-						// Set slowest time
-						slowestTime = max(distanceTraveled / motorFeedRate * 60, slowestTime);
+						// Set that value is invalid
+						currentStateOfValues[i] = INVALID;
 					}
+			
+					// Set motor feedrate
+					float motorFeedRate = min(currentValues[F], speedLimit);
+			
+					// Enforce min/max feed rates
+					motorFeedRate = getValueInRange(motorFeedRate, minFeedRate, maxFeedRate);
+	
+					// Set slowest time
+					slowestTime = max(distanceTraveled / motorFeedRate * 60, slowestTime);
 				}
 			}
 		}
@@ -1252,10 +1233,10 @@ void Motors::homeXY(bool adjustHeight) {
 		}
 		
 		// Set number of steps
-		motorsNumberOfSteps[i] = round(distance * stepsPerMm * MICROSTEPS_PER_STEP);
+		motorsNumberOfSteps[i] = ceil(distance * stepsPerMm * MICROSTEPS_PER_STEP);
 		
 		// Clear number of remaining steps
-		numberOfRemainingSteps[i] = 0;
+		motorsNumberOfRemainingSteps[i] = 0;
 		
 		// Set motor delay to achieve desired feed rate
 		motorsStepDelayCounter[i] = motorsDelaySkipsCounter[i] = 0;
@@ -1368,7 +1349,7 @@ void Motors::moveToZ0() {
 		tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 		
 		// Clear number of remaining steps
-		numberOfRemainingSteps[Z] = 0;
+		motorsNumberOfRemainingSteps[Z] = 0;
 		
 		// Get steps/mm
 		float stepsPerMm;
@@ -1417,7 +1398,7 @@ void Motors::moveToZ0() {
 		stopMotorsStepTimer();
 		
 		// Set current Z
-		currentValues[Z] -= (static_cast<float>(UINT32_MAX) - motorsNumberOfSteps[Z]) / (stepsPerMm * MICROSTEPS_PER_STEP);
+		currentValues[Z] -= static_cast<float>(UINT32_MAX - motorsNumberOfSteps[Z]) / (stepsPerMm * MICROSTEPS_PER_STEP);
 		
 		// Check if emergency stop has occured
 		if(emergencyStopOccured)

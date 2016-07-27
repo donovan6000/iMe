@@ -608,14 +608,10 @@ int main() {
 													}
 													
 													// Check if parameter is provided
-													if(requests[currentProcessingRequest].commandParameters & parameterOffset) {
+													if(requests[currentProcessingRequest].commandParameters & parameterOffset)
 													
 														// Set motors current value
 														motors.currentValues[i] = *value;
-														
-														// Clear motors number of remaining steps
-														motors.numberOfRemainingSteps[i] = 0;
-													}
 												}
 				
 												// Set response to confirmation
