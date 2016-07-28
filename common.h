@@ -12,8 +12,8 @@
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 #define NUMBER_OF_DECIMAL_PLACES 4
-#define INT_BUFFER_SIZE sizeof("18446744073709551615")
-#define FLOAT_BUFFER_SIZE (sizeof("4294967296") + sizeof('.') + NUMBER_OF_DECIMAL_PLACES)
+#define INT_BUFFER_SIZE (sizeof("18446744073709551615") + sizeof('-'))
+#define FLOAT_BUFFER_SIZE (sizeof("4294967296") + sizeof('-') + sizeof('.') + NUMBER_OF_DECIMAL_PLACES)
 
 // Integer limits
 #define UINT12_MAX static_cast<uint16_t>(pow(2, 12) - 1)

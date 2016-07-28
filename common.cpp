@@ -11,7 +11,7 @@ extern "C" {
 void ulltoa(uint64_t value, char *buffer) {
 
 	// Initialize variables
-	uint8_t i = INT_BUFFER_SIZE;
+	uint8_t i = INT_BUFFER_SIZE - sizeof('-') - 1;
 	
 	// Add terminating character
 	buffer[i] = 0;
@@ -25,7 +25,7 @@ void ulltoa(uint64_t value, char *buffer) {
 	} while(value);
 	
 	// Move string to the start of the buffer
-	memmove(buffer, &buffer[i], INT_BUFFER_SIZE - i + 1);
+	memmove(buffer, &buffer[i], INT_BUFFER_SIZE - i - sizeof('-'));
 }
 
 void lltoa(int64_t value, char *buffer) {
@@ -42,7 +42,7 @@ void lltoa(int64_t value, char *buffer) {
 void ftoa(float value, char *buffer) {
 
 	// Initialize variables
-	uint8_t i = FLOAT_BUFFER_SIZE;
+	uint8_t i = FLOAT_BUFFER_SIZE - 1;
 	bool negative = value < 0;
 	
 	// Add terminating character
@@ -53,11 +53,12 @@ void ftoa(float value, char *buffer) {
 	buffer[i] = '.';
 	uint8_t j = i;
 	
-	// Limit value's max
-	value = min(fabs(value), UINT32_MAX);
+	// Make value positive
+	value = fabs(value);
 	
 	// Go through all digits
-	uint32_t temp = static_cast<uint32_t>(value);
+	uint32_t temp = value;
+	value -= temp;
 	do {
 
 		// Set digit in buffer
@@ -66,7 +67,7 @@ void ftoa(float value, char *buffer) {
 	} while(temp);
 	
 	// Go through all decimals
-	temp = static_cast<uint32_t>(round(value * pow(10, NUMBER_OF_DECIMAL_PLACES)));
+	temp = round(value * pow(10, NUMBER_OF_DECIMAL_PLACES));
 	for(uint8_t k = NUMBER_OF_DECIMAL_PLACES; k; k--) {
 	
 		// Set decimal digit in buffer
@@ -79,7 +80,7 @@ void ftoa(float value, char *buffer) {
 		buffer[--i] = '-';
 	
 	// Move string to the start of the buffer
-	memmove(buffer, &buffer[i], FLOAT_BUFFER_SIZE - i + 1);
+	memmove(buffer, &buffer[i], FLOAT_BUFFER_SIZE - i);
 }
 
 uint64_t strtoull(const char *nptr, char **endptr) {
@@ -137,7 +138,7 @@ float strtof(const char *nptr, char **endptr) {
 		float decimalValue;
 		
 		// Check if getting integer part of the value
-		if(firstPass) 
+		if(firstPass)
 		
 			// Set current value
 			currentValue = &value;
@@ -160,12 +161,18 @@ float strtof(const char *nptr, char **endptr) {
 	
 		// Go through all characters
 		uint8_t numberOfDigits = 0;
-		for(; isdigit(*nptr); nptr++, numberOfDigits++) {
+		for(; isdigit(*nptr); nptr++)
 	
-			// Set digit in current value
-			*currentValue *= 10;
-			*currentValue += *nptr - 0x30;
-		}
+			// Check if value is valid
+			if(firstPass || numberOfDigits != FLT_DIG) {
+			
+				// Set digit in current value
+				*currentValue *= 10;
+				*currentValue += *nptr - 0x30;
+				
+				// Increment number of digits
+				numberOfDigits++;
+			}
 		
 		// Check if getting fractional part of the value
 		if(!firstPass) {
