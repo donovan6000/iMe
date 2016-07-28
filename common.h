@@ -16,7 +16,6 @@
 #define FLOAT_BUFFER_SIZE (sizeof("4294967296") + sizeof('.') + NUMBER_OF_DECIMAL_PLACES)
 
 // Integer limits
-#define UINT5_MAX static_cast<uint8_t>(pow(2, 5) - 1)
 #define UINT12_MAX static_cast<uint16_t>(pow(2, 12) - 1)
 #define INT12_MAX static_cast<int16_t>(pow(2, 12 - 1) - 1)
 

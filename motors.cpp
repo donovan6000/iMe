@@ -1047,7 +1047,13 @@ void Motors::splitUpMovement(bool adjustHeight) {
 				break;
 			
 				case Z:
-					gcode.valueZ = segmentValue + (adjustHeight ? getHeightAdjustmentRequired(gcode.valueX, gcode.valueY) : 0);
+					gcode.valueZ = segmentValue;
+					
+					// Check if adjusting height
+					if(adjustHeight)
+					
+						// Adjust G-code's Z value
+						gcode.valueZ += getHeightAdjustmentRequired(gcode.valueX, gcode.valueY);
 				break;
 			
 				default:

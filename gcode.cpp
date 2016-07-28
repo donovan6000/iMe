@@ -323,7 +323,7 @@ uint64_t Gcode::getParameterN() const {
 bool Gcode::hasHostCommand() const {
 
 	// Return is host command is set
-	return *hostCommand;
+	return commandParameters & PARAMETER_HOST_COMMAND_OFFSET;
 }
 
 const char *Gcode::getHostCommand() const {
