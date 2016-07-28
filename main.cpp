@@ -189,7 +189,7 @@ int main() {
 					// Check if command contains valid G-code
 					if(requests[currentProcessingRequest].commandParameters & ~(VALID_CHECKSUM_OFFSET | PARSED_OFFSET)) {
 
-						// Check if command has host command
+						// Check if command is a host command
 						if(requests[currentProcessingRequest].commandParameters & PARAMETER_HOST_COMMAND_OFFSET)
 		
 							// Set response to error

@@ -135,7 +135,7 @@ class Gcode {
 		uint64_t valueN;
 		
 		// Host command
-		char hostCommand[UINT6_MAX + 1];
+		char hostCommand[UINT5_MAX + 1];
 };
 
 

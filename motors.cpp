@@ -19,6 +19,7 @@ extern "C" {
 #define HOMING_FEED_RATE 1500.0
 #define CALIBRATING_Z_FEED_RATE 17.0
 #define BED_ORIENTATION_VERSION 1
+#define CALIBRATE_Z0_CORRECTION 0.2
 //#define REGULATE_EXTRUDER_CURRENT
 
 // Bed dimensions
@@ -554,8 +555,8 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 	// Go through all motors
 	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
 	
-		// Check if compensating for bed leveling
-		if(tasks & BED_LEVELING_TASK)
+		// Check if not performing a movement
+		if(tasks & SAVE_CHANGES_TASK)
 		
 			// Set motor's start value
 			startValues[i] = currentValues[i];
@@ -602,92 +603,126 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Set current value
 				currentValues[i] = newValue;
 		
-				// Set direction change, steps/mm, motor direction, speed limit, and min/max feed rates
+				// Set current motor's settings
 				bool directionChange;
 				float stepsPerMm;
 				float speedLimit;
-				float maxFeedRate;
-				float minFeedRate;
-				bool savesValidValue = true;
+				float maxFeedRate = 0;
+				float minFeedRate = 0;
 				switch(i) {
 				
 					case X:
 					
+						// Set direction change and steps/mm
 						directionChange = ioport_get_pin_level(MOTOR_X_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT);
 						nvm_eeprom_read_buffer(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_X_MOTOR_STEPS_PER_MM_LENGTH);
-						ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT);
-						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_X_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_X_LENGTH);
-						maxFeedRate = EEPROM_SPEED_LIMIT_X_MAX;
-						minFeedRate = EEPROM_SPEED_LIMIT_X_MIN;
+						
+						// Set direction, speed limit, and min/max feed rates if performing a movement
+						if(!(tasks & SAVE_CHANGES_TASK)) {
+							ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT);
+							nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_X_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_X_LENGTH);
+							maxFeedRate = EEPROM_SPEED_LIMIT_X_MAX;
+							minFeedRate = EEPROM_SPEED_LIMIT_X_MIN;
+						}
 					break;
 					
 					case Y:
 					
+						// Set direction change and steps/mm
 						directionChange = ioport_get_pin_level(MOTOR_Y_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
 						nvm_eeprom_read_buffer(EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH);
-						ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
-						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Y_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Y_LENGTH);
-						maxFeedRate = EEPROM_SPEED_LIMIT_Y_MAX;
-						minFeedRate = EEPROM_SPEED_LIMIT_Y_MIN;
+						
+						// Set direction, speed limit, and min/max feed rates if performing a movement
+						if(!(tasks & SAVE_CHANGES_TASK)) {
+							ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
+							nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Y_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Y_LENGTH);
+							maxFeedRate = EEPROM_SPEED_LIMIT_Y_MAX;
+							minFeedRate = EEPROM_SPEED_LIMIT_Y_MIN;
+						}
 					break;
 					
 					case Z:
 					
+						// Set direction change and steps/mm
 						directionChange = ioport_get_pin_level(MOTOR_Z_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_DOWN : DIRECTION_UP);
 						nvm_eeprom_read_buffer(EEPROM_Z_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Z_MOTOR_STEPS_PER_MM_LENGTH);
-						ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, lowerNewValue ? DIRECTION_DOWN : DIRECTION_UP);
-						nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Z_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Z_LENGTH);
-						maxFeedRate = EEPROM_SPEED_LIMIT_Z_MAX;
-						minFeedRate = EEPROM_SPEED_LIMIT_Z_MIN;
+						
+						// Set direction, speed limit, and min/max feed rates if performing a movement
+						if(!(tasks & SAVE_CHANGES_TASK)) {
+							ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, lowerNewValue ? DIRECTION_DOWN : DIRECTION_UP);
+							nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_Z_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_Z_LENGTH);
+							maxFeedRate = EEPROM_SPEED_LIMIT_Z_MAX;
+							minFeedRate = EEPROM_SPEED_LIMIT_Z_MIN;
+						}
 					break;
 					
 					default:
 					
+						// Set direction change and steps/mm
 						directionChange = ioport_get_pin_level(MOTOR_E_DIRECTION_PIN) != (lowerNewValue ? DIRECTION_RETRACT : DIRECTION_EXTRUDE);
 						nvm_eeprom_read_buffer(EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH);
-						if(lowerNewValue) {
-							ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, DIRECTION_RETRACT);
-							nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH);
-							maxFeedRate = EEPROM_SPEED_LIMIT_E_NEGATIVE_MAX;
-							minFeedRate = EEPROM_SPEED_LIMIT_E_NEGATIVE_MIN;
-						}
-						else {
-							ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, DIRECTION_EXTRUDE);
-							nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH);
-							maxFeedRate = EEPROM_SPEED_LIMIT_E_POSITIVE_MAX;
-							minFeedRate = EEPROM_SPEED_LIMIT_E_POSITIVE_MIN;
-						}
 						
-						// Clear saves valid value
-						savesValidValue = false;
+						// Set direction, speed limit, and min/max feed rates if performing a movement
+						if(!(tasks & SAVE_CHANGES_TASK)) {
+						
+							if(lowerNewValue) {
+								ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, DIRECTION_RETRACT);
+								nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH);
+								maxFeedRate = EEPROM_SPEED_LIMIT_E_NEGATIVE_MAX;
+								minFeedRate = EEPROM_SPEED_LIMIT_E_NEGATIVE_MIN;
+							}
+							else {
+								ioport_set_pin_level(MOTOR_E_DIRECTION_PIN, DIRECTION_EXTRUDE);
+								nvm_eeprom_read_buffer(EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET, &speedLimit, EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH);
+								maxFeedRate = EEPROM_SPEED_LIMIT_E_POSITIVE_MAX;
+								minFeedRate = EEPROM_SPEED_LIMIT_E_POSITIVE_MIN;
+							}
+						}
 				}
 				
-				// Update number of remaining steps
-				motorsNumberOfRemainingSteps[i] = distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP + (directionChange ? -motorsNumberOfRemainingSteps[i] : motorsNumberOfRemainingSteps[i]);
+				// Get total number of steps
+				float totalNumberOfSteps = distanceTraveled * stepsPerMm * MICROSTEPS_PER_STEP + (directionChange ? -motorsNumberOfRemainingSteps[i] : motorsNumberOfRemainingSteps[i]);
+				
+				// Update number of remaining steps if performing a movement
+				if(!(tasks & SAVE_CHANGES_TASK))
+					motorsNumberOfRemainingSteps[i] = totalNumberOfSteps;
 				
 				// Check if moving at least one step in the current direction
-				if(motorsNumberOfRemainingSteps[i] >= 1) {
+				if(totalNumberOfSteps >= 1) {
 				
 					// Set motor moves
-					motorMoves[i] = motorsNumberOfRemainingSteps[i];
+					motorMoves[i] = totalNumberOfSteps;
 				
-					// Update number of remaining steps
-					motorsNumberOfRemainingSteps[i] -= motorMoves[i];
+					// Check if performing a movement
+					if(!(tasks & SAVE_CHANGES_TASK)) {
 					
-					// Check if X direction changed
-					if(i == X && currentMotorDirections[X] != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT))
-				
-						// Set backlash direction X
-						backlashDirectionX = lowerNewValue ? NEGATIVE : POSITIVE;
+						// Update number of remaining steps 
+						motorsNumberOfRemainingSteps[i] -= motorMoves[i];
+						
+						// Set motor feedrate
+						float motorFeedRate = min(currentValues[F], speedLimit);
 			
-					// Otherwise check if Y direction changed
-					else if(i == Y && currentMotorDirections[Y] != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD))
+						// Enforce min/max feed rates
+						motorFeedRate = getValueInRange(motorFeedRate, minFeedRate, maxFeedRate);
+	
+						// Set slowest time
+						slowestTime = max(distanceTraveled / motorFeedRate * 60, slowestTime);
+					}
+					
+					// Otherwise check if current motor's validity gets saved
+					else if(i <= Z) {
+					
+						// Check if X direction changed
+						if(i == X && currentMotorDirections[X] != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT))
 				
-						// Set backlash direction Y
-						backlashDirectionY = lowerNewValue ? NEGATIVE : POSITIVE;
+							// Set backlash direction X
+							backlashDirectionX = lowerNewValue ? NEGATIVE : POSITIVE;
 			
-					// Check if saving changes and current motor's validity gets saved
-					if(tasks & SAVE_CHANGES_TASK && savesValidValue) {
+						// Otherwise check if Y direction changed
+						else if(i == Y && currentMotorDirections[Y] != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD))
+				
+							// Set backlash direction Y
+							backlashDirectionY = lowerNewValue ? NEGATIVE : POSITIVE;
 			
 						// Save if value is valid
 						validValues[i] = currentStateOfValues[i];
@@ -695,55 +730,71 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 						// Set that value is invalid
 						currentStateOfValues[i] = INVALID;
 					}
-			
-					// Set motor feedrate
-					float motorFeedRate = min(currentValues[F], speedLimit);
-			
-					// Enforce min/max feed rates
-					motorFeedRate = getValueInRange(motorFeedRate, minFeedRate, maxFeedRate);
-	
-					// Set slowest time
-					slowestTime = max(distanceTraveled / motorFeedRate * 60, slowestTime);
 				}
 			}
 		}
 	}
 	
-	// Check if set to compensate for backlash and it's applicable
-	if(tasks & BACKLASH_TASK && (backlashDirectionX != NONE || backlashDirectionY != NONE))
+	// Check if not performing a movement
+	if(tasks & SAVE_CHANGES_TASK) {
 	
-		// Compensate for backlash
-		compensateForBacklash(backlashDirectionX, backlashDirectionY);
+		// Check if set to compensate for backlash and it's applicable
+		if(tasks & BACKLASH_TASK && (backlashDirectionX != NONE || backlashDirectionY != NONE))
 	
-	// Check if set to compensate for bed leveling
-	if(tasks & BED_LEVELING_TASK) {
+			// Compensate for backlash
+			compensateForBacklash(backlashDirectionX, backlashDirectionY);
 	
-		// Limit X and Y from moving out of bounds
-		float minValues[2], maxValues[2];
-		if(currentValues[Z] < BED_LOW_MAX_Z) {
-			minValues[X] = BED_LOW_MIN_X;
-			minValues[Y] = BED_LOW_MIN_Y;
-			maxValues[X] = BED_LOW_MAX_X;
-			maxValues[Y] = BED_LOW_MAX_Y;
-		}
-		else if(currentValues[Z] < BED_MEDIUM_MAX_Z) {
-			minValues[X] = BED_MEDIUM_MIN_X;
-			minValues[Y] = BED_MEDIUM_MIN_Y;
-			maxValues[X] = BED_MEDIUM_MAX_X;
-			maxValues[Y] = BED_MEDIUM_MAX_Y;
-		}
-		else {
-			minValues[X] = BED_HIGH_MIN_X;
-			minValues[Y] = BED_HIGH_MIN_Y;
-			maxValues[X] = BED_HIGH_MAX_X;
-			maxValues[Y] = BED_HIGH_MAX_Y;
+		// Check if compensating for bed leveling
+		if(tasks & BED_LEVELING_TASK) {
+	
+			// Limit X and Y from moving out of bounds
+			float minValues[2], maxValues[2];
+			if(currentValues[Z] < BED_LOW_MAX_Z) {
+				minValues[X] = BED_LOW_MIN_X;
+				minValues[Y] = BED_LOW_MIN_Y;
+				maxValues[X] = BED_LOW_MAX_X;
+				maxValues[Y] = BED_LOW_MAX_Y;
+			}
+			else if(currentValues[Z] < BED_MEDIUM_MAX_Z) {
+				minValues[X] = BED_MEDIUM_MIN_X;
+				minValues[Y] = BED_MEDIUM_MIN_Y;
+				maxValues[X] = BED_MEDIUM_MAX_X;
+				maxValues[Y] = BED_MEDIUM_MAX_Y;
+			}
+			else {
+				minValues[X] = BED_HIGH_MIN_X;
+				minValues[Y] = BED_HIGH_MIN_Y;
+				maxValues[X] = BED_HIGH_MAX_X;
+				maxValues[Y] = BED_HIGH_MAX_Y;
+			}
+			
+			currentValues[X] = getValueInRange(currentValues[X], minValues[X], maxValues[X]);
+			currentValues[Y] = getValueInRange(currentValues[Y], minValues[Y], maxValues[Y]);
 		}
 		
-		currentValues[X] = getValueInRange(currentValues[X], minValues[X], maxValues[X]);
-		currentValues[Y] = getValueInRange(currentValues[Y], minValues[Y], maxValues[Y]);
+		// Perform movement
+		splitUpMovement(tasks & BED_LEVELING_TASK);
 		
-		// Compensate for bed leveling
-		compensateForBedLeveling();
+		// Check if motor X direction changed
+		if(backlashDirectionX != NONE)
+		
+			// Set motor X direction
+			currentMotorDirections[X] = backlashDirectionX == NEGATIVE ? DIRECTION_LEFT : DIRECTION_RIGHT;
+		
+		// Check if motor Y direction changed
+		if(backlashDirectionY != NONE)
+		
+			// Set motor Y direction
+			currentMotorDirections[Y] = backlashDirectionY == NEGATIVE ? DIRECTION_FORWARD : DIRECTION_BACKWARD;
+		
+		// Go through X, Y, and Z motors
+		for(uint8_t i = 0; i < 3; i++)
+		
+			// Check if motor moved, value was previously valid, and an emergency stop didn't happen
+			if(motorMoves[i] && validValues[i] && !emergencyStopOccured)
+				
+				// Set that Z is valid
+				currentStateOfValues[i] = VALID;
 	}
 	
 	// Otherwise check if an emergency stop didn't happen
@@ -867,31 +918,6 @@ void Motors::move(const Gcode &gcode, uint8_t tasks) {
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(MOTOR_E_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	}
-	
-	// Check if saving changes
-	if(tasks & SAVE_CHANGES_TASK) {
-	
-		// Check if motor X direction changed
-		if(backlashDirectionX != NONE)
-		
-			// Set motor X direction
-			currentMotorDirections[X] = backlashDirectionX == NEGATIVE ? DIRECTION_LEFT : DIRECTION_RIGHT;
-		
-		// Check if motor Y direction changed
-		if(backlashDirectionY != NONE)
-		
-			// Set motor Y direction
-			currentMotorDirections[Y] = backlashDirectionY == NEGATIVE ? DIRECTION_FORWARD : DIRECTION_BACKWARD;
-		
-		// Go through X, Y, and Z motors
-		for(uint8_t i = 0; i < 3; i++)
-		
-			// Check if motor moved, value was previously valid, and an emergency stop didn't happen
-			if(motorMoves[i] && validValues[i] && !emergencyStopOccured)
-				
-				// Set that Z is valid
-				currentStateOfValues[i] = VALID;
-	}
 }
 
 void Motors::moveToHeight(float height) {
@@ -961,7 +987,7 @@ void Motors::compensateForBacklash(BACKLASH_DIRECTION backlashDirectionX, BACKLA
 	mode = savedMode;
 }
 
-void Motors::compensateForBedLeveling() {
+void Motors::splitUpMovement(bool adjustHeight) {
 
 	// Save mode
 	MODES savedMode = mode;
@@ -982,8 +1008,11 @@ void Motors::compensateForBedLeveling() {
 		valueChanges[i] = endValues[i] - startValues[i];
 	}
 	
-	// Adjust current Z value for current real height
-	currentValues[Z] += getHeightAdjustmentRequired(startValues[X], startValues[Y]);
+	// Check if adjusting height
+	if(adjustHeight)
+	
+		// Adjust current Z value for current real height
+		currentValues[Z] += getHeightAdjustmentRequired(startValues[X], startValues[Y]);
 	
 	// Get horizontal distance
 	float horizontalDistance = sqrt(pow(valueChanges[X], 2) + pow(valueChanges[Y], 2));
@@ -998,7 +1027,7 @@ void Motors::compensateForBedLeveling() {
 	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET;
 	
 	// Go through all segments
-	for(uint32_t numberOfSegments = minimumOneCeil(horizontalDistance / SEGMENT_LENGTH), segmentCounter = 1; segmentCounter <= numberOfSegments; segmentCounter++) {
+	for(uint32_t numberOfSegments = minimumOneCeil(horizontalDistance / SEGMENT_LENGTH), segmentCounter = adjustHeight ? 1 : numberOfSegments; segmentCounter <= numberOfSegments; segmentCounter++) {
 	
 		// Go through all motors
 		for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
@@ -1018,7 +1047,7 @@ void Motors::compensateForBedLeveling() {
 				break;
 			
 				case Z:
-					gcode.valueZ = segmentValue + getHeightAdjustmentRequired(gcode.valueX, gcode.valueY);
+					gcode.valueZ = segmentValue + (adjustHeight ? getHeightAdjustmentRequired(gcode.valueX, gcode.valueY) : 0);
 				break;
 			
 				default:
@@ -1209,6 +1238,7 @@ void Motors::homeXY(bool adjustHeight) {
 			distance = max(max(BED_LOW_MAX_Y, BED_MEDIUM_MAX_Y), BED_HIGH_MAX_Y) - min(min(BED_LOW_MIN_Y, BED_MEDIUM_MIN_Y), BED_HIGH_MIN_Y) + 5;
 			nvm_eeprom_read_buffer(EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH);
 			ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
+			currentMotorDirections[Y] = DIRECTION_BACKWARD;
 			setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
 			
 			// Set accelerometer value
@@ -1222,6 +1252,7 @@ void Motors::homeXY(bool adjustHeight) {
 			distance = max(max(BED_LOW_MAX_X, BED_MEDIUM_MAX_X), BED_HIGH_MAX_X) - min(min(BED_LOW_MIN_X, BED_MEDIUM_MIN_X), BED_HIGH_MIN_X) + 5;
 			nvm_eeprom_read_buffer(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_X_MOTOR_STEPS_PER_MM_LENGTH);
 			ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
+			currentMotorDirections[X] = DIRECTION_RIGHT;
 			setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
 			
 			// Set accelerometer value
@@ -1304,7 +1335,7 @@ void Motors::homeXY(bool adjustHeight) {
 		gcode.valueZ = adjustHeight ? getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) : 0;
 		gcode.valueF = EEPROM_SPEED_LIMIT_X_MAX;
 		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_F_OFFSET;
-		move(gcode, SAVE_CHANGES_TASK);
+		move(gcode, BACKLASH_TASK | SAVE_CHANGES_TASK);
 
 		// Restore mode
 		mode = savedMode;
@@ -1408,10 +1439,15 @@ void Motors::moveToZ0() {
 		
 		// Check if at the real Z0
 		if(fabs(lastZ0 - currentValues[Z]) <= 1) {
-			if(++matchCounter >= 2)
+			if(++matchCounter >= 2) {
+			
+				// Move by correction factor
+				moveToHeight(currentValues[Z] + CALIBRATE_Z0_CORRECTION);
+				currentValues[Z] -= CALIBRATE_Z0_CORRECTION;
 			
 				// Break
 				break;
+			}
 		}
 		else
 			matchCounter = 0;
