@@ -1,7 +1,8 @@
 Changelog:
 
-V00.00.01.05 July 28, 2016
+V00.00.01.06 July 28, 2016
 
+	* First non-alpha release of iMe. Huge thanks to everyone who contributed!
 	* Compiled with the latest Atmel Software Framework V3.32
 	* Uses intrinsic delays
 	* Fixed accumulating rounding error that occurs due moving a fractional number of steps
