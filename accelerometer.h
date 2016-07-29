@@ -5,7 +5,7 @@
 
 // Definitions
 #define X_JERK_ACCELERATION 60
-#define Y_JERK_ACCELERATION 60
+#define Y_JERK_ACCELERATION 90
 #define Y_TILT_ACCELERATION 10
 
 
