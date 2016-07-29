@@ -102,8 +102,8 @@ class Motors {
 		// Compensate for backlash
 		void compensateForBacklash(BACKLASH_DIRECTION backlashDirectionX, BACKLASH_DIRECTION backlashDirectionY);
 		
-		// Compensate for bed leveling
-		void compensateForBedLeveling();
+		// Split up movement
+		void splitUpMovement(bool adjustHeight);
 	
 		// Move to Z0
 		void moveToZ0();

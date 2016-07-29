@@ -68,10 +68,8 @@ bool Gcode::parseCommand(const char *command) {
 		// Go through each valid character in the command
 		for(uint8_t i = startParsingOffset; i < stopParsingOffset; i++) {
 		
-			// Get parameter index
-			char *parameterIndex = strchr(PARAMETER_ORDER, toupper(command[i]));
-	
 			// Check if character is a valid parameter
+			const char *parameterIndex = strchr(PARAMETER_ORDER, toupper(command[i]));
 			if(parameterIndex) {
 			
 				// Check if parameter hasn't been obtained yet
@@ -126,8 +124,8 @@ bool Gcode::parseCommand(const char *command) {
 							valueN = strtoull(&command[++i], &lastParameterCharacter);
 						
 							// Check if command contains a checksum
-							char *checksumCharacter;
-							if((checksumCharacter = strchr(command, '*'))) {
+							const char *checksumCharacter = strchr(command, '*');
+							if(checksumCharacter) {
 						
 								// Check if checksum exists
 								char *lastChecksumCharacter;
@@ -325,7 +323,7 @@ uint64_t Gcode::getParameterN() const {
 bool Gcode::hasHostCommand() const {
 
 	// Return is host command is set
-	return *hostCommand;
+	return commandParameters & PARAMETER_HOST_COMMAND_OFFSET;
 }
 
 const char *Gcode::getHostCommand() const {

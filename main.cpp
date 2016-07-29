@@ -25,7 +25,7 @@ extern "C" {
 // Unknown pin (Connected to transistors above the microcontroller. Maybe related to detecting if USB is connected)
 #define UNKNOWN_PIN IOPORT_CREATE_PIN(PORTA, 1)
 
-// Unused pins (None of them are connected to anything, so they could be used to easily connect additional hardware to the printer)
+// Unused pins (None of them are connected to anything, so they could be used to easily interface additional hardware to the printer)
 #define UNUSED_PIN_1 IOPORT_CREATE_PIN(PORTA, 6)
 #define UNUSED_PIN_2 IOPORT_CREATE_PIN(PORTB, 0)
 #define UNUSED_PIN_3 IOPORT_CREATE_PIN(PORTE, 0)
@@ -140,7 +140,7 @@ int main() {
 		}
 	});
 	
-	// Fix writing to EEPROM addresses above 0x2E0 by first writing to an address less than that
+	// Fix writing to EEPROM addresses above 0x2E0 by first writing to an address less than that (This is either a silicon error or an error in Atmel's ASF library)
 	nvm_eeprom_write_byte(0, nvm_eeprom_read_byte(0));
 	
 	// Read serial number from EEPROM
@@ -159,9 +159,6 @@ int main() {
 	// Main loop
 	while(true) {
 	
-		// Delay to allow enough time for a response to be received
-		delay_us(1);
-		
 		// Check if a current processing request is ready
 		if(requests[currentProcessingRequest].commandParameters) {
 		
@@ -192,7 +189,7 @@ int main() {
 					// Check if command contains valid G-code
 					if(requests[currentProcessingRequest].commandParameters & ~(VALID_CHECKSUM_OFFSET | PARSED_OFFSET)) {
 
-						// Check if command has host command
+						// Check if command is a host command
 						if(requests[currentProcessingRequest].commandParameters & PARAMETER_HOST_COMMAND_OFFSET)
 		
 							// Set response to error
@@ -270,24 +267,25 @@ int main() {
 										// M104 or M109
 										case 104:
 										case 109:
-						
-											// Check if temperature is valid
-											int32_t temperature;
-											temperature = requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET ? requests[currentProcessingRequest].valueS : 0;
-											if(!temperature || (temperature >= HEATER_MIN_TEMPERATURE && temperature <= HEATER_MAX_TEMPERATURE)) {
+										
+											{
+												// Check if temperature is valid
+												int32_t temperature = requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET ? requests[currentProcessingRequest].valueS : 0;
+												if(!temperature || (temperature >= HEATER_MIN_TEMPERATURE && temperature <= HEATER_MAX_TEMPERATURE)) {
 							
-												// Set temperature
-												heater.setTemperature(temperature, temperature && requests[currentProcessingRequest].valueM == 109);
+													// Set temperature
+													heater.setTemperature(temperature, temperature && requests[currentProcessingRequest].valueM == 109);
 						
-												// Set response to confirmation
-												strcpy(responseBuffer, "ok");
+													// Set response to confirmation
+													strcpy(responseBuffer, "ok");
+												}
+							
+												// Otherwise
+												else
+							
+													// Set response to temperature range
+													strcpy(responseBuffer, "Error: Temperature must be between " TOSTRING(HEATER_MIN_TEMPERATURE) " and " TOSTRING(HEATER_MAX_TEMPERATURE) " degrees Celsius");
 											}
-							
-											// Otherwise
-											else
-							
-												// Set response to temperature range
-												strcpy(responseBuffer, "Error: Temperature must be between " TOSTRING(HEATER_MIN_TEMPERATURE) " and " TOSTRING(HEATER_MAX_TEMPERATURE) " degrees Celsius");
 										break;
 						
 										// M105
@@ -365,13 +363,13 @@ int main() {
 										break;
 										
 										// M404
-										case 404:
+										/*case 404:
 										
 											// Set response to reset cause
 											strcpy(responseBuffer, "ok\nRC:");
 											ulltoa(reset_cause_get_causes(), numberBuffer);
 											strcat(responseBuffer, numberBuffer);
-										break;
+										break;*/
 						
 										// M420
 										case 420:
@@ -384,12 +382,12 @@ int main() {
 										break;
 										
 										// M583
-										case 583:
+										/*case 583:
 										
 											// Set response to if gantry clips are detected
 											strcpy(responseBuffer, "ok\nC");
 											strcat(responseBuffer, motors.gantryClipsDetected() ? "1" : "0");
-										break;
+										break;*/
 					
 										// M618 or M619
 										case 618:
@@ -445,7 +443,7 @@ int main() {
 										break;
 										
 										// M5321
-										case 5321:
+										/*case 5321:
 										
 											// Check if hours is provided
 											if(requests[currentProcessingRequest].commandParameters & PARAMETER_X_OFFSET) {
@@ -459,7 +457,7 @@ int main() {
 												// Set response to confirmation
 												strcpy(responseBuffer, "ok");
 											}
-										break;
+										break;*/
 						
 										// M20, M21, M80, M82, M83, M84, M110, M111, or M999
 										case 20:
@@ -505,11 +503,20 @@ int main() {
 				
 										// G4
 										case 4:
-				
-											// Delay specified time
-											uint32_t delayTime;
-											if((delayTime = requests[currentProcessingRequest].valueP + requests[currentProcessingRequest].valueS * 1000))
-												delay_ms(delayTime);
+										
+											{
+												// Delay specified number of milliseconds
+												int32_t delayTime = requests[currentProcessingRequest].valueP;
+												if(delayTime > 0)
+													for(int32_t i = 0; i < delayTime; i++)
+														delay_ms(1);
+												
+												// Delay specified number of seconds
+												delayTime = requests[currentProcessingRequest].valueS;
+												if(delayTime > 0)
+													for(int32_t i = 0; i < delayTime; i++)
+														delay_s(1);
+											}
 					
 											// Set response to confirmation
 											strcpy(responseBuffer, "ok");
@@ -600,7 +607,7 @@ int main() {
 															value = &requests[currentProcessingRequest].valueE;
 													}
 													
-													// Set parameter is provided
+													// Check if parameter is provided
 													if(requests[currentProcessingRequest].commandParameters & parameterOffset)
 													
 														// Set motors current value
@@ -768,7 +775,7 @@ void cdcRxNotifyCallback(uint8_t port) {
 
 void cdcDisconnectCallback(uint8_t port) {
 
-	// Prepare to reattach to the host
+	// Prepare to reattach to the host (This function should get called when the device is disconnected, but it gets called when the device is reattached which makes it necessary to make sure that data being sent over USB can actually be sent to prevent a buffer from overflowing when the device is disconnected. This is either a silicon error or an error in Atmel's ASF library)
 	udc_detach();
 	udc_attach();
 }

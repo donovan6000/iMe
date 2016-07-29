@@ -9,6 +9,9 @@
 
 
 // Definitions
+//#define ALLOW_HOST_COMMANDS
+
+// Parameters
 #define PARAMETER_G_OFFSET 1
 #define PARAMETER_M_OFFSET (1 << 1)
 #define PARAMETER_T_OFFSET (1 << 2)
@@ -135,7 +138,11 @@ class Gcode {
 		uint64_t valueN;
 		
 		// Host command
-		char hostCommand[UINT6_MAX + 1];
+		#ifdef ALLOW_HOST_COMMANDS
+			char hostCommand[UINT8_MAX + 1];
+		#else
+			char hostCommand[1];
+		#endif
 };
 
 

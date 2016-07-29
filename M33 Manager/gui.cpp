@@ -2708,7 +2708,7 @@ void MyFrame::checkInvalidValues() {
 					if(!printer.hasValidBedOrientation()) {
 	
 						// Display bed orientation calibration dialog
-						wxMessageDialog *dial = new wxMessageDialog(NULL, "Bed orientation is invalid. Calibrate?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+						wxMessageDialog *dial = new wxMessageDialog(nullptr, "Bed orientation is invalid. Calibrate?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
 		
 						// Check if calibrating bed orientation
 						if(dial->ShowModal() == wxID_YES) {
@@ -2894,7 +2894,7 @@ void MyFrame::checkInvalidValues() {
 					if(!printer.hasValidBedPosition()) {
 	
 						// Display bed position calibration dialog
-						wxMessageDialog *dial = new wxMessageDialog(NULL, "Bed position is invalid. Calibrate?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+						wxMessageDialog *dial = new wxMessageDialog(nullptr, "Bed position is invalid. Calibrate?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
 		
 						// Check if calibrating bed position
 						if(dial->ShowModal() == wxID_YES) {
@@ -3083,7 +3083,7 @@ void MyFrame::checkInvalidValues() {
 							iMeVersion.insert(i * 2 + 2 + i, ".");
 		
 						// Display firmware installation dialog
-						wxMessageDialog *dial = new wxMessageDialog(NULL, "Firmware is corrupt. Install " + (printer.getFirmwareType() == M3D || printer.getFirmwareType() == M3D_MOD ? "M3D V" TOSTRING(M3D_ROM_VERSION_STRING) : "iMe V" + iMeVersion) + "?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+						wxMessageDialog *dial = new wxMessageDialog(nullptr, "Firmware is corrupt. Install " + (printer.getFirmwareType() == M3D || printer.getFirmwareType() == M3D_MOD ? "M3D V" TOSTRING(M3D_ROM_VERSION_STRING) : "iMe V" + iMeVersion) + "?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
 		
 						// Check if installing firmware
 						if(dial->ShowModal() == wxID_YES) {
@@ -3167,7 +3167,7 @@ void MyFrame::checkInvalidValues() {
 							iMeVersion.insert(i * 2 + 2 + i, ".");
 	
 						// Display firmware installation dialog
-						wxMessageDialog *dial = new wxMessageDialog(NULL, static_cast<string>(incompatible ? "Firmware is incompatible" : "Newer firmware available") + ". Update to " + (printer.getFirmwareType() == M3D || printer.getFirmwareType() == M3D_MOD ? "M3D V" TOSTRING(M3D_ROM_VERSION_STRING) : "iMe V" + iMeVersion) + "?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+						wxMessageDialog *dial = new wxMessageDialog(nullptr, static_cast<string>(incompatible ? "Firmware is incompatible" : "Newer firmware available") + ". Update to " + (printer.getFirmwareType() == M3D || printer.getFirmwareType() == M3D_MOD ? "M3D V" TOSTRING(M3D_ROM_VERSION_STRING) : "iMe V" + iMeVersion) + "?", "M33 Manager", wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
 	
 						// Check if installing firmware
 						if(dial->ShowModal() == wxID_YES) {

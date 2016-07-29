@@ -6,7 +6,7 @@ Firmware that allows using the Micro 3D printer with third-party 3D printing sof
 ### Description
 iMe is firmware for the Micro 3D printer that attempts to fix the printer's biggest problem: limited software compatibility. iMe uses RepRap G-code protocol, so it allows you to use the Micro 3D printer with any 3D printing software that supports that protocol. It also features builtin backlash and bed compensation which makes creating good looking prints with other software possible since the G-code never has to be pre-processed beforehand.
 
-The latest version of iMe is V00.00.00.12 released on July 20th, 2016, and an entire changelog for it can be found [here](https://raw.githubusercontent.com/donovan6000/iMe/master/Changelog).
+The latest version of iMe is V00.00.01.06 released on July 28th, 2016, and an entire changelog for it can be found [here](https://raw.githubusercontent.com/donovan6000/iMe/master/Changelog).
 
 ### Features
 * Uses RepRap's G-code protocol
@@ -15,6 +15,7 @@ The latest version of iMe is V00.00.00.12 released on July 20th, 2016, and an en
 * Builtin backlash and bed compensation
 * Prevents moving the extruder out of bounds in the X and Y directions
 * Faster printing
+* Allows configuring the steps/mm for each of the motors
 
 ### Installation
 The easiest way to install iMe is with M33 Manager, which is available for [Windows](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20Windows.zip), [OS X](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20OS%20X.zip), and [Linux](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20Linux.zip). Just connect the printer to M33 Manager and click the 'Install iMe firmware' button to install iMe.

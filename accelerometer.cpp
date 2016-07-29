@@ -89,7 +89,7 @@ void Accelerometer::initialize() {
 		writeValue(CTRL_REG2, CTRL_REG2_RST);
 		
 		// Wait enough time for accelerometer to initialize
-		delay_ms(1);
+		delay_ms(2);
 		
 		// Put accelerometer into standby mode
 		writeValue(CTRL_REG1, 0);

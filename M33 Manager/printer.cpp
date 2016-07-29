@@ -959,6 +959,50 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 						// Return false
 						return false;
 					}
+					
+					// Check if updating X motor steps/mm failed
+					if(!eepromKeepFloatWithinRange(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_X_MOTOR_STEPS_PER_MM_LENGTH, EEPROM_X_MOTOR_STEPS_PER_MM_MIN, EEPROM_X_MOTOR_STEPS_PER_MM_MAX, EEPROM_X_MOTOR_STEPS_PER_MM_DEFAULT)) {
+				
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating X motor steps/mm failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating Y motor steps/mm failed
+					if(!eepromKeepFloatWithinRange(EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH, EEPROM_Y_MOTOR_STEPS_PER_MM_MIN, EEPROM_Y_MOTOR_STEPS_PER_MM_MAX, EEPROM_Y_MOTOR_STEPS_PER_MM_DEFAULT)) {
+				
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating Y motor steps/mm failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating Z motor steps/mm failed
+					if(!eepromKeepFloatWithinRange(EEPROM_Z_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_Z_MOTOR_STEPS_PER_MM_LENGTH, EEPROM_Z_MOTOR_STEPS_PER_MM_MIN, EEPROM_Z_MOTOR_STEPS_PER_MM_MAX, EEPROM_Z_MOTOR_STEPS_PER_MM_DEFAULT)) {
+				
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating Z motor steps/mm failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating E motor steps/mm failed
+					if(!eepromKeepFloatWithinRange(EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH, EEPROM_E_MOTOR_STEPS_PER_MM_MIN, EEPROM_E_MOTOR_STEPS_PER_MM_MAX, EEPROM_E_MOTOR_STEPS_PER_MM_DEFAULT)) {
+				
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating E motor steps/mm failed");
+
+						// Return false
+						return false;
+					}
 				}
 				
 				// Check if updating last recorded Z value failed
@@ -994,6 +1038,10 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				uint8_t heaterCalibrationMode = eepromGetInt(EEPROM_HEATER_CALIBRATION_MODE_OFFSET, EEPROM_HEATER_CALIBRATION_MODE_LENGTH);
 				float heaterTemperatureMeasurementB = eepromGetFloat(EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_OFFSET, EEPROM_HEATER_TEMPERATURE_MEASUREMENT_B_LENGTH);
 				float heaterResistanceM = eepromGetFloat(EEPROM_HEATER_RESISTANCE_M_OFFSET, EEPROM_HEATER_RESISTANCE_M_LENGTH);
+				float stepsPerMmX = eepromGetFloat(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_X_MOTOR_STEPS_PER_MM_LENGTH);
+				float stepsPerMmY = eepromGetFloat(EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH);
+				float stepsPerMmZ = eepromGetFloat(EEPROM_Z_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_Z_MOTOR_STEPS_PER_MM_LENGTH);
+				float stepsPerMmE = eepromGetFloat(EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH);
 				
 				// Set if firmware is valid
 				validFirmware = chipCrc == eepromCrc;
@@ -1030,6 +1078,10 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					logFunction("Using heater calibration mode " + to_string(heaterCalibrationMode));
 					logFunction("Using " + to_string(heaterTemperatureMeasurementB) + " heater temperature measurement B");
 					logFunction("Using " + to_string(heaterResistanceM) + " heater resistance M");
+					logFunction("Using " + to_string(stepsPerMmX) + " X motor steps/mm");
+					logFunction("Using " + to_string(stepsPerMmY) + " Y motor steps/mm");
+					logFunction("Using " + to_string(stepsPerMmZ) + " Z motor steps/mm");
+					logFunction("Using " + to_string(stepsPerMmE) + " E motor steps/mm");
 					logFunction(static_cast<string>("Firmware is ") + (validFirmware ? "valid" : "corrupt"));
 					logFunction(static_cast<string>("Bed position is ") + (validBedPosition ? "valid" : "invalid"));
 					logFunction(static_cast<string>("Bed orientation is ") + (validBedOrientation ? "valid" : "invalid"));
@@ -1645,11 +1697,8 @@ bool Printer::installFirmware(const string &file) {
 	if(logFunction)
 		logFunction("Obtained EEPROM");
 					
-	// Get old EEPROM CRC
-	uint32_t oldEepromCrc = eepromGetInt(EEPROM_FIRMWARE_CRC_OFFSET, EEPROM_FIRMWARE_CRC_LENGTH);
-	
-	// Check if last Z recorded is invalid or previous firmware was corrupt
-	if(!eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH) || oldFirmwareCrc != oldEepromCrc) {
+	// Check if last Z recorded is invalid
+	if(!eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH)) {
 	
 		// Check if clearing last recorded Z value in EEPROM failed
 		if(!eepromWriteInt(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, 0)) {
@@ -1667,89 +1716,93 @@ bool Printer::installFirmware(const string &file) {
 			logFunction("Successfully cleared out last recorded Z value");
 	}
 	
-	// Otherwise
-	else {
+	// Get old firmware type
+	firmwareTypes oldFirmwareType = getFirmwareTypeFromFirmwareVersion(eepromGetInt(EEPROM_FIRMWARE_VERSION_OFFSET, EEPROM_FIRMWARE_VERSION_LENGTH));
 	
-		// Get old firmware type
-		firmwareTypes oldFirmwareType = getFirmwareTypeFromFirmwareVersion(eepromGetInt(EEPROM_FIRMWARE_VERSION_OFFSET, EEPROM_FIRMWARE_VERSION_LENGTH));
-		
-		// Get new firmware type
-		firmwareTypes newFirmwareType = getFirmwareTypeFromFirmwareVersion(romVersion);
-		
-		// Check if going from M3D or M3D Mod firmware to iMe firmware
-		if((oldFirmwareType == M3D || oldFirmwareType == M3D_MOD) && newFirmwareType == IME) {
-		
+	// Get new firmware type
+	firmwareTypes newFirmwareType = getFirmwareTypeFromFirmwareVersion(romVersion);
+	
+	// Check if going from M3D or M3D Mod firmware to iMe firmware
+	if((oldFirmwareType == M3D || oldFirmwareType == M3D_MOD) && newFirmwareType == IME) {
+	
+		// Check if last Z recorded is valid
+		if(eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH)) {
+	
 			// Convert last recorded Z value to single-precision floating-point format used by iMe firmware
 			float lastRecordedZValue = eepromGetInt(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH) / M3D_FIRMWARE_FLOAT_TO_INT_SCALAR;
-			
+		
 			// Check if saving last recorded Z value in EEPROM failed
 			if(!eepromWriteFloat(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, lastRecordedZValue)) {
-			
+		
 				// Log error
 				if(logFunction)
 					logFunction("Failed to save converted last recorded Z value");
-				
+			
 				// Return false
 				return false;
 			}
-			
+		
 			// Log last recorded Z value status
 			if(logFunction)
 				logFunction("Successfully saved converted last recorded Z value");
 		}
-		
-		// Otherwise check if going from iMe firmware to M3D or M3D Mod firmware
-		else if(oldFirmwareType == IME && (newFirmwareType == M3D || newFirmwareType == M3D_MOD)) {
-		
+	}
+	
+	// Otherwise check if going from iMe firmware to M3D or M3D Mod firmware
+	else if(oldFirmwareType == IME && (newFirmwareType == M3D || newFirmwareType == M3D_MOD)) {
+	
+		// Check if last Z recorded is valid
+		if(eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH)) {
+	
 			// Convert last recorded Z value to unsigned 32-bit integer format used by M3D and M3D Mod firmwares
 			uint32_t lastRecordedZValue = round(eepromGetFloat(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH) * M3D_FIRMWARE_FLOAT_TO_INT_SCALAR);
-			
+		
 			// Check if saving last recorded Z value in EEPROM failed
 			if(!eepromWriteInt(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH, lastRecordedZValue)) {
-			
+		
 				// Log error
 				if(logFunction)
 					logFunction("Failed to save converted last recorded Z value");
-				
+			
 				// Return false
 				return false;
 			}
-			
+		
 			// Log last recorded Z value status
 			if(logFunction)
 				logFunction("Successfully saved converted last recorded Z value");
-				
-			// Check if clearing X and Y value, direction, and validity in EEPROM failed
-			if(!eepromWriteInt(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_LAST_RECORDED_X_VALUE_OFFSET, 0)) {
-
-				// Log error
-				if(logFunction)
-					logFunction("Failed to clear X and Y value, direction, and validity");
-
-				// Return false
-				return false;
-			}
-			
-			// Log X and Y validity status
-			if(logFunction)
-				logFunction("Successfully cleared out X and Y value, direction, and validity");
 		}
-	}
-	
-	// Check if clearing motor's steps per mm failed
-	if(!eepromWriteInt(EEPROM_X_AXIS_STEPS_PER_MM_OFFSET, EEPROM_E_AXIS_STEPS_PER_MM_LENGTH + EEPROM_E_AXIS_STEPS_PER_MM_OFFSET - EEPROM_X_AXIS_STEPS_PER_MM_OFFSET, 0)) {
-	
-		// Log error
-		if(logFunction)
-			logFunction("Failed to clear out motor's steps per mm");
+			
+		// Check if clearing X and Y value, direction, and validity in EEPROM failed
+		if(!eepromWriteInt(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_LAST_RECORDED_X_VALUE_OFFSET, 0)) {
 
-		// Return false
-		return false;
+			// Log error
+			if(logFunction)
+				logFunction("Failed to clear X and Y value, direction, and validity");
+
+			// Return false
+			return false;
+		}
+		
+		// Log X and Y value, direction, and validity status
+		if(logFunction)
+			logFunction("Successfully cleared out X and Y value, direction, and validity");
+		
+		// Check if clearing motor's steps/mm failed
+		if(!eepromWriteInt(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH + EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET - EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, 0)) {
+
+			// Log error
+			if(logFunction)
+				logFunction("Failed to clear out motor's steps/mm");
+
+			// Return false
+			return false;
+		}
+		
+		// Log operation status
+		if(logFunction)
+			logFunction("Successfully cleared out motor's steps/mm");
 	}
-	
-	// Log operation status
-	if(logFunction)
-		logFunction("Successfully cleared out motor's steps per mm");
 
 	// Check if updating firmware version in EEPROM failed
 	if(!eepromWriteInt(EEPROM_FIRMWARE_VERSION_OFFSET, EEPROM_FIRMWARE_VERSION_LENGTH, romVersion)) {
@@ -2914,6 +2967,10 @@ vector<string> Printer::getEepromSettingsNames() {
 	settingsNames.push_back("Speed limit Z");
 	settingsNames.push_back("Speed limit E+");
 	settingsNames.push_back("Speed limit E-");
+	settingsNames.push_back("X motor steps/mm");
+	settingsNames.push_back("Y motor steps/mm");
+	settingsNames.push_back("Z motor steps/mm");
+	settingsNames.push_back("E motor steps/mm");
 	
 	// Return settings names
 	return settingsNames;
@@ -2989,6 +3046,22 @@ void Printer::getEepromOffsetAndLength(const string &name, uint16_t &offset, uin
 	else if(name == "Speed limit E-") {
 		offset = EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET;
 		length = EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH;
+	}
+	else if(name == "X motor steps/mm") {
+		offset = EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET;
+		length = EEPROM_X_MOTOR_STEPS_PER_MM_LENGTH;
+	}
+	else if(name == "Y motor steps/mm") {
+		offset = EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET;
+		length = EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH;
+	}
+	else if(name == "Z motor steps/mm") {
+		offset = EEPROM_Z_MOTOR_STEPS_PER_MM_OFFSET;
+		length = EEPROM_Z_MOTOR_STEPS_PER_MM_LENGTH;
+	}
+	else if(name == "E motor steps/mm") {
+		offset = EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET;
+		length = EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH;
 	}
 }
 
