@@ -69,22 +69,9 @@ void Accelerometer::initialize() {
 	twi_master_init(&TWI_MASTER, &options);
 	twi_master_enable(&TWI_MASTER);
 
-	// Create packet
-	uint8_t value;
-	twi_package_t packet;
-	packet.addr[0] = WHO_AM_I;
-	packet.addr_length = 1;
-	packet.chip = ACCELEROMETER_ADDRESS;
-	packet.buffer = &value;
-	packet.length = 1;
-	packet.no_wait = false;
-	
-	// Clear is working
-	isWorking = false;
-	
-	// Check if transmitting or receiving failed
-	if(twi_master_read(&TWI_MASTER, &packet) == TWI_SUCCESS && value == DEVICE_ID) {
-	
+	// Check if accelerometer has the correct device ID
+	if(hasCorrectDeviceId()) {
+		
 		// Reset the accelerometer
 		writeValue(CTRL_REG2, CTRL_REG2_RST);
 		
@@ -96,29 +83,44 @@ void Accelerometer::initialize() {
 		
 		// Set output data rate frequency to 400Hz and enable active mode
 		writeValue(CTRL_REG1, CTRL_REG1_DR0 | CTRL_REG1_ACTIVE);
-	
-		// Set is working
-		isWorking = true;
 	}
 }
 
-void Accelerometer::readAccelerationValues() {
+bool Accelerometer::hasCorrectDeviceId() {
 
-	// Get average acceleration
+	// Return if accelerometer has the correct device ID
+	uint8_t buffer;
+	return isWorking = readValue(WHO_AM_I, &buffer) && buffer == DEVICE_ID;
+}
+
+bool Accelerometer::readAccelerationValues() {
+
+	// Go through each axis
 	int32_t averages[NUMBER_OF_ACCELERATION_AXES] = {};
 	for(uint8_t i = 0; i < ACCELEROMETER_SAMPLE_SIZE; i++) {
 		
 		// Wait until data is available
-		while(!dataAvailable());
-	
-		// Read values
-		uint8_t values[OUT_Z_LSB - OUT_X_MSB + 1];
-		readValue(OUT_X_MSB, values, OUT_Z_LSB - OUT_X_MSB + 1);
+		while(!dataAvailable())
 		
+			// Check if accelerometer isn't working
+			if(!isWorking)
+			
+				// Break
+				break;
+	
+		// Check if accelerometer isn't working or reading values failed
+		uint8_t values[OUT_Z_LSB - OUT_X_MSB + 1];
+		if(!isWorking || !readValue(OUT_X_MSB, values, OUT_Z_LSB - OUT_X_MSB + 1))
+		
+			// Break
+			break;
+		
+		// Get acceleration
 		for(uint8_t j = 0; j < NUMBER_OF_ACCELERATION_AXES; j++)
 			averages[j] += ((values[j * 2] << 8) | values[j * 2 + 1]) >> 4;
 	}
 	
+	// Get average acceleration
 	for(uint8_t i = 0; i < NUMBER_OF_ACCELERATION_AXES; i++)
 		averages[i] /= ACCELEROMETER_SAMPLE_SIZE;
 	
@@ -126,6 +128,9 @@ void Accelerometer::readAccelerationValues() {
 	xAcceleration = averages[ACCELERATION_Z];
 	yAcceleration = averages[ACCELERATION_Y];
 	zAcceleration = averages[ACCELERATION_X];
+	
+	// Return if accelerometer is working
+	return isWorking;
 }
 
 bool Accelerometer::dataAvailable() {
@@ -136,25 +141,25 @@ bool Accelerometer::dataAvailable() {
 	return buffer & (STATUS_XDR | STATUS_YDR | STATUS_ZDR);
 }
 
-void Accelerometer::sendCommand(uint8_t command) {
+bool Accelerometer::sendCommand(uint8_t command) {
 
-	// Transmit request
-	transmit(command);
+	// Return if sending command was successful
+	return transmit(command);
 }
 
-void Accelerometer::writeValue(uint8_t address, uint8_t value) {
+bool Accelerometer::writeValue(uint8_t address, uint8_t value) {
 
-	// Transmit request
-	transmit(address, value, true);
+	// Return if writing value was successful
+	return transmit(address, value, true);
 }
 
-void Accelerometer::readValue(uint8_t address, uint8_t *responseBuffer, uint8_t responseLength) {
+bool Accelerometer::readValue(uint8_t address, uint8_t *responseBuffer, uint8_t responseLength) {
 
-	// Get response
-	transmit(address, 0, false, responseBuffer, responseLength);
+	// Return if receiving response was successful
+	return transmit(address, 0, false, responseBuffer, responseLength);
 }
 
-void Accelerometer::transmit(uint8_t command, uint8_t value, bool sendValue, uint8_t *responseBuffer, uint8_t responseLength) {
+bool Accelerometer::transmit(uint8_t command, uint8_t value, bool sendValue, uint8_t *responseBuffer, uint8_t responseLength) {
 	
 	// Create packet
 	twi_package_t packet;
@@ -170,6 +175,6 @@ void Accelerometer::transmit(uint8_t command, uint8_t value, bool sendValue, uin
 	packet.length = responseLength;
 	packet.no_wait = false;
 	
-	// Wait until transmission is done
-	while(twi_master_transfer(&TWI_MASTER, &packet, responseLength) != TWI_SUCCESS);
+	// Return if transmission was successful
+	return isWorking = twi_master_transfer(&TWI_MASTER, &packet, responseLength) == TWI_SUCCESS;
 }

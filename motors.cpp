@@ -995,6 +995,10 @@ void Motors::splitUpMovement(bool adjustHeight) {
 	// Set mode to absolute
 	mode = ABSOLUTE;
 	
+	// Initialize variables
+	float endValues[NUMBER_OF_MOTORS];
+	float valueChanges[NUMBER_OF_MOTORS];
+	
 	// Go through all motors
 	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
 	
@@ -1226,20 +1230,20 @@ void Motors::changeState(bool save, AXES motor, AXES_PARAMETER parameter) {
 	}
 }
 
-void Motors::homeXY(bool adjustHeight) {
+bool Motors::homeXY(bool adjustHeight) {
 
 	// Set that X and Y are invalid
 	currentStateOfValues[X] = currentStateOfValues[Y] = INVALID;
 	
 	// Go through X and Y motors
-	for(int8_t i = 1; i >= 0 && !emergencyStopOccured; i--) {
+	for(int8_t i = 1; i >= 0; i--) {
 	
 		// Set up motors to move all the way to the back right corner as a fallback
-		int16_t *accelerometerValue;
-		int16_t jerkAcceleration;
 		void (*setMotorStepInterruptLevel)(volatile void *tc, TC_INT_LEVEL_t level);
 		float distance;
 		float stepsPerMm;
+		int16_t *accelerometerValue;
+		eeprom_addr_t eepromOffset;
 		if(i) {
 			distance = max(max(BED_LOW_MAX_Y, BED_MEDIUM_MAX_Y), BED_HIGH_MAX_Y) - min(min(BED_LOW_MIN_Y, BED_MEDIUM_MIN_Y), BED_HIGH_MIN_Y) + 5;
 			nvm_eeprom_read_buffer(EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH);
@@ -1249,7 +1253,7 @@ void Motors::homeXY(bool adjustHeight) {
 			
 			// Set accelerometer value
 			accelerometerValue = &accelerometer.yAcceleration;
-			jerkAcceleration = Y_JERK_ACCELERATION;
+			eepromOffset = EEPROM_Y_JERK_SENSITIVITY_OFFSET;
 			
 			// Set motor Y Vref to active
 			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
@@ -1263,11 +1267,14 @@ void Motors::homeXY(bool adjustHeight) {
 			
 			// Set accelerometer value
 			accelerometerValue = &accelerometer.xAcceleration;
-			jerkAcceleration = X_JERK_ACCELERATION;
+			eepromOffset = EEPROM_X_JERK_SENSITIVITY_OFFSET;
 			
 			// Set motor X Vref to active
 			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		}
+		
+		// Set jerk acceleration
+		uint8_t jerkAcceleration = EEPROM_X_JERK_SENSITIVITY_MAX - nvm_eeprom_read_byte(eepromOffset);
 		
 		// Set number of steps
 		motorsNumberOfSteps[i] = ceil(distance * stepsPerMm * MICROSTEPS_PER_STEP);
@@ -1292,8 +1299,11 @@ void Motors::homeXY(bool adjustHeight) {
 		uint8_t counter = 0;
 		for(bool firstRun = true; MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm) && !emergencyStopOccured; firstRun = false) {
 
-			// Get accelerometer values
-			accelerometer.readAccelerationValues();
+			// Check if getting accelerometer values failed
+			if(!accelerometer.readAccelerationValues())
+			
+				// Break
+				break;
 			
 			// Check if not first run
 			if(!firstRun) {
@@ -1319,44 +1329,49 @@ void Motors::homeXY(bool adjustHeight) {
 		// Set motors Vref to idle
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+		
+		// Check if emergency stop occured or accelerometer isn't working
+		if(emergencyStopOccured || !accelerometer.isWorking)
+		
+			// Return if accelerometer is working
+			return accelerometer.isWorking;
 	}
 	
-	// Check if emergency stop hasn't occured
-	if(!emergencyStopOccured) {
+	// Save current Z
+	float savedZ = currentValues[Z];
+
+	// Save mode
+	MODES savedMode = mode;
 	
-		// Save current Z
-		float savedZ = currentValues[Z];
+	// Set mode to relative
+	mode = RELATIVE;
+	
+	// Move to center
+	Gcode gcode;
+	gcode.valueG = 0;
+	gcode.valueX = -BED_CENTER_X_DISTANCE_FROM_HOMING_CORNER;
+	gcode.valueY = -BED_CENTER_Y_DISTANCE_FROM_HOMING_CORNER;
+	gcode.valueZ = adjustHeight ? getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) : 0;
+	gcode.valueF = EEPROM_SPEED_LIMIT_X_MAX;
+	gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_F_OFFSET;
+	move(gcode, BACKLASH_TASK | SAVE_CHANGES_TASK);
 
-		// Save mode
-		MODES savedMode = mode;
-		
-		// Set mode to relative
-		mode = RELATIVE;
-		
-		// Move to center
-		Gcode gcode;
-		gcode.valueG = 0;
-		gcode.valueX = -BED_CENTER_X_DISTANCE_FROM_HOMING_CORNER;
-		gcode.valueY = -BED_CENTER_Y_DISTANCE_FROM_HOMING_CORNER;
-		gcode.valueZ = adjustHeight ? getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) : 0;
-		gcode.valueF = EEPROM_SPEED_LIMIT_X_MAX;
-		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_F_OFFSET;
-		move(gcode, BACKLASH_TASK | SAVE_CHANGES_TASK);
+	// Restore mode
+	mode = savedMode;
 
-		// Restore mode
-		mode = savedMode;
+	// Set current X, Y, and Z
+	currentValues[X] = BED_CENTER_X;
+	currentValues[Y] = BED_CENTER_Y;
+	currentValues[Z] = savedZ;
+	
+	// Check if an emergency stop didn't happen
+	if(!emergencyStopOccured)
 
-		// Set current X, Y, and Z
-		currentValues[X] = BED_CENTER_X;
-		currentValues[Y] = BED_CENTER_Y;
-		currentValues[Z] = savedZ;
-		
-		// Check if an emergency stop didn't happen
-		if(!emergencyStopOccured)
-
-			// Set that X and Y are valid
-			currentStateOfValues[X] = currentStateOfValues[Y] = VALID;
-	}
+		// Set that X and Y are valid
+		currentStateOfValues[X] = currentStateOfValues[Y] = VALID;
+	
+	// Return true
+	return true;
 }
 
 void Motors::saveZAsBedCenterZ0() {
@@ -1368,7 +1383,7 @@ void Motors::saveZAsBedCenterZ0() {
 	currentStateOfValues[Z] = VALID;
 }
 
-void Motors::moveToZ0() {
+bool Motors::moveToZ0() {
 	
 	// Save if Z is valid
 	bool validZ = currentStateOfValues[Z];
@@ -1376,8 +1391,10 @@ void Motors::moveToZ0() {
 	// Set that Z is invalid
 	currentStateOfValues[Z] = INVALID;
 	
+	// Set max Z and last Z0
+	float maxZ = currentValues[Z], lastZ0 = currentValues[Z];
+	
 	// Find Z0
-	float lastZ0 = currentValues[Z];
 	for(uint8_t matchCounter = 0; !emergencyStopOccured;) {
 	
 		// Set up motors to move down
@@ -1407,28 +1424,34 @@ void Motors::moveToZ0() {
 		// Wait enough time for still movement to stabilize
 		delay_ms(100);
 		
-		// Get still value
-		accelerometer.readAccelerationValues();
-		int16_t stillValue = accelerometer.yAcceleration;
+		// Check if getting still value was successful
+		if(accelerometer.readAccelerationValues()) {
 		
-		// Start motors step timer
-		startMotorsStepTimer();
-	
-		// Wait until Z motor step interrupts have stopped or an emergency stop occurs
-		for(uint8_t counter = 0; MOTORS_STEP_TIMER.INTCTRLB & TC0_CCCINTLVL_gm && !emergencyStopOccured;) {
+			// Set still value
+			int16_t stillValue = accelerometer.yAcceleration;
 		
-			// Get accelerometer values
-			accelerometer.readAccelerationValues();
+			// Start motors step timer
+			startMotorsStepTimer();
 	
-			// Check if extruder has hit the bed
-			if(abs(stillValue - accelerometer.yAcceleration) >= Y_TILT_ACCELERATION) {
-				if(++counter >= 2)
+			// Wait until Z motor step interrupts have stopped or an emergency stop occurs
+			for(uint8_t counter = 0; MOTORS_STEP_TIMER.INTCTRLB & TC0_CCCINTLVL_gm && !emergencyStopOccured;) {
+		
+				// Check if getting accelerometer values failed
+				if(!accelerometer.readAccelerationValues())
 			
-					// Stop motor Z interrupt
-					tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+					// Break
+					break;
+	
+				// Check if extruder has hit the bed
+				if(abs(stillValue - accelerometer.yAcceleration) >= Y_TILT_ACCELERATION) {
+					if(++counter >= 2)
+			
+						// Stop motor Z interrupt
+						tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+				}
+				else
+					counter = 0;
 			}
-			else
-				counter = 0;
 		}
 	
 		// Stop motors step timer
@@ -1437,8 +1460,8 @@ void Motors::moveToZ0() {
 		// Set current Z
 		currentValues[Z] -= static_cast<float>(UINT32_MAX - motorsNumberOfSteps[Z]) / (stepsPerMm * MICROSTEPS_PER_STEP);
 		
-		// Check if emergency stop has occured
-		if(emergencyStopOccured)
+		// Check if emergency stop has occured or accelerometer isn't working
+		if(emergencyStopOccured || !accelerometer.isWorking)
 		
 			// Break
 			break;
@@ -1462,20 +1485,23 @@ void Motors::moveToZ0() {
 		lastZ0 = currentValues[Z];
 		
 		// Move up by 2mm
-		moveToHeight(currentValues[Z] + 2);
+		moveToHeight(min(currentValues[Z] + 2, maxZ));
 	}
 	
 	// Set motor Z Vref to idle
 	tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_IDLE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 	
-	// Check if Z was previously valid and an emergency stop didn't happen
-	if(validZ && !emergencyStopOccured)
+	// Check if Z was previously valid, an emergency stop didn't happen, and accelerometer is working
+	if(validZ && !emergencyStopOccured && accelerometer.isWorking)
 	
 		// Set that Z is valid
 		currentStateOfValues[Z] = VALID;
+	
+	// Return if accelerometer is working
+	return accelerometer.isWorking;
 }
 
-void Motors::calibrateBedCenterZ0() {
+bool Motors::calibrateBedCenterZ0() {
 
 	// Move up by 3mm
 	moveToHeight(currentValues[Z] + 3);
@@ -1483,14 +1509,20 @@ void Motors::calibrateBedCenterZ0() {
 	// Check if emergency stop hasn't occured
 	if(!emergencyStopOccured) {
 
-		// Home XY
-		homeXY(false);
+		// Check if homing XY failed
+		if(!homeXY(false))
+		
+			// Return false
+			return false;
 	
 		// Check if emergency stop hasn't occured
 		if(!emergencyStopOccured) {
 
-			// Move to Z0
-			moveToZ0();
+			// Check if moving to Z0 failed
+			if(!moveToZ0())
+			
+				// Return false
+				return false;
 		
 			// Check if emergency stop hasn't occured
 			if(!emergencyStopOccured) {
@@ -1503,12 +1535,18 @@ void Motors::calibrateBedCenterZ0() {
 			}
 		}
 	}
+	
+	// Return true
+	return true;
 }
 
-void Motors::calibrateBedOrientation() {
+bool Motors::calibrateBedOrientation() {
 	
-	// Calibrate bed center Z0
-	calibrateBedCenterZ0();
+	// Check if calibrating bed center Z0 failed
+	if(!calibrateBedCenterZ0())
+	
+		// Return false
+		return false;
 	
 	// Initialize X and Y positions
 	float positionsX[] = {BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_X + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_X + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_X};
@@ -1530,17 +1568,8 @@ void Motors::calibrateBedOrientation() {
 		gcode.commandParameters = PARAMETER_G_OFFSET | PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
 		move(gcode, BACKLASH_TASK | SAVE_CHANGES_TASK);
 		
-		// Check if emergency stop has occured
-		if(emergencyStopOccured)
-		
-			// Break
-			break;
-
-		// Move to Z0
-		moveToZ0();
-		
-		// Check if emergency stop has occured
-		if(emergencyStopOccured)
+		// Check if emergency stop has occured, moving to Z0 failed, or emergency stop has occured
+		if(emergencyStopOccured || !moveToZ0() || emergencyStopOccured)
 		
 			// Break
 			break;
@@ -1580,8 +1609,8 @@ void Motors::calibrateBedOrientation() {
 		moveToHeight(3);
 	}
 	
-	// Check if emergency stop hasn't occured
-	if(!emergencyStopOccured) {
+	// Check if emergency stop hasn't occured and accelerometer is working
+	if(!emergencyStopOccured && accelerometer.isWorking) {
 	
 		// Save bed orientation version
 		nvm_eeprom_write_byte(EEPROM_BED_ORIENTATION_VERSION_OFFSET, BED_ORIENTATION_VERSION);
@@ -1592,6 +1621,9 @@ void Motors::calibrateBedOrientation() {
 	
 	// Restore mode
 	mode = savedMode;
+	
+	// Return if accelerometer is working
+	return accelerometer.isWorking;
 }
 
 void Motors::reset() {

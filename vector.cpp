@@ -1,5 +1,6 @@
 // Header files
 #include <math.h>
+#include <string.h>
 #include "vector.h"
 
 
@@ -189,11 +190,8 @@ Vector &Vector::operator=(const Vector &vector) {
 	if(this == &vector)
 		return *this;
 	
-	// Copy vector components
-	x = vector.x;
-	y = vector.y;
-	z = vector.z;
-	e = vector.e;
+	// Copy values
+	memcpy(this, &vector, sizeof(Vector));
 	
 	// Return self
 	return *this;

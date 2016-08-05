@@ -4,8 +4,6 @@
 
 
 // Definitions
-#define X_JERK_ACCELERATION 60
-#define Y_JERK_ACCELERATION 90
 #define Y_TILT_ACCELERATION 10
 
 
@@ -18,8 +16,11 @@ class Accelerometer {
 		// Initialize
 		void initialize();
 		
+		// Has correct device ID
+		bool hasCorrectDeviceId();
+		
 		// Read Acceleration values
-		void readAccelerationValues();
+		bool readAccelerationValues();
 		
 		// X, Y, and Z acceleration
 		int16_t xAcceleration;
@@ -33,19 +34,19 @@ class Accelerometer {
 	private:
 		
 		// Data available
-		bool dataAvailable();
+		inline bool dataAvailable();
 	
 		// Send command
-		void sendCommand(uint8_t command);
+		inline bool sendCommand(uint8_t command);
 		
 		// Write value
-		void writeValue(uint8_t address, uint8_t value);
+		inline bool writeValue(uint8_t address, uint8_t value);
 	
 		// Read value
-		void readValue(uint8_t address, uint8_t *responseBuffer, uint8_t responseLength = 1);
+		inline bool readValue(uint8_t address, uint8_t *responseBuffer, uint8_t responseLength = 1);
 		
 		// transmit
-		void transmit(uint8_t command, uint8_t value = 0, bool sendValue = false, uint8_t *responseBuffer = nullptr, uint8_t responseLength = 0);
+		inline bool transmit(uint8_t command, uint8_t value = 0, bool sendValue = false, uint8_t *responseBuffer = nullptr, uint8_t responseLength = 0);
 };
 
 

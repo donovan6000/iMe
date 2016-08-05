@@ -109,17 +109,17 @@ class Gcode {
 		// Get parameter N
 		uint64_t getParameterN() const;
 		
-		// Has host command
-		bool hasHostCommand() const;
+		#ifdef ALLOW_HOST_COMMANDS
 		
-		// Get host command
-		const char *getHostCommand() const;
+			// Has host command
+			bool hasHostCommand() const;
+		
+			// Get host command
+			const char *getHostCommand() const;
+		#endif
 		
 		// Has valid checksum
 		bool hasValidChecksum() const;
-		
-		// Assignment operator
-		Gcode &operator=(const Gcode &gcode);
 		
 		// Command parameters
 		uint16_t commandParameters;
@@ -140,8 +140,6 @@ class Gcode {
 		// Host command
 		#ifdef ALLOW_HOST_COMMANDS
 			char hostCommand[UINT8_MAX + 1];
-		#else
-			char hostCommand[1];
 		#endif
 };
 

@@ -37,7 +37,7 @@ class Heater {
 	private:
 	
 		// Clear temperature
-		void clearTemperature();
+		inline void clearTemperature();
 };
 
 

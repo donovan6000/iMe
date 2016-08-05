@@ -56,16 +56,16 @@ class Motors {
 		void move(const Gcode &gcode, uint8_t tasks = BACKLASH_TASK | BED_LEVELING_TASK | SAVE_CHANGES_TASK);
 		
 		// Home XY
-		void homeXY(bool adjustHeight = true);
+		bool homeXY(bool adjustHeight = true);
 		
 		// Save Z as bed center Z0
 		void saveZAsBedCenterZ0();
 		
 		// Calibrate bed center Z0
-		void calibrateBedCenterZ0();
+		bool calibrateBedCenterZ0();
 		
 		// Calibrate bed center orientation
-		void calibrateBedOrientation();
+		bool calibrateBedOrientation();
 		
 		// Update bed changes
 		void updateBedChanges(bool adjustHeight = true);
@@ -106,7 +106,7 @@ class Motors {
 		void splitUpMovement(bool adjustHeight);
 	
 		// Move to Z0
-		void moveToZ0();
+		bool moveToZ0();
 		
 		// Get height adjustment required
 		float getHeightAdjustmentRequired(float x, float y);
@@ -115,10 +115,8 @@ class Motors {
 		adc_config currentSenseAdcController;
 		adc_channel_config currentSenseAdcChannel;
 		
-		// Segment values
+		// Segment start values
 		float startValues[NUMBER_OF_MOTORS];
-		float endValues[NUMBER_OF_MOTORS];
-		float valueChanges[NUMBER_OF_MOTORS];
 		
 		// Vectors
 		Vector backRightVector;

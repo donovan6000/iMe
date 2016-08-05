@@ -16,10 +16,10 @@ class Led {
 	public:
 	
 		// Initialize
-		void initialize();
+		static void initialize();
 		
 		// Set brightness
-		void setBrightness(uint8_t brightness);
+		static void setBrightness(uint8_t brightness);
 };
 
 

@@ -45,21 +45,31 @@ bool Gcode::parseCommand(const char *command) {
 	// Check if command is a host command
 	if(*firstValidCharacter == '@') {
 	
-		// Set command length
-		uint8_t commandLength = min(static_cast<uint8_t>(stopParsingOffset - startParsingOffset - 1), sizeof(hostCommand) - 1);
+		// Check if host commands are allowed
+		#ifdef ALLOW_HOST_COMMANDS
+		
+			// Set command length
+			uint8_t commandLength = min(static_cast<uint8_t>(stopParsingOffset - startParsingOffset - 1), sizeof(hostCommand) - 1);
 	
-		// Check if host command is empty
-		if(!commandLength)
+			// Check if host command is empty
+			if(!commandLength)
+		
+				// Return false
+				return false;
+	
+			// Save host command
+			strncpy(hostCommand, firstValidCharacter + 1, commandLength);
+			hostCommand[commandLength] = 0;
+		
+			// Set command parameters
+			commandParameters |= PARAMETER_HOST_COMMAND_OFFSET;
+		
+		// Otherwise
+		#else
 		
 			// Return false
 			return false;
-	
-		// Save host command
-		strncpy(hostCommand, firstValidCharacter + 1, commandLength);
-		hostCommand[commandLength] = 0;
-		
-		// Set command parameters
-		commandParameters |= PARAMETER_HOST_COMMAND_OFFSET;
+		#endif
 	}
 	
 	// Otherwise
@@ -179,7 +189,10 @@ void Gcode::clearCommand() {
 	valueF = 0;
 	valueE = 0;
 	valueN = 0;
-	*hostCommand = 0;
+	
+	#ifdef ALLOW_HOST_COMMANDS
+		*hostCommand = 0;
+	#endif
 }
 
 bool Gcode::isEmpty() const {
@@ -320,45 +333,22 @@ uint64_t Gcode::getParameterN() const {
 	return valueN;
 }
 
-bool Gcode::hasHostCommand() const {
+#ifdef ALLOW_HOST_COMMANDS
+	bool Gcode::hasHostCommand() const {
 
-	// Return is host command is set
-	return commandParameters & PARAMETER_HOST_COMMAND_OFFSET;
-}
+		// Return is host command is set
+		return commandParameters & PARAMETER_HOST_COMMAND_OFFSET;
+	}
 
-const char *Gcode::getHostCommand() const {
+	const char *Gcode::getHostCommand() const {
 
-	// Return host command
-	return hostCommand;
-}
+		// Return host command
+		return hostCommand;
+	}
+#endif
 
 bool Gcode::hasValidChecksum() const {
 
 	// Return if checksum is valid
 	return commandParameters & VALID_CHECKSUM_OFFSET;
-}
-
-Gcode &Gcode::operator=(const Gcode &gcode) {
-
-	// Return self if calling on self
-	if(this == &gcode)
-		return *this;
-	
-	// Copy vector components
-	commandParameters = gcode.commandParameters;
-	valueG = gcode.valueG;
-	valueM = gcode.valueM;
-	valueT = gcode.valueT;
-	valueS = gcode.valueS;
-	valueP = gcode.valueP;
-	valueX = gcode.valueX;
-	valueY = gcode.valueY;
-	valueZ = gcode.valueZ;
-	valueF = gcode.valueF;
-	valueE = gcode.valueE;
-	valueN = gcode.valueN;
-	strcpy(hostCommand, gcode.hostCommand);
-	
-	// Return self
-	return *this;
 }

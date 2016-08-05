@@ -1,5 +1,11 @@
 Changelog:
 
+V00.00.01.07 August X, 2016
+
+	* Continually checks if accelerometer is working while it's being used
+	* Prevents moving higher than initial start point when moving to Z0
+	* Allows setting the jerk sensitivity for homing in the EEPROM
+
 V00.00.01.06 July 28, 2016
 
 	* First non-alpha release of iMe. Huge thanks to everyone who contributed!

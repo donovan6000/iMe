@@ -18,9 +18,10 @@ extern "C" {
 
 
 // Definitions
-#define REQUEST_BUFFER_SIZE 10
+#define REQUEST_BUFFER_SIZE 5
 #define WAIT_TIMER MOTORS_VREF_TIMER
 #define WAIT_TIMER_PERIOD MOTORS_VREF_TIMER_PERIOD
+//#define ALLOW_USELESS_COMMANDS
 
 // Unknown pin (Connected to transistors above the microcontroller. Maybe related to detecting if USB is connected)
 #define UNKNOWN_PIN IOPORT_CREATE_PIN(PORTA, 1)
@@ -38,9 +39,7 @@ char serialNumber[EEPROM_SERIAL_NUMBER_LENGTH];
 Gcode requests[REQUEST_BUFFER_SIZE];
 uint16_t waitTimerCounter;
 bool emergencyStopOccured = false;
-Fan fan;
 Heater heater;
-Led led;
 Motors motors;
 
 
@@ -92,6 +91,8 @@ int main() {
 		requests[i].commandParameters = 0;
 	
 	// Initialize variables
+	Fan fan;
+	Led led;
 	uint64_t currentCommandNumber = 0;
 	uint8_t currentProcessingRequest = 0;
 	char responseBuffer[UINT8_MAX + 1];
@@ -169,10 +170,11 @@ int main() {
 			if(!emergencyStopOccured) {
 		
 				// Check if accelerometer isn't working
-				if(!motors.accelerometer.isWorking)
+				if(!motors.accelerometer.isWorking && !motors.accelerometer.hasCorrectDeviceId()) {
 				
 					// Set response to error
 					strcpy(responseBuffer, "Error: Accelerometer isn't working");
+				}
 				
 				// Check if heater isn't working
 				else if(!heater.isWorking)
@@ -188,15 +190,137 @@ int main() {
 	
 					// Check if command contains valid G-code
 					if(requests[currentProcessingRequest].commandParameters & ~(VALID_CHECKSUM_OFFSET | PARSED_OFFSET)) {
+					
+						// Check if host commands are allowed
+						#ifdef ALLOW_HOST_COMMANDS
 
-						// Check if command is a host command
-						if(requests[currentProcessingRequest].commandParameters & PARAMETER_HOST_COMMAND_OFFSET)
-		
-							// Set response to error
-							strcpy(responseBuffer, "Error: Unknown host command");
+							// Check if command is a host command
+							if(requests[currentProcessingRequest].commandParameters & PARAMETER_HOST_COMMAND_OFFSET) {
+							
+								// Check if host command is to get lock bits
+								if(!strcmp(requests[currentProcessingRequest].hostCommand, "Lock bits")) {
+						
+									// Send lock bits
+									strcpy(responseBuffer, "ok 0x");
+									ltoa(NVM_LOCKBITS, numberBuffer, 16);
+									strcat(responseBuffer, numberBuffer);
+								}
+						
+								// Otherwise check if host command is to get fuse bytes
+								else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Fuse bytes")) {
+						
+									// Send fuse bytes
+									strcpy(responseBuffer, "ok 0:0x");
+									ltoa(nvm_fuses_read(FUSEBYTE0), numberBuffer, 16);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer," 1:0x");
+									ltoa(nvm_fuses_read(FUSEBYTE1), numberBuffer, 16);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer," 2:0x");
+									ltoa(nvm_fuses_read(FUSEBYTE2), numberBuffer, 16);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer," 3:0x");
+									ltoa(nvm_fuses_read(FUSEBYTE3), numberBuffer, 16);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer," 4:0x");
+									ltoa(nvm_fuses_read(FUSEBYTE4), numberBuffer, 16);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer," 5:0x");
+									ltoa(nvm_fuses_read(FUSEBYTE5), numberBuffer, 16);
+									strcat(responseBuffer, numberBuffer);
+								}
+						
+								// Otherwise check if host command is to get application
+								else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Application")) {
+						
+									strcpy(responseBuffer, "ok");
+									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+						
+									// Send application
+									for(uint16_t i = APP_SECTION_START; i <= APP_SECTION_END; i++) {
+										strcpy(responseBuffer, i == APP_SECTION_START ? "0x" : " 0x");
+										ltoa(pgm_read_byte(i), numberBuffer, 16);
+										strcat(responseBuffer, numberBuffer);
+										if(i != APP_SECTION_END)
+											udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+									}
+								}
+						
+								// Otherwise check if host command is to get bootloader
+								else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Bootloader")) {
+						
+									strcpy(responseBuffer, "ok");
+									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+						
+									// Send bootloader
+									for(uint16_t i = BOOT_SECTION_START; i <= BOOT_SECTION_END; i++) {
+										strcpy(responseBuffer, i == BOOT_SECTION_START ? "0x" : " 0x");
+										ltoa(pgm_read_byte(i), numberBuffer, 16);
+										strcat(responseBuffer, numberBuffer);
+										if(i != BOOT_SECTION_END)
+											udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+									}
+								}
+						
+								// Otherwise check if host command is to get program
+								else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Program")) {
+						
+									strcpy(responseBuffer, "ok");
+									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+						
+									// Send bootloader
+									for(uint16_t i = PROGMEM_START; i <= PROGMEM_END; i++) {
+										strcpy(responseBuffer, i == PROGMEM_START ? "0x" : " 0x");
+										ltoa(pgm_read_byte(i), numberBuffer, 16);
+										strcat(responseBuffer, numberBuffer);
+										if(i != PROGMEM_END)
+											udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+									}
+								}
+						
+								// Otherwise check if host command is to get EEPROM
+								else if(!strcmp(requests[currentProcessingRequest].hostCommand, "EEPROM")) {
+						
+									strcpy(responseBuffer, "ok");
+									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+						
+									// Send EEPROM
+									for(uint16_t i = EEPROM_START; i <= EEPROM_END; i++) {
+										strcpy(responseBuffer, i == EEPROM_START ? "0x" : " 0x");
+										ltoa(nvm_eeprom_read_byte(i), numberBuffer, 16);
+										strcat(responseBuffer, numberBuffer);
+										if(i != EEPROM_END)
+											udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+									}
+								}
+						
+								// Otherwise check if host command is to get user signature
+								else if(!strcmp(requests[currentProcessingRequest].hostCommand, "User signature")) {
+						
+									strcpy(responseBuffer, "ok");
+									udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+						
+									// Send EEPROM
+									for(uint16_t i = USER_SIGNATURES_START; i <= USER_SIGNATURES_END; i++) {
+										strcpy(responseBuffer, i == USER_SIGNATURES_START ? "0x" : " 0x");
+										ltoa(nvm_read_user_signature_row(i), numberBuffer, 16);
+										strcat(responseBuffer, numberBuffer);
+										if(i != USER_SIGNATURES_END)
+											udi_cdc_write_buf(responseBuffer, strlen(responseBuffer));
+									}
+								}
+						
+								// Otherwise
+								else
+					
+									// Set response to error
+									strcpy(responseBuffer, "Error: Unknown host command");
+							}
 	
-						// Otherwise
-						else {
+							// Otherwise
+							else
+						#endif
+						{
 
 							// Check if command has an N parameter
 							if(requests[currentProcessingRequest].commandParameters & PARAMETER_N_OFFSET) {
@@ -362,14 +486,18 @@ int main() {
 											strcat(responseBuffer, motors.currentStateOfValues[Z] ? "1" : "0");
 										break;
 										
-										// M404
-										/*case 404:
+										// Check if useless commands are allowed
+										#ifdef ALLOW_USELESS_COMMANDS
 										
-											// Set response to reset cause
-											strcpy(responseBuffer, "ok\nRC:");
-											ulltoa(reset_cause_get_causes(), numberBuffer);
-											strcat(responseBuffer, numberBuffer);
-										break;*/
+											// M404
+											case 404:
+										
+												// Set response to reset cause
+												strcpy(responseBuffer, "ok\nRC:");
+												ulltoa(reset_cause_get_causes(), numberBuffer);
+												strcat(responseBuffer, numberBuffer);
+											break;
+										#endif
 						
 										// M420
 										case 420:
@@ -381,13 +509,17 @@ int main() {
 											strcpy(responseBuffer, "ok");
 										break;
 										
-										// M583
-										/*case 583:
+										// Check if useless commands are allowed
+										#ifdef ALLOW_USELESS_COMMANDS
 										
-											// Set response to if gantry clips are detected
-											strcpy(responseBuffer, "ok\nC");
-											strcat(responseBuffer, motors.gantryClipsDetected() ? "1" : "0");
-										break;*/
+											// M583
+											case 583:
+										
+												// Set response to if gantry clips are detected
+												strcpy(responseBuffer, "ok\nC");
+												strcat(responseBuffer, motors.gantryClipsDetected() ? "1" : "0");
+											break;
+										#endif
 					
 										// M618 or M619
 										case 618:
@@ -442,22 +574,26 @@ int main() {
 											}
 										break;
 										
-										// M5321
-										/*case 5321:
+										// Check if useless commands are allowed
+										#ifdef ALLOW_USELESS_COMMANDS
 										
-											// Check if hours is provided
-											if(requests[currentProcessingRequest].commandParameters & PARAMETER_X_OFFSET) {
+											// M5321
+											case 5321:
+										
+												// Check if hours is provided
+												if(requests[currentProcessingRequest].commandParameters & PARAMETER_X_OFFSET) {
 											
-												// Update hours counter in EEPROM
-												float hoursCounter;
-												nvm_eeprom_read_buffer(EEPROM_HOURS_COUNTER_OFFSET, &hoursCounter, EEPROM_HOURS_COUNTER_LENGTH);
-												hoursCounter += requests[currentProcessingRequest].valueX;
-												nvm_eeprom_erase_and_write_buffer(EEPROM_HOURS_COUNTER_OFFSET, &hoursCounter, EEPROM_HOURS_COUNTER_LENGTH);
+													// Update hours counter in EEPROM
+													float hoursCounter;
+													nvm_eeprom_read_buffer(EEPROM_HOURS_COUNTER_OFFSET, &hoursCounter, EEPROM_HOURS_COUNTER_LENGTH);
+													hoursCounter += requests[currentProcessingRequest].valueX;
+													nvm_eeprom_erase_and_write_buffer(EEPROM_HOURS_COUNTER_OFFSET, &hoursCounter, EEPROM_HOURS_COUNTER_LENGTH);
 												
-												// Set response to confirmation
-												strcpy(responseBuffer, "ok");
-											}
-										break;*/
+													// Set response to confirmation
+													strcpy(responseBuffer, "ok");
+												}
+											break;
+										#endif
 						
 										// M20, M21, M80, M82, M83, M84, M110, M111, or M999
 										case 20:
@@ -525,31 +661,22 @@ int main() {
 										// G28
 										case 28:
 						
-											// Home XY
-											motors.homeXY();
-							
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
+											// Set response to if homing XY was successful
+											strcpy(responseBuffer, motors.homeXY() ? "ok" : "Error: Accelerometer isn't working");
 										break;
 						
 										// G30
 										case 30:
 						
-											// Calibrate bed center Z0
-											motors.calibrateBedCenterZ0();
-							
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
+											// Set response to if calibrating bed center Z0 was successful
+											strcpy(responseBuffer, motors.calibrateBedCenterZ0() ? "ok" : "Error: Accelerometer isn't working");
 										break;
 						
 										// G32
 										case 32:
 						
-											// Calibrate bed orientation
-											motors.calibrateBedOrientation();
-							
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
+											// Set response to if calibrating bed orientation was successful
+											strcpy(responseBuffer, motors.calibrateBedOrientation() ? "ok" : "Error: Accelerometer isn't working");
 										break;
 						
 										// G33
@@ -755,11 +882,11 @@ void cdcRxNotifyCallback(uint8_t port) {
 					break;
 				}
 
-				// Otherwise check if currently receiving request isn't empty
+				// Otherwise check if currently receiving request is empty
 				else if(!requests[currentReceivingRequest].commandParameters) {
 		
 					// Set current receiving request to command
-					requests[currentReceivingRequest] = gcode;
+					memcpy(&requests[currentReceivingRequest], &gcode, sizeof(Gcode));
 			
 					// Increment current receiving request
 					currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;

@@ -17,10 +17,10 @@ class Fan {
 	public:
 	
 		// Initialize
-		void initialize();
+		static void initialize();
 		
 		// Set speed
-		void setSpeed(uint8_t speed);
+		static void setSpeed(uint8_t speed);
 };
 
 
