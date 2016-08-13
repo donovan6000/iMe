@@ -62,7 +62,9 @@ void Accelerometer::initialize() {
 	// Configure enable, SDA, and SCL pins
 	ioport_set_pin_dir(ACCELEROMETER_ENABLE_PIN, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_level(ACCELEROMETER_ENABLE_PIN, ACCELEROMETER_ENABLE);
+	ioport_set_pin_dir(ACCELEROMETER_SDA_PIN, IOPORT_DIR_INPUT);
 	ioport_set_pin_mode(ACCELEROMETER_SDA_PIN, IOPORT_MODE_WIREDANDPULL);
+	ioport_set_pin_dir(ACCELEROMETER_SCL_PIN, IOPORT_DIR_INPUT);
 	ioport_set_pin_mode(ACCELEROMETER_SCL_PIN, IOPORT_MODE_WIREDANDPULL);
 	
 	// Configure interface

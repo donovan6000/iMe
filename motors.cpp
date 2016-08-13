@@ -20,7 +20,6 @@ extern "C" {
 #define CALIBRATING_Z_FEED_RATE 17.0
 #define BED_ORIENTATION_VERSION 1
 #define CALIBRATE_Z0_CORRECTION 0.2
-//#define REGULATE_EXTRUDER_CURRENT
 
 // Bed dimensions
 #define BED_CENTER_X 54.0
@@ -424,7 +423,7 @@ void Motors::initialize() {
 	
 	// Configure motors step timer
 	tc_enable(&MOTORS_STEP_TIMER);
-	tc_set_wgm(&MOTORS_STEP_TIMER, TC_WG_SS);
+	tc_set_wgm(&MOTORS_STEP_TIMER, TC_WG_NORMAL);
 	tc_write_period(&MOTORS_STEP_TIMER, MOTORS_STEP_TIMER_PERIOD);
 	tc_set_overflow_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_MED);
 	
@@ -466,15 +465,19 @@ void Motors::initialize() {
 		motorsStepTimerInterrupt(E);
 	});
 	
-	// Set ADC controller to use unsigned, 12-bit, Vref refrence, and manual trigger
-	adc_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &currentSenseAdcController);
-	adc_set_conversion_parameters(&currentSenseAdcController, ADC_SIGN_OFF, ADC_RES_12, ADC_REF_AREFA);
-	adc_set_conversion_trigger(&currentSenseAdcController, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
-	adc_set_clock_rate(&currentSenseAdcController, MOTOR_E_CURRENT_SENSE_ADC_FREQUENCY);
+	// Check if regulating extruder current
+	#ifdef REGULATE_EXTRUDER_CURRENT
 	
-	// Set ADC channel to use motor E current sense pin as single ended input with no gain
-	adcch_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
-	adcch_set_input(&currentSenseAdcChannel, MOTOR_E_CURRENT_SENSE_ADC_PIN, ADCCH_NEG_NONE, 1);
+		// Set ADC controller to use unsigned, 12-bit, Vref refrence, and manual trigger
+		adc_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &currentSenseAdcController);
+		adc_set_conversion_parameters(&currentSenseAdcController, ADC_SIGN_OFF, ADC_RES_12, ADC_REF_AREFA);
+		adc_set_conversion_trigger(&currentSenseAdcController, ADC_TRIG_MANUAL, ADC_NR_OF_CHANNELS, 0);
+		adc_set_clock_rate(&currentSenseAdcController, MOTOR_E_CURRENT_SENSE_ADC_FREQUENCY);
+	
+		// Set ADC channel to use motor E current sense pin as single ended input with no gain
+		adcch_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, MOTOR_E_CURRENT_SENSE_ADC_CHANNEL, &currentSenseAdcChannel);
+		adcch_set_input(&currentSenseAdcChannel, MOTOR_E_CURRENT_SENSE_ADC_PIN, ADCCH_NEG_NONE, 1);
+	#endif
 	
 	// Initialize accelerometer
 	accelerometer.initialize();
