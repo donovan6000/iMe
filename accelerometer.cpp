@@ -49,6 +49,13 @@ extern "C" {
 enum {ACCELERATION_X, ACCELERATION_Y, ACCELERATION_Z, NUMBER_OF_ACCELERATION_AXES};
 
 
+// Static class variables
+int16_t Accelerometer::xAcceleration;
+int16_t Accelerometer::yAcceleration;
+int16_t Accelerometer::zAcceleration;
+bool Accelerometer::isWorking = false;
+
+
 // Supporting function implementation
 void Accelerometer::initialize() {
 	
@@ -68,29 +75,29 @@ void Accelerometer::initialize() {
 	sysclk_enable_peripheral_clock(&TWI_MASTER);
 	twi_master_init(&TWI_MASTER, &options);
 	twi_master_enable(&TWI_MASTER);
-
-	// Check if accelerometer has the correct device ID
-	if(hasCorrectDeviceId()) {
-		
-		// Reset the accelerometer
-		writeValue(CTRL_REG2, CTRL_REG2_RST);
-		
-		// Wait enough time for accelerometer to initialize
-		delay_ms(2);
-		
-		// Put accelerometer into standby mode
-		writeValue(CTRL_REG1, 0);
-		
-		// Set output data rate frequency to 400Hz and enable active mode
-		writeValue(CTRL_REG1, CTRL_REG1_DR0 | CTRL_REG1_ACTIVE);
-	}
 }
 
-bool Accelerometer::hasCorrectDeviceId() {
+bool Accelerometer::testConnection() {
 
-	// Return if accelerometer has the correct device ID
+	// Check if accelerometer has the correct ID
 	uint8_t buffer;
-	return isWorking = readValue(WHO_AM_I, &buffer) && buffer == DEVICE_ID;
+	if(readValue(WHO_AM_I, &buffer) && buffer == DEVICE_ID)
+	
+		// Check if resetting accelerometer was successful
+		if(writeValue(CTRL_REG2, CTRL_REG2_RST)) {
+		
+			// Wait enough time for accelerometer to initialize
+			delay_ms(2);
+		
+			// Check if setting the output data rate frequency to 400Hz and enable active mode was successful
+			if(writeValue(CTRL_REG1, 0) && writeValue(CTRL_REG1, CTRL_REG1_DR0 | CTRL_REG1_ACTIVE))
+		
+				// Return that accelerometer is working
+				return isWorking = true;
+		}
+	
+	// Set that accelerometer isn't working
+	return isWorking = false;
 }
 
 bool Accelerometer::readAccelerationValues() {

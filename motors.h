@@ -5,6 +5,7 @@
 
 // Header files
 #include "accelerometer.h"
+#include "fan.h"
 #include "gcode.h"
 #include "vector.h"
 
@@ -13,12 +14,12 @@
 #define MOTORS_VREF_TIMER TCD0
 #define MOTORS_VREF_TIMER_PERIOD 0x27F
 #define NUMBER_OF_MOTORS 4
+#define MOTORS_SAVE_TIMER FAN_TIMER
 
 // Tasks
 #define NO_TASK 0
 #define BACKLASH_TASK 1
 #define BED_LEVELING_TASK (1 << 1)
-#define SAVE_CHANGES_TASK (1 << 2)
 
 // State changes
 #define saveState(motor, parameter) changeState(true, motor, parameter)
@@ -53,7 +54,7 @@ class Motors {
 		void turnOff();
 		
 		// Move
-		void move(const Gcode &gcode, uint8_t tasks = BACKLASH_TASK | BED_LEVELING_TASK | SAVE_CHANGES_TASK);
+		bool move(const Gcode &gcode, uint8_t tasks = BACKLASH_TASK | BED_LEVELING_TASK);
 		
 		// Home XY
 		bool homeXY(bool adjustHeight = true);

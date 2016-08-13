@@ -5,9 +5,9 @@
 extern "C" {
 	#include <asf.h>
 }
-#include "fan.h"
-#include "eeprom.h"
 #include "common.h"
+#include "eeprom.h"
+#include "fan.h"
 #include "led.h"
 
 
@@ -36,12 +36,10 @@ void Fan::initialize() {
 
 void Fan::setSpeed(uint8_t speed) {
 
-	// Get fan offset and scale
-	uint8_t fanOffset;
+	// Get fan scale
 	float fanScale;
-	nvm_eeprom_read_buffer(EEPROM_FAN_OFFSET_OFFSET, &fanOffset, EEPROM_FAN_OFFSET_LENGTH);
 	nvm_eeprom_read_buffer(EEPROM_FAN_SCALE_OFFSET, &fanScale, EEPROM_FAN_SCALE_LENGTH);
 	
 	// Set speed
-	tc_write_cc(&FAN_TIMER, FAN_CHANNEL, speed <= FAN_MIN_SPEED ? 0 : (getValueInRange(speed, FAN_MIN_SPEED, FAN_MAX_SPEED) * fanScale + fanOffset) * FAN_TIMER_PERIOD / FAN_MAX_SPEED);
+	tc_write_cc(&FAN_TIMER, FAN_CHANNEL, speed <= FAN_MIN_SPEED ? 0 : (getValueInRange(speed, FAN_MIN_SPEED, FAN_MAX_SPEED) * fanScale + nvm_eeprom_read_byte(EEPROM_FAN_OFFSET_OFFSET)) * FAN_TIMER_PERIOD / FAN_MAX_SPEED);
 }

@@ -16,28 +16,37 @@ class Heater {
 	public:
 	
 		// Initialize
-		void initialize();
+		static void initialize();
+		
+		// Test connection
+		static bool testConnection();
 		
 		// Set temperature
-		void setTemperature(uint16_t value, bool wait);
+		static bool setTemperature(uint16_t value, bool wait);
 		
 		// Get temperature
-		float getTemperature() const;
+		static float getTemperature();
+		
+		// Is heating
+		static bool isHeating();
 		
 		// Reset
-		void reset();
+		static void reset();
+		
+		// Update heater changes
+		static bool updateHeaterChanges(bool enableUpdatingTemperature = true);
 		
 		// Emergency stop occured
-		bool emergencyStopOccured;
+		static bool emergencyStopOccured;
 		
 		// Is working
-		bool isWorking;
+		static bool isWorking;
 	
 	// Private
 	private:
 	
 		// Clear temperature
-		inline void clearTemperature();
+		static void clearTemperature();
 };
 
 

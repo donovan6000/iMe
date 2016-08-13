@@ -2,8 +2,8 @@
 extern "C" {
 	#include <asf.h>
 }
-#include <string.h>
 #include <ctype.h>
+#include <string.h>
 #include "common.h"
 
 
@@ -216,5 +216,5 @@ float getValueInRange(float value, float minValue, float maxValue) {
 uint32_t minimumOneCeil(float value) {
 
 	// Return ceiling of value that is at least one
-	return max(1, ceil(value));
+	return getValueInRange(ceil(value), 1, UINT32_MAX);
 }
