@@ -913,6 +913,9 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 			motorsDelaySkipsCounter[i] = 0;
 			motorsDelaySkips[i] = slowestRoundedTime != motorsTotalRoundedTime[i] ? round(static_cast<float>(motorsTotalRoundedTime[i]) / (slowestRoundedTime - motorsTotalRoundedTime[i])) : 0;
 		}
+		
+		// Wait enough time for motor voltages to stabilize
+		delay_us(500);
 	
 		// Start motors step timer
 		startMotorsStepTimer();
@@ -926,9 +929,6 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Check if motor E is moving
 				if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm) {
 				
-					// Wait enough time for motor E voltage to stabilize
-					delay_us(500);
-		
 					// Prevent updating temperature
 					tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
 		
@@ -955,6 +955,9 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 				
 					// Adjust motor E voltage to maintain a constant motor current
 					tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round((motorVoltageE + idealVoltage - actualVoltage) / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
+					
+					// Wait enough time for motor E voltage to stabilize
+					delay_us(500);
 				}
 			#endif
 		}
@@ -1374,6 +1377,9 @@ bool Motors::homeXY(bool adjustHeight) {
 		
 		// Enable motor step interrupt 
 		(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
+		
+		// Wait enough time for motor voltages to stabilize
+		delay_us(500);
 
 		// Start motors step timer
 		startMotorsStepTimer();
@@ -1520,7 +1526,7 @@ bool Motors::moveToZ0() {
 		// Turn on motors
 		turnOn();
 		
-		// Wait enough time for still movement to stabilize
+		// Wait enough time for motor Z voltage and still movement to stabilize
 		delay_ms(100);
 		
 		// Check if getting still value was successful
