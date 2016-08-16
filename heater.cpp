@@ -247,9 +247,21 @@ bool Heater::setTemperature(uint16_t value, bool wait) {
 				// Break
 				break;
 			
-			// Delay one second or until an emergency stop occurs or heater stops working
+			// Prevent updating temperature
+			tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
+			
+			// Restart temperature timer
 			tc_restart(&TEMPERATURE_TIMER);
-			for(temperatureIntervalCounter = 0; temperatureIntervalCounter < 1000 / UPDATE_TEMPERATURE_MILLISECONDS && !emergencyStopOccured && isWorking; delay_us(1));
+			temperatureIntervalCounter = 0;
+			
+			// Allow updating temperature
+			tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
+			
+			// Delay one second or until an emergency stop occurs or heater stops working
+			for(; temperatureIntervalCounter < 1000 / UPDATE_TEMPERATURE_MILLISECONDS && !emergencyStopOccured && isWorking;)
+			
+				// Delay so that interrupts can be triggered (Not sure if this is required because of compiler optimizations or a silicon error)
+				delay_cycles(1);
 		}
 	}
 	

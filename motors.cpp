@@ -123,63 +123,26 @@ uint32_t motorsStepDelay[NUMBER_OF_MOTORS];
 uint32_t motorsStepDelayCounter[NUMBER_OF_MOTORS];
 uint32_t motorsNumberOfSteps[NUMBER_OF_MOTORS];
 float motorsNumberOfRemainingSteps[NUMBER_OF_MOTORS] = {};
+bool motorsIsMoving[NUMBER_OF_MOTORS];
 
 
 // Supporting function implementation
-void updateMotorsStepTimerInterrupts() {
+bool areMotorsMoving() {
 
-	// Clear motor X, Y, Z, and E step pins
-	ioport_set_pin_level(MOTOR_X_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
-	ioport_set_pin_level(MOTOR_Y_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
-	ioport_set_pin_level(MOTOR_Z_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
-	ioport_set_pin_level(MOTOR_E_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
+	// Go through all motors
+	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
 	
-	// Set motor X step interrupt to a higher priority if enabled
-	if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCAINTLVL_gm)
-		tc_set_cca_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_HI);
+		// Check if motor is moving
+		if(motorsIsMoving[i])
+		
+			// Return true
+			return true;
 	
-	// Set motor Y step interrupt to a higher priority if enabled
-	if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCBINTLVL_gm)
-		tc_set_ccb_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_HI);
-	
-	// Set motor Z step interrupt to a higher priority if enabled
-	if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCCINTLVL_gm)
-		tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_HI);
-	
-	// Set motor E step interrupt to a higher priority if enabled
-	if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm)
-		tc_set_ccd_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_HI);
+	// Return false
+	return false;
 }
 
-void motorsStepTimerInterrupt(AXES motor) {
-
-	// Get set motor step interrupt level and motor step pin
-	void (*setMotorStepInterruptLevel)(volatile void *tc, TC_INT_LEVEL_t level);
-	ioport_pin_t motorStepPin;
-	switch(motor) {
-	
-		case X:
-			setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
-			motorStepPin = MOTOR_X_STEP_PIN;
-		break;
-		
-		case Y:
-			setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
-			motorStepPin = MOTOR_Y_STEP_PIN;
-		break;
-		
-		case Z:
-			setMotorStepInterruptLevel = tc_set_ccc_interrupt_level;
-			motorStepPin = MOTOR_Z_STEP_PIN;
-		break;
-		
-		default:
-			setMotorStepInterruptLevel = tc_set_ccd_interrupt_level;
-			motorStepPin = MOTOR_E_STEP_PIN;
-	}
-	
-	// Set motor step interrupt to a lower priority
-	(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
+void motorsStepAction(AXES motor) {
 	
 	// Check if time to skip a motor delay
 	if(motorsDelaySkips[motor] > 1 && ++motorsDelaySkipsCounter[motor] >= motorsDelaySkips[motor]) {
@@ -194,22 +157,52 @@ void motorsStepTimerInterrupt(AXES motor) {
 	// Check if time to increment motor step
 	if(++motorsStepDelayCounter[motor] >= motorsStepDelay[motor]) {
 	
-		// Check if moving another step
-		if(motorsNumberOfSteps[motor]) {
+		// Check if done moving motor
+		if(!--motorsNumberOfSteps[motor])
 		
-			// Check if done moving motor
-			if(!--motorsNumberOfSteps[motor])
-			
-				// Disable motor step interrupt
-				(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
-			
-			// Set motor step pin
-			ioport_set_pin_level(motorStepPin, IOPORT_PIN_LEVEL_HIGH);
+			// Set that motor isn't moving
+			motorsIsMoving[motor] = false;
+		
+		// Set motor step pin
+		switch(motor) {
+	
+			case X:
+				ioport_set_pin_level(MOTOR_X_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
+			break;
+		
+			case Y:
+				ioport_set_pin_level(MOTOR_Y_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
+			break;
+		
+			case Z:
+				ioport_set_pin_level(MOTOR_Z_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
+			break;
+		
+			default:
+				ioport_set_pin_level(MOTOR_E_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
 		}
 		
 		// Clear motor step counter
 		motorsStepDelayCounter[motor] = 0;
 	}
+}
+
+void updateMotorsStepTimer() {
+
+	// Clear motor X, Y, Z, and E step pins
+	ioport_set_pin_level(MOTOR_X_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
+	ioport_set_pin_level(MOTOR_Y_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
+	ioport_set_pin_level(MOTOR_Z_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
+	ioport_set_pin_level(MOTOR_E_STEP_PIN, IOPORT_PIN_LEVEL_LOW);
+	
+	// Go through all motors
+	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
+	
+		// Check if motor is moving
+		if(motorsIsMoving[i])
+		
+			// Perform motor step action
+			motorsStepAction(static_cast<AXES>(i));
 }
 
 inline Vector calculatePlaneNormalVector(const Vector &v1, const Vector &v2, const Vector &v3) {
@@ -278,9 +271,6 @@ void startMotorsStepTimer() {
 
 	// Turn on motors
 	self->turnOn();
-
-	// Update motors step timer interrupts
-	updateMotorsStepTimerInterrupts();
 	
 	// Restart motors step timer
 	tc_restart(&MOTORS_STEP_TIMER);
@@ -292,11 +282,14 @@ void stopMotorsStepTimer() {
 	// Stop motors step timer
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
 	
-	// Disable all motor step interrupts
-	MOTORS_STEP_TIMER.INTCTRLB &= ~(TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm);
+	// Go through all motors
+	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
 	
-	// Update motors step timer interrupts
-	updateMotorsStepTimerInterrupts();
+		// Set that motor isn't moving
+		motorsIsMoving[i] = false;
+	
+	// Update motors step timer
+	updateMotorsStepTimer();
 }
 
 float Motors::getHeightAdjustmentRequired(float x, float y) {
@@ -433,36 +426,8 @@ void Motors::initialize() {
 	// Motors step timer overflow callback
 	tc_set_overflow_interrupt_callback(&MOTORS_STEP_TIMER, []() -> void {
 		
-		// Update motors step timer interrupts
-		updateMotorsStepTimerInterrupts();
-	});
-	
-	// Motor X step timer callback
-	tc_set_cca_interrupt_callback(&MOTORS_STEP_TIMER, []() -> void {
-	
-		// Run motors step timer interrupt
-		motorsStepTimerInterrupt(X);
-	});
-	
-	// Motor Y step timer callback
-	tc_set_ccb_interrupt_callback(&MOTORS_STEP_TIMER, []() -> void {
-	
-		// Run motors step timer interrupt
-		motorsStepTimerInterrupt(Y);
-	});
-	
-	// Motor Z step timer callback
-	tc_set_ccc_interrupt_callback(&MOTORS_STEP_TIMER, []() -> void {
-	
-		// Run motors step timer interrupt
-		motorsStepTimerInterrupt(Z);
-	});
-	
-	// Motor E step timer callback
-	tc_set_ccd_interrupt_callback(&MOTORS_STEP_TIMER, []() -> void {
-	
-		// Run motors step timer interrupt
-		motorsStepTimerInterrupt(E);
+		// Update motors step timer
+		updateMotorsStepTimer();
 	});
 	
 	// Check if regulating extruder current
@@ -859,7 +824,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 		for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
 	
 			// Check if motor moves
-			if(motorMoves[i]) {
+			if((motorsIsMoving[i] = motorMoves[i])) {
 			
 				// Set motor number of steps
 				motorsNumberOfSteps[i] = motorMoves[i];
@@ -874,22 +839,18 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Set slowest rounded time
 				slowestRoundedTime = max(motorsTotalRoundedTime[i], slowestRoundedTime);
 		
-				// Enable motor step interrupt and set motor Vref to active
-				void (*setMotorStepInterruptLevel)(volatile void *tc, TC_INT_LEVEL_t level);
+				// Set motor Vref to active
 				switch(i) {
 		
 					case X:
-						setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
 						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_X_VREF_CHANNEL, round(MOTOR_X_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 					break;
 			
 					case Y:
-						setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
 						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 					break;
 			
 					case Z:
-						setMotorStepInterruptLevel = tc_set_ccc_interrupt_level;
 						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 					break;
 			
@@ -900,10 +861,8 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 						nvm_eeprom_read_buffer(EEPROM_E_MOTOR_CURRENT_OFFSET, &motorCurrentE, EEPROM_E_MOTOR_CURRENT_LENGTH);
 						motorVoltageE = MOTORS_CURRENT_TO_VOLTAGE_SCALAR / 1000 * motorCurrentE;
 						
-						setMotorStepInterruptLevel = tc_set_ccd_interrupt_level;
 						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(motorVoltageE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 				}
-				(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
 			}
 		
 		// Go through all motors
@@ -920,14 +879,14 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 		// Start motors step timer
 		startMotorsStepTimer();
 	
-		// Wait until all motors step interrupts have stopped or an emergency stop occurs
-		while(MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm | TC0_CCCINTLVL_gm | TC0_CCDINTLVL_gm) && !emergencyStopOccured) {
+		// Wait until all motors stop moving or an emergency stop occurs
+		while(areMotorsMoving() && !emergencyStopOccured) {
 		
 			// Check if regulating extruder current
 			#ifdef REGULATE_EXTRUDER_CURRENT
 	
 				// Check if motor E is moving
-				if(MOTORS_STEP_TIMER.INTCTRLB & TC0_CCDINTLVL_gm) {
+				if(motorsIsMoving[E]) {
 				
 					// Prevent updating temperature
 					tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
@@ -959,6 +918,12 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 					// Wait enough time for motor E voltage to stabilize
 					delay_us(500);
 				}
+			
+			// Otherwise
+			#else
+			
+				// Delay so that interrupts can be triggered (Not sure if this is required because of compiler optimizations or a silicon error)
+				delay_cycles(1);
 			#endif
 		}
 	
@@ -1326,7 +1291,6 @@ bool Motors::homeXY(bool adjustHeight) {
 	for(int8_t i = Y; i >= X; i--) {
 	
 		// Set up motors to move all the way to the back right corner as a fallback
-		void (*setMotorStepInterruptLevel)(volatile void *tc, TC_INT_LEVEL_t level);
 		float distance;
 		float stepsPerMm;
 		int16_t *accelerometerValue;
@@ -1336,7 +1300,6 @@ bool Motors::homeXY(bool adjustHeight) {
 			nvm_eeprom_read_buffer(EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH);
 			ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
 			currentMotorDirections[Y] = DIRECTION_BACKWARD;
-			setMotorStepInterruptLevel = tc_set_ccb_interrupt_level;
 			
 			// Set accelerometer value
 			accelerometerValue = &accelerometer.yAcceleration;
@@ -1350,7 +1313,6 @@ bool Motors::homeXY(bool adjustHeight) {
 			nvm_eeprom_read_buffer(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_X_MOTOR_STEPS_PER_MM_LENGTH);
 			ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
 			currentMotorDirections[X] = DIRECTION_RIGHT;
-			setMotorStepInterruptLevel = tc_set_cca_interrupt_level;
 			
 			// Set accelerometer value
 			accelerometerValue = &accelerometer.xAcceleration;
@@ -1375,8 +1337,8 @@ bool Motors::homeXY(bool adjustHeight) {
 		float denominator = (distance * 60 * sysclk_get_cpu_hz()) / (HOMING_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * motorsNumberOfSteps[i] * motorsStepDelay[i]) - 1;
 		motorsDelaySkips[i] = denominator ? round(1 / denominator) : 0;
 		
-		// Enable motor step interrupt 
-		(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
+		// Set that motor moves
+		motorsIsMoving[i] = true;
 		
 		// Wait enough time for motor voltages to stabilize
 		delay_us(500);
@@ -1384,10 +1346,10 @@ bool Motors::homeXY(bool adjustHeight) {
 		// Start motors step timer
 		startMotorsStepTimer();
 
-		// Wait until all motors step interrupts have stopped or an emergency stop occurs
+		// Wait until all motors stop moving or an emergency stop occurs
 		int16_t lastValue;
 		uint8_t counter = 0;
-		for(bool firstRun = true; MOTORS_STEP_TIMER.INTCTRLB & (TC0_CCAINTLVL_gm | TC0_CCBINTLVL_gm) && !emergencyStopOccured; firstRun = false) {
+		for(bool firstRun = true; areMotorsMoving() && !emergencyStopOccured; firstRun = false) {
 
 			// Check if getting accelerometer values failed
 			if(!accelerometer.readAccelerationValues())
@@ -1402,8 +1364,8 @@ bool Motors::homeXY(bool adjustHeight) {
 				if(abs(lastValue - *accelerometerValue) >= jerkAcceleration) {
 					if(++counter >= 2)
 	
-						// Stop motor interrupt
-						(*setMotorStepInterruptLevel)(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+						// Set that motor isn't moving
+						motorsIsMoving[i] = false;
 				}
 				else
 					counter = 0;
@@ -1505,7 +1467,7 @@ bool Motors::moveToZ0() {
 		// Set up motors to move down
 		motorsNumberOfSteps[Z] = UINT32_MAX;
 		ioport_set_pin_level(MOTOR_Z_DIRECTION_PIN, DIRECTION_DOWN);
-		tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_LO);
+		motorsIsMoving[Z] = true;
 		
 		// Clear number of remaining steps
 		motorsNumberOfRemainingSteps[Z] = 0;
@@ -1538,8 +1500,8 @@ bool Motors::moveToZ0() {
 			// Start motors step timer
 			startMotorsStepTimer();
 	
-			// Wait until Z motor step interrupts have stopped or an emergency stop occurs
-			for(uint8_t counter = 0; MOTORS_STEP_TIMER.INTCTRLB & TC0_CCCINTLVL_gm && !emergencyStopOccured;) {
+			// Wait until Z motor stops moving or an emergency stop occurs
+			for(uint8_t counter = 0; motorsIsMoving[Z] && !emergencyStopOccured;) {
 		
 				// Check if getting accelerometer values failed
 				if(!accelerometer.readAccelerationValues())
@@ -1551,8 +1513,8 @@ bool Motors::moveToZ0() {
 				if(abs(stillValue - accelerometer.yAcceleration) >= Y_TILT_ACCELERATION) {
 					if(++counter >= 2)
 			
-						// Stop motor Z interrupt
-						tc_set_ccc_interrupt_level(&MOTORS_STEP_TIMER, TC_INT_LVL_OFF);
+						// Set that motor isn't moving
+						motorsIsMoving[Z] = false;
 				}
 				else
 					counter = 0;
