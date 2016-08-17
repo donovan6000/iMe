@@ -58,13 +58,12 @@ void Gcode::parseCommand(const char *command) {
 					// Set command parameters
 					commandParameters |= PARAMETER_HOST_COMMAND_OFFSET;
 				}
-		
 			#endif
 		}
 	
 		// Otherwise
-		else
-	
+		else {
+		
 			// Go through each valid character in the command
 			for(uint8_t i = startParsingOffset; i < stopParsingOffset; i++) {
 		
@@ -121,27 +120,8 @@ void Gcode::parseCommand(const char *command) {
 							break;
 				
 							case PARAMETER_N_OFFSET:
+							default:
 								valueN = strtoull(&command[++i], &lastParameterCharacter);
-						
-								// Check if command contains a checksum
-								const char *checksumCharacter = strchr(command, '*');
-								if(checksumCharacter) {
-						
-									// Check if checksum exists
-									char *lastChecksumCharacter;
-									uint8_t providedChecksum = strtoull(++checksumCharacter, &lastChecksumCharacter);
-									if(lastChecksumCharacter != checksumCharacter) {
-							
-										// Calculate checksum
-										uint8_t calculatedChecksum = 0;
-										for(uint8_t j = 0; command[j] != '*'; j++)
-											calculatedChecksum ^= command[j];
-								
-										// Set valid checksum
-										if(calculatedChecksum == providedChecksum)
-											commandParameters |= VALID_CHECKSUM_OFFSET;
-									}
-								}
 						}
 				
 						// Check if parameter exists
@@ -159,6 +139,27 @@ void Gcode::parseCommand(const char *command) {
 					}
 				}
 			}
+			
+			// Check if command contains a checksum
+			const char *checksumCharacter = strchr(lastValidCharacter, '*');
+			if(checksumCharacter) {
+	
+				// Check if checksum exists
+				char *lastChecksumCharacter;
+				uint8_t providedChecksum = strtoull(++checksumCharacter, &lastChecksumCharacter);
+				if(lastChecksumCharacter != checksumCharacter) {
+		
+					// Calculate checksum
+					uint8_t calculatedChecksum = 0;
+					for(uint8_t i = 0; command[i] != '*'; i++)
+						calculatedChecksum ^= command[i];
+			
+					// Set valid checksum
+					if(calculatedChecksum == providedChecksum)
+						commandParameters |= VALID_CHECKSUM_OFFSET;
+				}
+			}
+		}
 	}
 }
 

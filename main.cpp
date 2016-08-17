@@ -573,15 +573,12 @@ int main() {
 											uint16_t parameters = PARAMETER_S_OFFSET | PARAMETER_T_OFFSET | (requests[currentProcessingRequest].valueM == 618 ? PARAMETER_P_OFFSET : 0);
 											if(requests[currentProcessingRequest].commandParameters & parameters) {
 					
-												// Check if offset and length are valid
-												int32_t offset = requests[currentProcessingRequest].valueS;
-												uint8_t length = requests[currentProcessingRequest].valueT;
-						
-												if(offset >= 0 && length && length <= sizeof(uint32_t) && offset + length <= EEPROM_DECRYPTION_TABLE_OFFSET) {
+												// Check if parameters are valid
+												if(requests[currentProcessingRequest].valueS >= 0 && requests[currentProcessingRequest].valueT && requests[currentProcessingRequest].valueT <= sizeof(uint32_t) && requests[currentProcessingRequest].valueS + requests[currentProcessingRequest].valueT <= EEPROM_DECRYPTION_TABLE_OFFSET) {
 							
 													// Set response to offset
 													strcpy(responseBuffer, "ok\nPT:");
-													ulltoa(offset, numberBuffer);
+													ulltoa(requests[currentProcessingRequest].valueS, numberBuffer);
 													strcat(responseBuffer, numberBuffer);
 								
 													// Check if reading an EEPROM value
@@ -589,7 +586,7 @@ int main() {
 								
 														// Get value from EEPROM
 														uint32_t value = 0;
-														nvm_eeprom_read_buffer(offset, &value, length);
+														nvm_eeprom_read_buffer(requests[currentProcessingRequest].valueS, &value, requests[currentProcessingRequest].valueT);
 							
 														// Append value to response
 														strcat(responseBuffer, " DT:");
@@ -601,7 +598,7 @@ int main() {
 													else {
 						
 														// Write value to EEPROM
-														nvm_eeprom_erase_and_write_buffer(offset, &requests[currentProcessingRequest].valueP, length);
+														nvm_eeprom_erase_and_write_buffer(requests[currentProcessingRequest].valueS, &requests[currentProcessingRequest].valueP, requests[currentProcessingRequest].valueT);
 													
 														// Update bed changes
 														motors.updateBedChanges();
@@ -771,6 +768,7 @@ int main() {
 														value = &requests[currentProcessingRequest].valueZ;
 													break;
 													
+													case E:
 													default:
 														parameterOffset = PARAMETER_E_OFFSET;
 														value = &requests[currentProcessingRequest].valueE;

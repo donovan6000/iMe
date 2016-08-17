@@ -145,17 +145,13 @@ bool areMotorsMoving() {
 void motorsStepAction(AXES motor) {
 	
 	// Check if time to skip a motor delay
-	if(motorsDelaySkips[motor] > 1 && ++motorsDelaySkipsCounter[motor] >= motorsDelaySkips[motor]) {
+	if(motorsDelaySkips[motor] > 1 && ++motorsDelaySkipsCounter[motor] >= motorsDelaySkips[motor])
 	
 		// Clear motor skip delay counter
 		motorsDelaySkipsCounter[motor] = 0;
-		
-		// Return
-		return;
-	}
 	
-	// Check if time to increment motor step
-	if(++motorsStepDelayCounter[motor] >= motorsStepDelay[motor]) {
+	// Otherwise check if time to increment motor step
+	else if(++motorsStepDelayCounter[motor] >= motorsStepDelay[motor]) {
 	
 		// Check if done moving motor
 		if(!--motorsNumberOfSteps[motor])
@@ -178,6 +174,7 @@ void motorsStepAction(AXES motor) {
 				ioport_set_pin_level(MOTOR_Z_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
 			break;
 		
+			case E:
 			default:
 				ioport_set_pin_level(MOTOR_E_STEP_PIN, IOPORT_PIN_LEVEL_HIGH);
 		}
@@ -332,8 +329,7 @@ float Motors::getHeightAdjustmentRequired(float x, float y) {
 	else if(isPointInTriangle(point, centerVector, backLeftVector, backRightVector))
 		return getZFromXYAndPlane(point, backPlane);
 	
-	else
-		return getZFromXYAndPlane(point, frontPlane);
+	return getZFromXYAndPlane(point, frontPlane);
 }
 
 void Motors::initialize() {
@@ -530,7 +526,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 	// Initialize variables
 	float slowestTime = 0;
 	uint32_t motorMoves[NUMBER_OF_MOTORS] = {};
-	BACKLASH_DIRECTION backlashDirectionX = NONE, backlashDirectionY = NONE;
+	BACKLASH_DIRECTION backlashDirections[2] = {NONE, NONE};
 	bool validValues[3];
 	
 	// Go through all motors
@@ -569,6 +565,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 				newValue = gcode.valueZ;
 			break;
 			
+			case E:
 			default:
 				parameterOffset = PARAMETER_E_OFFSET;
 				newValue = gcode.valueE;
@@ -613,8 +610,8 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 				bool directionChange;
 				float stepsPerMm;
 				float speedLimit;
-				float maxFeedRate = 0;
-				float minFeedRate = 0;
+				float maxFeedRate;
+				float minFeedRate;
 				switch(i) {
 				
 					case X:
@@ -662,6 +659,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 						}
 					break;
 					
+					case E:
 					default:
 					
 						// Set direction change and steps/mm
@@ -747,21 +745,11 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 						// Check if current motor's validity gets saved
 						if(i == X || i == Y || i == Z) {
 						
-							// Check if performing backlash task
-							if(tasks & BACKLASH_TASK) {
-					
-								// Check if X direction changed
-								if(i == X && currentMotorDirections[X] != (lowerNewValue ? DIRECTION_LEFT : DIRECTION_RIGHT))
-				
-									// Set backlash direction X
-									backlashDirectionX = lowerNewValue ? NEGATIVE : POSITIVE;
+							// Check if X or Y direction changed
+							if((i == X || i == Y) && currentMotorDirections[i] != (lowerNewValue ? (i == X ? DIRECTION_LEFT : DIRECTION_FORWARD) : (i == X ? DIRECTION_RIGHT : DIRECTION_BACKWARD)))
 			
-								// Otherwise check if Y direction changed
-								else if(i == Y && currentMotorDirections[Y] != (lowerNewValue ? DIRECTION_FORWARD : DIRECTION_BACKWARD))
-				
-									// Set backlash direction Y
-									backlashDirectionY = lowerNewValue ? NEGATIVE : POSITIVE;
-							}
+								// Set backlash direction
+								backlashDirections[i] = lowerNewValue ? NEGATIVE : POSITIVE;
 			
 							// Set that value is invalid
 							currentStateOfValues[i] = INVALID;
@@ -784,23 +772,23 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 	// Check if performing a task
 	if(tasks) {
 	
-		// Compensate for backlash
-		compensateForBacklash(backlashDirectionX, backlashDirectionY);
+		// Check if compensating for backlash
+		if(tasks & BACKLASH_TASK)
+		
+			// Compensate for backlash
+			compensateForBacklash(backlashDirections[X], backlashDirections[Y]);
 		
 		// Split up movement
 		splitUpMovement(tasks & BED_LEVELING_TASK);
 		
-		// Check if motor X direction changed
-		if(backlashDirectionX != NONE)
+		// Go through X and Y motors
+		for(uint8_t i = X; i <= Y; i++)
 		
-			// Set motor X direction
-			currentMotorDirections[X] = backlashDirectionX == NEGATIVE ? DIRECTION_LEFT : DIRECTION_RIGHT;
+			// Check if motor direction changed
+			if(backlashDirections[i] != NONE)
 		
-		// Check if motor Y direction changed
-		if(backlashDirectionY != NONE)
-		
-			// Set motor Y direction
-			currentMotorDirections[Y] = backlashDirectionY == NEGATIVE ? DIRECTION_FORWARD : DIRECTION_BACKWARD;
+				// Set motor direction
+				currentMotorDirections[i] = backlashDirections[i] == NEGATIVE ? (i == X ? DIRECTION_LEFT : DIRECTION_FORWARD) : (i == X ? DIRECTION_RIGHT : DIRECTION_BACKWARD);
 		
 		// Go through X, Y, and Z motors
 		for(uint8_t i = X; i <= Z; i++)
@@ -816,9 +804,9 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 	else if(!emergencyStopOccured) {
 	
 		// Initialize variables
-		uint32_t motorsTotalRoundedTime[NUMBER_OF_MOTORS] = {};
+		uint32_t motorsTotalRoundedTime[NUMBER_OF_MOTORS];
 		uint32_t slowestRoundedTime = 0;
-		float motorVoltageE = 0;
+		float motorVoltageE;
 	
 		// Go through all motors
 		for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
@@ -834,7 +822,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 				motorsStepDelay[i] = minimumOneCeil(slowestTime * sysclk_get_cpu_hz() / MOTORS_STEP_TIMER_PERIOD / motorsNumberOfSteps[i]);
 		
 				// Set motor total rounded time
-				motorsTotalRoundedTime[i] = motorsNumberOfSteps[i] * motorsStepDelay[i];
+				motorsTotalRoundedTime[i] = motorsNumberOfSteps[i] > UINT32_MAX / motorsStepDelay[i] ? UINT32_MAX : motorsNumberOfSteps[i] * motorsStepDelay[i];
 		
 				// Set slowest rounded time
 				slowestRoundedTime = max(motorsTotalRoundedTime[i], slowestRoundedTime);
@@ -854,6 +842,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 					break;
 			
+					case E:
 					default:
 						
 						// Set motor E voltage
@@ -1099,6 +1088,7 @@ void Motors::splitUpMovement(bool adjustHeight) {
 						gcode.valueZ += getHeightAdjustmentRequired(gcode.valueX, gcode.valueY);
 				break;
 			
+				case E:
 				default:
 					gcode.valueE = segmentValue;
 			}
@@ -1162,6 +1152,7 @@ void Motors::updateBedChanges(bool adjustHeight) {
 				value = &frontLeftVector.z;
 			break;
 			
+			case 3:
 			default:
 				orientationOffset = EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET;
 				orientationLength = EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH;
@@ -1230,6 +1221,7 @@ void Motors::changeState(bool save, AXES motor, AXES_PARAMETER parameter) {
 				savedDirectionOffset = EEPROM_LAST_RECORDED_Y_DIRECTION_OFFSET;
 			break;
 		
+			case Z:
 			default:
 				savedValueOffset = EEPROM_LAST_RECORDED_Z_VALUE_OFFSET;
 				savedValueLength = EEPROM_LAST_RECORDED_Z_VALUE_LENGTH;
@@ -1326,7 +1318,7 @@ bool Motors::homeXY(bool adjustHeight) {
 		uint8_t jerkAcceleration = (i == Y ? EEPROM_Y_JERK_SENSITIVITY_MAX : EEPROM_X_JERK_SENSITIVITY_MAX) - nvm_eeprom_read_byte(eepromOffset);
 		
 		// Set number of steps
-		motorsNumberOfSteps[i] = ceil(distance * stepsPerMm * MICROSTEPS_PER_STEP);
+		motorsNumberOfSteps[i] = minimumOneCeil(distance * stepsPerMm * MICROSTEPS_PER_STEP);
 		
 		// Clear number of remaining steps
 		motorsNumberOfRemainingSteps[i] = 0;
@@ -1335,7 +1327,7 @@ bool Motors::homeXY(bool adjustHeight) {
 		motorsStepDelayCounter[i] = motorsDelaySkipsCounter[i] = 0;
 		motorsStepDelay[i] = minimumOneCeil((distance * 60 * sysclk_get_cpu_hz()) / (HOMING_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * motorsNumberOfSteps[i]));
 		float denominator = (distance * 60 * sysclk_get_cpu_hz()) / (HOMING_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * motorsNumberOfSteps[i] * motorsStepDelay[i]) - 1;
-		motorsDelaySkips[i] = denominator ? round(1 / denominator) : 0;
+		motorsDelaySkips[i] = denominator ? min(round(1 / denominator), UINT32_MAX) : 0;
 		
 		// Set that motor moves
 		motorsIsMoving[i] = true;
@@ -1393,9 +1385,22 @@ bool Motors::homeXY(bool adjustHeight) {
 	Gcode gcode;
 	gcode.valueX = -BED_CENTER_X_DISTANCE_FROM_HOMING_CORNER;
 	gcode.valueY = -BED_CENTER_Y_DISTANCE_FROM_HOMING_CORNER;
-	gcode.valueZ = adjustHeight ? getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) : 0;
 	gcode.valueF = EEPROM_SPEED_LIMIT_X_MAX;
-	gcode.commandParameters = PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_F_OFFSET;
+	gcode.commandParameters = PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
+	
+	// Save Z motor's validity
+	bool validZ = currentStateOfValues[Z];
+	
+	// Check if adjusting height
+	if(adjustHeight) {
+	
+		// Set G-code's Z parameter
+		gcode.commandParameters |= PARAMETER_Z_OFFSET;
+		gcode.valueZ = getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+	
+		// Set that Z is invalid
+		currentStateOfValues[Z] = INVALID;
+	}
 	
 	// Save mode
 	MODES savedMode = mode;
@@ -1426,10 +1431,14 @@ bool Motors::homeXY(bool adjustHeight) {
 	mode = savedMode;
 	
 	// Check if an emergency stop didn't happen
-	if(!emergencyStopOccured)
+	if(!emergencyStopOccured) {
 
 		// Set that X and Y are valid
 		currentStateOfValues[X] = currentStateOfValues[Y] = VALID;
+		
+		// Restore Z motor's validity
+		currentStateOfValues[Z] = validZ;
+	}
 	
 	// Return true
 	return true;
@@ -1480,7 +1489,7 @@ bool Motors::moveToZ0() {
 		motorsStepDelayCounter[Z] = motorsDelaySkipsCounter[Z] = 0;
 		motorsStepDelay[Z] = minimumOneCeil(((motorsNumberOfSteps[Z] / (stepsPerMm * MICROSTEPS_PER_STEP)) * 60 * sysclk_get_cpu_hz()) / (CALIBRATING_Z_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * (motorsNumberOfSteps[Z] / (stepsPerMm * MICROSTEPS_PER_STEP)) * stepsPerMm * MICROSTEPS_PER_STEP));
 		float denominator = ((motorsNumberOfSteps[Z] / (stepsPerMm * MICROSTEPS_PER_STEP)) * 60 * sysclk_get_cpu_hz()) / (CALIBRATING_Z_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * (motorsNumberOfSteps[Z] / (stepsPerMm * MICROSTEPS_PER_STEP)) * stepsPerMm * MICROSTEPS_PER_STEP * motorsStepDelay[Z]) - 1;
-		motorsDelaySkips[Z] = denominator ? round(1 / denominator) : 0;
+		motorsDelaySkips[Z] = denominator ? min(round(1 / denominator), UINT32_MAX) : 0;
 		
 		// Set motor Z Vref to active
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
