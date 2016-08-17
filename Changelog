@@ -1,6 +1,6 @@
 Changelog:
 
-V00.00.01.11 August X, 2016
+V00.00.01.12 August 17, 2016
 
 	* Continually checks if accelerometer and heater are working while they're being used
 	* Prevents moving higher than the initial starting point when moving to Z0

@@ -5,6 +5,7 @@
 
 // Definitions
 #define TEMPERATURE_TIMER TCC1
+#define HEATER_OFF_TEMPERATURE 0
 #define HEATER_MIN_TEMPERATURE 100
 #define HEATER_MAX_TEMPERATURE 285
 
@@ -22,7 +23,7 @@ class Heater {
 		static bool testConnection();
 		
 		// Set temperature
-		static bool setTemperature(uint16_t value, bool wait);
+		static bool setTemperature(uint16_t value, bool wait = false);
 		
 		// Get temperature
 		static float getTemperature();

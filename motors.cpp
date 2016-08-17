@@ -122,26 +122,11 @@ uint32_t motorsDelaySkipsCounter[NUMBER_OF_MOTORS];
 uint32_t motorsStepDelay[NUMBER_OF_MOTORS];
 uint32_t motorsStepDelayCounter[NUMBER_OF_MOTORS];
 uint32_t motorsNumberOfSteps[NUMBER_OF_MOTORS];
-float motorsNumberOfRemainingSteps[NUMBER_OF_MOTORS] = {};
+float motorsNumberOfRemainingSteps[NUMBER_OF_MOTORS] = {0, 0, 0, 0};
 bool motorsIsMoving[NUMBER_OF_MOTORS];
 
 
 // Supporting function implementation
-bool areMotorsMoving() {
-
-	// Go through all motors
-	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
-	
-		// Check if motor is moving
-		if(motorsIsMoving[i])
-		
-			// Return true
-			return true;
-	
-	// Return false
-	return false;
-}
-
 void motorsStepAction(AXES motor) {
 	
 	// Check if time to skip a motor delay
@@ -264,17 +249,32 @@ bool isPointInTriangle(const Vector &pt, const Vector &v1, const Vector &v2, con
 	return flag == flag2 && flag2 == flag3;
 }
 
-void startMotorsStepTimer() {
+bool Motors::areMotorsMoving() {
+
+	// Go through all motors
+	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
+	
+		// Check if motor is moving
+		if(motorsIsMoving[i])
+		
+			// Return true
+			return true;
+	
+	// Return false
+	return false;
+}
+
+void Motors::startMotorsStepTimer() {
 
 	// Turn on motors
-	self->turnOn();
+	turnOn();
 	
 	// Restart motors step timer
 	tc_restart(&MOTORS_STEP_TIMER);
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_DIV1_gc);
 }
 
-void stopMotorsStepTimer() {
+void Motors::stopMotorsStepTimer() {
 
 	// Stop motors step timer
 	tc_write_clock_source(&MOTORS_STEP_TIMER, TC_CLKSEL_OFF_gc);
@@ -333,9 +333,6 @@ float Motors::getHeightAdjustmentRequired(float x, float y) {
 }
 
 void Motors::initialize() {
-
-	// Set self
-	self = this;
 
 	// Restore state
 	restoreState();
@@ -454,6 +451,7 @@ void Motors::initialize() {
 	updateBedChanges(false);
 	
 	// Configure motors save interrupt
+	self = this;
 	tc_set_overflow_interrupt_callback(&MOTORS_SAVE_TIMER, []() -> void {
 	
 		// Initialize variables
@@ -525,7 +523,6 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 	
 	// Initialize variables
 	float slowestTime = 0;
-	uint32_t motorMoves[NUMBER_OF_MOTORS] = {};
 	BACKLASH_DIRECTION backlashDirections[2] = {NONE, NONE};
 	bool validValues[3];
 	
@@ -694,14 +691,17 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Check if moving at least one step in the current direction
 				if(totalNumberOfSteps >= 1) {
 				
-					// Set motor moves
-					motorMoves[i] = totalNumberOfSteps;
-				
 					// Check if performing a movement
 					if(!tasks) {
 					
+						// Set that motor moves
+						motorsIsMoving[i] = true;
+					
+						// Set number of steps
+						motorsNumberOfSteps[i] = totalNumberOfSteps;
+					
 						// Update number of remaining steps 
-						motorsNumberOfRemainingSteps[i] -= motorMoves[i];
+						motorsNumberOfRemainingSteps[i] -= motorsNumberOfSteps[i];
 						
 						// Set motor feedrate
 						float motorFeedRate = min(currentValues[F], speedLimit);
@@ -772,8 +772,8 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 	// Check if performing a task
 	if(tasks) {
 	
-		// Check if compensating for backlash
-		if(tasks & BACKLASH_TASK)
+		// Check if compensating for backlash and it's applicable
+		if(tasks & BACKLASH_TASK && (backlashDirections[X] != NONE || backlashDirections[Y] != NONE))
 		
 			// Compensate for backlash
 			compensateForBacklash(backlashDirections[X], backlashDirections[Y]);
@@ -790,11 +790,11 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Set motor direction
 				currentMotorDirections[i] = backlashDirections[i] == NEGATIVE ? (i == X ? DIRECTION_LEFT : DIRECTION_FORWARD) : (i == X ? DIRECTION_RIGHT : DIRECTION_BACKWARD);
 		
-		// Go through X, Y, and Z motors
-		for(uint8_t i = X; i <= Z; i++)
+		// Check if an emergency stop didn't happen
+		if(!emergencyStopOccured)
 		
-			// Check if motor moved and an emergency stop didn't happen
-			if(!emergencyStopOccured)
+			// Go through X, Y, and Z motors
+			for(uint8_t i = X; i <= Z; i++)
 				
 				// Restore motor's validity
 				currentStateOfValues[i] = validValues[i];
@@ -812,11 +812,8 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 		for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++)
 	
 			// Check if motor moves
-			if((motorsIsMoving[i] = motorMoves[i])) {
+			if(motorsIsMoving[i]) {
 			
-				// Set motor number of steps
-				motorsNumberOfSteps[i] = motorMoves[i];
-		
 				// Set motor step delay
 				motorsStepDelayCounter[i] = 0;
 				motorsStepDelay[i] = minimumOneCeil(slowestTime * sysclk_get_cpu_hz() / MOTORS_STEP_TIMER_PERIOD / motorsNumberOfSteps[i]);
@@ -958,6 +955,23 @@ void Motors::moveToHeight(float height) {
 }
 
 void Motors::compensateForBacklash(BACKLASH_DIRECTION backlashDirectionX, BACKLASH_DIRECTION backlashDirectionY) {
+
+	// Initialize variables
+	float savedNumberOfRemainingSteps[2];
+	bool savedPinLevels[2];
+	
+	// Go through X and Y motors
+	for(uint8_t i = X; i <= Y; i++) {
+	
+		// Save number of remaining steps
+		savedNumberOfRemainingSteps[i] = motorsNumberOfRemainingSteps[i];
+
+		// Clear number of remaining steps
+		motorsNumberOfRemainingSteps[i] = 0;
+		
+		// Save pin levels
+		savedPinLevels[i] = ioport_get_pin_level(i == X ? MOTOR_X_DIRECTION_PIN : MOTOR_Y_DIRECTION_PIN);
+	}
 	
 	// Initialize G-code
 	Gcode gcode;
@@ -998,16 +1012,28 @@ void Motors::compensateForBacklash(BACKLASH_DIRECTION backlashDirectionX, BACKLA
 	// Disable saving motors state
 	tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
 	
-	// Restore X, Y, and F values
+	// Restore X and Y
 	currentValues[X] = savedX;
 	currentValues[Y] = savedY;
-	currentValues[F] = savedF;
 	
 	// Enable saving motors state
 	tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
 	
+	// Restore F value
+	currentValues[F] = savedF;
+	
 	// Restore mode
 	mode = savedMode;
+	
+	// Go through X and Y motors
+	for(uint8_t i = X; i <= Y; i++) {
+	
+		// Restore number of remaining steps
+		motorsNumberOfRemainingSteps[i] = savedNumberOfRemainingSteps[i];
+		
+		// Restore pin levels
+		ioport_set_pin_level(i == X ? MOTOR_X_DIRECTION_PIN : MOTOR_Y_DIRECTION_PIN, savedPinLevels[i]);
+	}
 }
 
 void Motors::splitUpMovement(bool adjustHeight) {
@@ -1016,30 +1042,37 @@ void Motors::splitUpMovement(bool adjustHeight) {
 	float endValues[NUMBER_OF_MOTORS];
 	float valueChanges[NUMBER_OF_MOTORS];
 	
-	// Disable saving motors state
-	tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
-	
 	// Go through all motors
 	for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
 	
 		// Set end values
 		endValues[i] = currentValues[i];
 		
+		// Disable saving motors state
+		tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
+		
 		// Set current values to the start of the segment
 		currentValues[i] = startValues[i];
+		
+		// Enable saving motors state
+		tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
 		
 		// Set value changes
 		valueChanges[i] = endValues[i] - startValues[i];
 	}
 	
 	// Check if adjusting height
-	if(adjustHeight)
+	if(adjustHeight) {
+	
+		// Disable saving motors state
+		tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
 	
 		// Adjust current Z value for current real height
 		currentValues[Z] += getHeightAdjustmentRequired(startValues[X], startValues[Y]);
 	
-	// Enable saving motors state
-	tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
+		// Enable saving motors state
+		tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
+	}
 	
 	// Get horizontal distance
 	float horizontalDistance = sqrt(pow(valueChanges[X], 2) + pow(valueChanges[Y], 2));
@@ -1288,7 +1321,7 @@ bool Motors::homeXY(bool adjustHeight) {
 		int16_t *accelerometerValue;
 		eeprom_addr_t eepromOffset;
 		if(i == Y) {
-			distance = max(max(BED_LOW_MAX_Y, BED_MEDIUM_MAX_Y), BED_HIGH_MAX_Y) - min(min(BED_LOW_MIN_Y, BED_MEDIUM_MIN_Y), BED_HIGH_MIN_Y) + 5;
+			distance = max(max(BED_LOW_MAX_Y, BED_MEDIUM_MAX_Y), BED_HIGH_MAX_Y) - min(min(BED_LOW_MIN_Y, BED_MEDIUM_MIN_Y), BED_HIGH_MIN_Y) + 8;
 			nvm_eeprom_read_buffer(EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH);
 			ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
 			currentMotorDirections[Y] = DIRECTION_BACKWARD;
@@ -1301,7 +1334,7 @@ bool Motors::homeXY(bool adjustHeight) {
 			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		}
 		else {
-			distance = max(max(BED_LOW_MAX_X, BED_MEDIUM_MAX_X), BED_HIGH_MAX_X) - min(min(BED_LOW_MIN_X, BED_MEDIUM_MIN_X), BED_HIGH_MIN_X) + 5;
+			distance = max(max(BED_LOW_MAX_X, BED_MEDIUM_MAX_X), BED_HIGH_MAX_X) - min(min(BED_LOW_MIN_X, BED_MEDIUM_MIN_X), BED_HIGH_MIN_X) + 8;
 			nvm_eeprom_read_buffer(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_X_MOTOR_STEPS_PER_MM_LENGTH);
 			ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
 			currentMotorDirections[X] = DIRECTION_RIGHT;
@@ -1418,14 +1451,16 @@ bool Motors::homeXY(bool adjustHeight) {
 	// Disable saving motors state
 	tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
 
-	// Set current X, Y, Z, and F
+	// Set current X, Y, and Z
 	currentValues[X] = BED_CENTER_X;
 	currentValues[Y] = BED_CENTER_Y;
 	currentValues[Z] = savedZ;
-	currentValues[F] = savedF;
 	
 	// Enable saving motors state
 	tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
+	
+	// Restore F value
+	currentValues[F] = savedF;
 	
 	// Restore mode
 	mode = savedMode;
@@ -1445,6 +1480,13 @@ bool Motors::homeXY(bool adjustHeight) {
 }
 
 void Motors::saveZAsBedCenterZ0() {
+
+	// Erase bed height offset
+	float value = 0;
+	nvm_eeprom_erase_and_write_buffer(EEPROM_BED_HEIGHT_OFFSET_OFFSET, &value, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
+	
+	// Update bed changes
+	updateBedChanges(false);
 
 	// Disable saving motors state
 	tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
@@ -1639,8 +1681,20 @@ bool Motors::calibrateBedOrientation() {
 		return false;
 	
 	// Initialize X and Y positions
-	float positionsX[] = {BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_X + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_X + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER};
-	float positionsY[] = {BED_CENTER_Y - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_Y - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_Y + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_Y + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER};
+	float positionsX[] = {
+		BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
+		BED_CENTER_X + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
+		BED_CENTER_X + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
+		BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
+		BED_CENTER_X
+	};
+	float positionsY[] = {
+		BED_CENTER_Y - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
+		BED_CENTER_Y - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
+		BED_CENTER_Y + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
+		BED_CENTER_Y + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
+		BED_CENTER_Y
+	};
 	
 	// Initialize G-code
 	Gcode gcode;
@@ -1666,56 +1720,74 @@ bool Motors::calibrateBedOrientation() {
 		// Move to position
 		move(gcode, BACKLASH_TASK);
 		
-		// Check if emergency stop has occured, moving to Z0 failed, or emergency stop has occured
-		if(emergencyStopOccured || !moveToZ0() || emergencyStopOccured)
+		// Check if emergency stop has occured
+		if(emergencyStopOccured)
 		
 			// Break
 			break;
 		
-		// Get position's orientation offset and length
-		eeprom_addr_t eepromOffset = EEPROM_SIZE;
-		uint8_t eepromLength;
+		// Set position's orientation and offset
+		eeprom_addr_t orientationOffset = EEPROM_SIZE, offsetOffset = EEPROM_SIZE;
+		uint8_t orientationLength, offsetLength;
 		switch(i) {
 		
 			case 0:
-				eepromOffset = EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET;
-				eepromLength = EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH;
+				orientationOffset = EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET;
+				orientationLength = EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH;
+				offsetOffset = EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET;
+				offsetLength = EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH;
 			break;
 			
 			case 1:
-				eepromOffset = EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET;
-				eepromLength = EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH;
+				orientationOffset = EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET;
+				orientationLength = EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH;
+				offsetOffset = EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET;
+				offsetLength = EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH;
 			break;
 			
 			case 2:
-				eepromOffset = EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET;
-				eepromLength = EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH;
+				orientationOffset = EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET;
+				orientationLength = EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH;
+				offsetOffset = EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET;
+				offsetLength = EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH;
 			break;
 			
 			case 3:
-				eepromOffset = EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET;
-				eepromLength = EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH;
+				orientationOffset = EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET;
+				orientationLength = EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH;
+				offsetOffset = EEPROM_BED_OFFSET_BACK_LEFT_OFFSET;
+				offsetLength = EEPROM_BED_OFFSET_BACK_LEFT_LENGTH;
 		}
 		
 		// Check if saving orientation
-		if(eepromOffset < EEPROM_SIZE)
+		if(orientationOffset < EEPROM_SIZE) {
+		
+			// Check if moving to Z0 failed or emergency stop has occured
+			if(!moveToZ0() || emergencyStopOccured)
+		
+				// Break
+				break;
+			
+			// Erase position's offset
+			float value = 0;
+			nvm_eeprom_erase_and_write_buffer(offsetOffset, &value, offsetLength);
 		
 			// Save position's orientation
-			nvm_eeprom_erase_and_write_buffer(eepromOffset, &currentValues[Z], eepromLength);
+			nvm_eeprom_erase_and_write_buffer(orientationOffset, &currentValues[Z], orientationLength);
+		}
 	
 		// Move to height 3mm
 		moveToHeight(3);
 	}
 	
+	// Update bed changes
+	updateBedChanges(false);
+	
 	// Check if emergency stop hasn't occured and accelerometer is working
-	if(!emergencyStopOccured && accelerometer.isWorking) {
+	if(!emergencyStopOccured && accelerometer.isWorking)
 	
 		// Save bed orientation version
 		nvm_eeprom_write_byte(EEPROM_BED_ORIENTATION_VERSION_OFFSET, BED_ORIENTATION_VERSION);
-	
-		// Update bed changes
-		updateBedChanges(false);
-	}
 	
 	// Restore F value
 	currentValues[F] = savedF;

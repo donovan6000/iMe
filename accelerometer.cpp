@@ -105,7 +105,7 @@ bool Accelerometer::testConnection() {
 bool Accelerometer::readAccelerationValues() {
 
 	// Go through each axis
-	int32_t averages[NUMBER_OF_ACCELERATION_AXES] = {};
+	int32_t averages[NUMBER_OF_ACCELERATION_AXES] = {0, 0, 0};
 	for(uint8_t i = 0; i < ACCELEROMETER_SAMPLE_SIZE; i++) {
 		
 		// Wait until data is available

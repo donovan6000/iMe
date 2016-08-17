@@ -422,8 +422,8 @@ int main() {
 									
 										{
 											// Check if temperature is valid
-											int32_t temperature = requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET ? requests[currentProcessingRequest].valueS : 0;
-											if(!temperature || (temperature >= HEATER_MIN_TEMPERATURE && temperature <= HEATER_MAX_TEMPERATURE)) {
+											int32_t temperature = requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET ? requests[currentProcessingRequest].valueS : HEATER_OFF_TEMPERATURE;
+											if(temperature == HEATER_OFF_TEMPERATURE || (temperature >= HEATER_MIN_TEMPERATURE && temperature <= HEATER_MAX_TEMPERATURE)) {
 						
 												// Set response to if setting temperature was successful
 												strcpy(responseBuffer, heater.setTemperature(temperature, requests[currentProcessingRequest].valueM == 109) ? "ok" : "Error: Heater calibration mode not supported");
@@ -551,7 +551,7 @@ int main() {
 									
 										// M583
 										case 583:
-									
+										
 											// Set response to if gantry clips are detected
 											strcpy(responseBuffer, "ok\nC");
 											strcat(responseBuffer, motors.gantryClipsDetected() ? "1" : "0");
@@ -574,7 +574,7 @@ int main() {
 											if(requests[currentProcessingRequest].commandParameters & parameters) {
 					
 												// Check if parameters are valid
-												if(requests[currentProcessingRequest].valueS >= 0 && requests[currentProcessingRequest].valueT && requests[currentProcessingRequest].valueT <= sizeof(uint32_t) && requests[currentProcessingRequest].valueS + requests[currentProcessingRequest].valueT <= EEPROM_DECRYPTION_TABLE_OFFSET) {
+												if(requests[currentProcessingRequest].valueS >= EEPROM_FIRMWARE_VERSION_OFFSET && requests[currentProcessingRequest].valueT && requests[currentProcessingRequest].valueT <= sizeof(uint32_t) && requests[currentProcessingRequest].valueS + requests[currentProcessingRequest].valueT <= EEPROM_DECRYPTION_TABLE_OFFSET) {
 							
 													// Set response to offset
 													strcpy(responseBuffer, "ok\nPT:");
@@ -704,20 +704,18 @@ int main() {
 										strcpy(responseBuffer, motors.homeXY() ? "ok" : "Error: Accelerometer isn't working");
 									break;
 					
-									// G30
+									// G30 or G32
 									case 30:
+									case 32:
+									
+										// Turn off fan and heater
+										fan.setSpeed(FAN_MIN_SPEED);
+										heater.setTemperature(HEATER_OFF_TEMPERATURE);
 					
 										// Set response to if calibrating bed center Z0 was successful
-										strcpy(responseBuffer, motors.calibrateBedCenterZ0() ? "ok" : "Error: Accelerometer isn't working");
+										strcpy(responseBuffer, (requests[currentProcessingRequest].valueG == 30 ? motors.calibrateBedCenterZ0() : motors.calibrateBedOrientation()) ? "ok" : "Error: Accelerometer isn't working");
 									break;
-					
-									// G32
-									case 32:
-					
-										// Set response to if calibrating bed orientation was successful
-										strcpy(responseBuffer, motors.calibrateBedOrientation() ? "ok" : "Error: Accelerometer isn't working");
-									break;
-					
+									
 									// G33
 									case 33:
 					

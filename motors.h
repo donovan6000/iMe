@@ -113,6 +113,13 @@ class Motors {
 		// Get height adjustment required
 		float getHeightAdjustmentRequired(float x, float y);
 		
+		// Start and stop motors step timer
+		void startMotorsStepTimer();
+		void stopMotorsStepTimer();
+		
+		// Are motors moving
+		bool areMotorsMoving();
+		
 		// Current sense ADC controller and channel
 		#ifdef REGULATE_EXTRUDER_CURRENT
 			adc_config currentSenseAdcController;

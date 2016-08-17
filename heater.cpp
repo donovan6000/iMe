@@ -124,7 +124,7 @@ void Heater::initialize() {
 		temperatureIntervalCounter++;
 		
 		// Check if setting the temperature and heater is working
-		if(idealTemperature && testConnection()) {
+		if(idealTemperature != HEATER_OFF_TEMPERATURE && testConnection()) {
 	
 			// Turn on heater
 			ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_ON);
@@ -201,7 +201,7 @@ bool Heater::setTemperature(uint16_t value, bool wait) {
 		return false;
 	
 	// Check if heating
-	if((idealTemperature = value)) {
+	if((idealTemperature = value) != HEATER_OFF_TEMPERATURE) {
 	
 		// Set if newer temperature is lower
 		bool lowerNewValue = value < getTemperature();
@@ -302,7 +302,7 @@ bool Heater::isHeating() {
 	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
 
 	// Set if heating
-	bool heating = idealTemperature;
+	bool heating = idealTemperature != HEATER_OFF_TEMPERATURE;
 	
 	// Allow updating temperature
 	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
@@ -317,7 +317,7 @@ void Heater::clearTemperature() {
 	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
 
 	// Clear ideal and actual temperature
-	idealTemperature = actualTemperature = 0;
+	idealTemperature = actualTemperature = HEATER_OFF_TEMPERATURE;
 	
 	// Allow updating temperature
 	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
