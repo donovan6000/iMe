@@ -11,6 +11,7 @@
 	#include <windows.h>
 #endif
 #include "gcode.h"
+#include "../eeprom.h"
 
 using namespace std;
 
@@ -235,10 +236,10 @@ class Printer {
 		bool collectPrinterInformation(bool logDetails = true);
 		
 		/*
-		Name: Get EEPROM offset and length
-		Purpose: Get the EEPROM offset and length for the EEPROM with the provided name
+		Name: Get EEPROM offset, length, and type
+		Purpose: Get the EEPROM offset, length, and type for the EEPROM with the provided name
 		*/
-		void getEepromOffsetAndLength(const string &name, uint16_t &offset, uint8_t &length);
+		void getEepromOffsetLengthAndType(const string &name, uint16_t &offset, uint8_t &length, EEPROM_TYPES &type);
 		
 		/*
 		Name: Get EEPROM setting's names
@@ -303,7 +304,8 @@ class Printer {
 		// Refresh EEPROM
 		bool refreshEeprom();
 		
-		// EEPROM keep float within range
+		// EEPROM keep value within range
+		bool eepromKeepIntWithinRange(uint16_t offset, uint8_t length, uint32_t min, uint32_t max, uint32_t defaultValue);
 		bool eepromKeepFloatWithinRange(uint16_t offset, uint8_t length, float min, float max, float defaultValue);
 	
 		// Write to EEPROM

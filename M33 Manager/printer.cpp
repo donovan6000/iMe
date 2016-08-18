@@ -25,7 +25,6 @@
 	#include <sys/param.h>
 #endif
 #include "printer.h"
-#include "../eeprom.h"
 
 using namespace std;
 
@@ -935,8 +934,8 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					return false;
 				}
 				
-				// Check if using iMe firmware
-				if(firmwareType == IME) {
+				// Check if not using M3D or M3D Mod firmware
+				if(firmwareType != M3D && firmwareType != M3D_MOD) {
 				
 					// Check if updating last recorded X value failed
 					if(!eepromKeepFloatWithinRange(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, EEPROM_LAST_RECORDED_X_VALUE_LENGTH, EEPROM_LAST_RECORDED_X_VALUE_MIN, EEPROM_LAST_RECORDED_X_VALUE_MAX, EEPROM_LAST_RECORDED_X_VALUE_DEFAULT)) {
@@ -1003,6 +1002,28 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 						// Return false
 						return false;
 					}
+					
+					// Check if updating X jerk sensitivity failed
+					if(!eepromKeepIntWithinRange(EEPROM_X_JERK_SENSITIVITY_OFFSET, EEPROM_X_JERK_SENSITIVITY_LENGTH, EEPROM_X_JERK_SENSITIVITY_MIN, EEPROM_X_JERK_SENSITIVITY_MAX, EEPROM_X_JERK_SENSITIVITY_DEFAULT)) {
+				
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating X jerk sensitivity failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating Y jerk sensitivity failed
+					if(!eepromKeepIntWithinRange(EEPROM_Y_JERK_SENSITIVITY_OFFSET, EEPROM_Y_JERK_SENSITIVITY_LENGTH, EEPROM_Y_JERK_SENSITIVITY_MIN, EEPROM_Y_JERK_SENSITIVITY_MAX, EEPROM_Y_JERK_SENSITIVITY_DEFAULT)) {
+				
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating Y jerk sensitivity failed");
+
+						// Return false
+						return false;
+					}
 				}
 				
 				// Check if updating last recorded Z value failed
@@ -1042,15 +1063,17 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				float stepsPerMmY = eepromGetFloat(EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH);
 				float stepsPerMmZ = eepromGetFloat(EEPROM_Z_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_Z_MOTOR_STEPS_PER_MM_LENGTH);
 				float stepsPerMmE = eepromGetFloat(EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH);
+				uint8_t xJerkSensitivity = eepromGetInt(EEPROM_X_JERK_SENSITIVITY_OFFSET, EEPROM_X_JERK_SENSITIVITY_LENGTH);
+				uint8_t yJerkSensitivity = eepromGetInt(EEPROM_Y_JERK_SENSITIVITY_OFFSET, EEPROM_Y_JERK_SENSITIVITY_LENGTH);
 				
 				// Set if firmware is valid
 				validFirmware = chipCrc == eepromCrc;
 				
 				// Set if bed position is valid
-				if(firmwareType == IME)
-					validBedPosition = eepromGetInt(EEPROM_SAVED_X_STATE_OFFSET, EEPROM_SAVED_X_STATE_LENGTH) && eepromGetInt(EEPROM_SAVED_Y_STATE_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH) && eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH);
-				else
+				if(firmwareType == M3D || firmwareType == M3D_MOD)
 					validBedPosition = eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH);
+				else
+					validBedPosition = eepromGetInt(EEPROM_SAVED_X_STATE_OFFSET, EEPROM_SAVED_X_STATE_LENGTH) && eepromGetInt(EEPROM_SAVED_Y_STATE_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH) && eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH);
 				
 				// Set if bed orientation is valid
 				validBedOrientation = bedOrientationVersion && (bedOrientationBackRight || bedOrientationBackLeft || bedOrientationFrontLeft || bedOrientationFrontRight);
@@ -1082,6 +1105,8 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					logFunction("Using " + to_string(stepsPerMmY) + " Y motor steps/mm");
 					logFunction("Using " + to_string(stepsPerMmZ) + " Z motor steps/mm");
 					logFunction("Using " + to_string(stepsPerMmE) + " E motor steps/mm");
+					logFunction("Using " + to_string(xJerkSensitivity) + " / " + to_string(EEPROM_X_JERK_SENSITIVITY_MAX) + " X jerk homing sensitivity");
+					logFunction("Using " + to_string(yJerkSensitivity) + " / " + to_string(EEPROM_Y_JERK_SENSITIVITY_MAX) + " Y jerk homing sensitivity");
 					logFunction(static_cast<string>("Firmware is ") + (validFirmware ? "valid" : "corrupt"));
 					logFunction(static_cast<string>("Bed position is ") + (validBedPosition ? "valid" : "invalid"));
 					logFunction(static_cast<string>("Bed orientation is ") + (validBedOrientation ? "valid" : "invalid"));
@@ -1722,13 +1747,13 @@ bool Printer::installFirmware(const string &file) {
 	// Get new firmware type
 	firmwareTypes newFirmwareType = getFirmwareTypeFromFirmwareVersion(romVersion);
 	
-	// Check if going from M3D or M3D Mod firmware to iMe firmware
-	if((oldFirmwareType == M3D || oldFirmwareType == M3D_MOD) && newFirmwareType == IME) {
+	// Check if going from M3D or M3D Mod firmware to a different firmware
+	if((oldFirmwareType == M3D || oldFirmwareType == M3D_MOD) && newFirmwareType != M3D && newFirmwareType != M3D_MOD) {
 	
 		// Check if last Z recorded is valid
 		if(eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH)) {
 	
-			// Convert last recorded Z value to single-precision floating-point format used by iMe firmware
+			// Convert last recorded Z value to single-precision floating-point format used by other firmwares
 			float lastRecordedZValue = eepromGetInt(EEPROM_LAST_RECORDED_Z_VALUE_OFFSET, EEPROM_LAST_RECORDED_Z_VALUE_LENGTH) / M3D_FIRMWARE_FLOAT_TO_INT_SCALAR;
 		
 			// Check if saving last recorded Z value in EEPROM failed
@@ -1748,8 +1773,8 @@ bool Printer::installFirmware(const string &file) {
 		}
 	}
 	
-	// Otherwise check if going from iMe firmware to M3D or M3D Mod firmware
-	else if(oldFirmwareType == IME && (newFirmwareType == M3D || newFirmwareType == M3D_MOD)) {
+	// Otherwise check if going from a different firmware to M3D or M3D Mod firmware
+	else if(oldFirmwareType != M3D && oldFirmwareType != M3D_MOD && (newFirmwareType == M3D || newFirmwareType == M3D_MOD)) {
 	
 		// Check if last Z recorded is valid
 		if(eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH)) {
@@ -1773,12 +1798,12 @@ bool Printer::installFirmware(const string &file) {
 				logFunction("Successfully saved converted last recorded Z value");
 		}
 			
-		// Check if clearing X and Y value, direction, and validity in EEPROM failed
-		if(!eepromWriteInt(EEPROM_LAST_RECORDED_X_VALUE_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_LAST_RECORDED_X_VALUE_OFFSET, 0)) {
+		// Check if clearing X and Y sensitivity, value, direction, and validity in EEPROM failed
+		if(!eepromWriteInt(EEPROM_X_JERK_SENSITIVITY_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_X_JERK_SENSITIVITY_OFFSET, 0)) {
 
 			// Log error
 			if(logFunction)
-				logFunction("Failed to clear X and Y value, direction, and validity");
+				logFunction("Failed to clear X and Y sensitivity, value, direction, and validity");
 
 			// Return false
 			return false;
@@ -1786,7 +1811,7 @@ bool Printer::installFirmware(const string &file) {
 		
 		// Log X and Y value, direction, and validity status
 		if(logFunction)
-			logFunction("Successfully cleared out X and Y value, direction, and validity");
+			logFunction("Successfully cleared out X and Y sensitivity, value, direction, and validity");
 		
 		// Check if clearing motor's steps/mm failed
 		if(!eepromWriteInt(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH + EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET - EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, 0)) {
@@ -2813,6 +2838,19 @@ bool Printer::eepromWriteString(uint16_t offset, uint8_t length, const string &v
 	return true;
 }
 
+bool Printer::eepromKeepIntWithinRange(uint16_t offset, uint8_t length, uint32_t min, uint32_t max, uint32_t defaultValue) {
+
+	// Check if value is out of range
+	uint32_t value = eepromGetInt(offset, length);
+	if(value < min || value > max)
+		
+		// Return if setting value to its default was successful
+		return eepromWriteInt(offset, length, defaultValue);
+	
+	// Return true
+	return true;
+}
+
 bool Printer::eepromKeepFloatWithinRange(uint16_t offset, uint8_t length, float min, float max, float defaultValue) {
 
 	// Check if value is not a number or out of range
@@ -2971,97 +3009,130 @@ vector<string> Printer::getEepromSettingsNames() {
 	settingsNames.push_back("Y motor steps/mm");
 	settingsNames.push_back("Z motor steps/mm");
 	settingsNames.push_back("E motor steps/mm");
+	settingsNames.push_back("X jerk homing sensitivity");
+	settingsNames.push_back("Y jerk homing sensitivity");
 	
 	// Return settings names
 	return settingsNames;
 }
 
-void Printer::getEepromOffsetAndLength(const string &name, uint16_t &offset, uint8_t &length) {
+void Printer::getEepromOffsetLengthAndType(const string &name, uint16_t &offset, uint8_t &length, EEPROM_TYPES &type) {
 
 	// Set offset and length
 	if(name == "Backlash X") {
 		offset = EEPROM_BACKLASH_X_OFFSET;
 		length = EEPROM_BACKLASH_X_LENGTH;
+		type = EEPROM_BACKLASH_X_TYPE;
 	}
 	else if(name == "Backlash Y") {
 		offset = EEPROM_BACKLASH_Y_OFFSET;
 		length = EEPROM_BACKLASH_Y_LENGTH;
+		type = EEPROM_BACKLASH_Y_TYPE;
 	}
 	else if(name == "Backlash speed") {
 		offset = EEPROM_BACKLASH_SPEED_OFFSET;
 		length = EEPROM_BACKLASH_SPEED_LENGTH;
+		type = EEPROM_BACKLASH_SPEED_TYPE;
 	}
 	else if(name == "Back right orientation") {
 		offset = EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET;
 		length = EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH;
+		type = EEPROM_BED_ORIENTATION_BACK_RIGHT_TYPE;
 	}
 	else if(name == "Back left orientation") {
 		offset = EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET;
 		length = EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH;
+		type = EEPROM_BED_ORIENTATION_BACK_LEFT_TYPE;
 	}
 	else if(name == "Front left orientation") {
 		offset = EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET;
 		length = EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH;
+		type = EEPROM_BED_ORIENTATION_FRONT_LEFT_TYPE;
 	}
 	else if(name == "Front right orientation") {
 		offset = EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET;
 		length = EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH;
+		type = EEPROM_BED_ORIENTATION_FRONT_RIGHT_TYPE;
 	}
 	else if(name == "Back right offset") {
 		offset = EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET;
 		length = EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH;
+		type = EEPROM_BED_OFFSET_BACK_RIGHT_TYPE;
 	}
 	else if(name == "Back left offset") {
 		offset = EEPROM_BED_OFFSET_BACK_LEFT_OFFSET;
 		length = EEPROM_BED_OFFSET_BACK_LEFT_LENGTH;
+		type = EEPROM_BED_OFFSET_BACK_LEFT_TYPE;
 	}
 	else if(name == "Front left offset") {
 		offset = EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET;
 		length = EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH;
+		type = EEPROM_BED_OFFSET_FRONT_LEFT_TYPE;
 	}
 	else if(name == "Front right offset") {
 		offset = EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET;
 		length = EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH;
+		type = EEPROM_BED_OFFSET_FRONT_RIGHT_TYPE;
 	}
 	else if(name == "Bed height offset") {
 		offset = EEPROM_BED_HEIGHT_OFFSET_OFFSET;
 		length = EEPROM_BED_HEIGHT_OFFSET_LENGTH;
+		type = EEPROM_BED_HEIGHT_OFFSET_TYPE;
 	}
 	else if(name == "Speed limit X") {
 		offset = EEPROM_SPEED_LIMIT_X_OFFSET;
 		length = EEPROM_SPEED_LIMIT_X_LENGTH;
+		type = EEPROM_SPEED_LIMIT_X_TYPE;
 	}
 	else if(name == "Speed limit Y") {
 		offset = EEPROM_SPEED_LIMIT_Y_OFFSET;
 		length = EEPROM_SPEED_LIMIT_Y_LENGTH;
+		type = EEPROM_SPEED_LIMIT_Y_TYPE;
 	}
 	else if(name == "Speed limit Z") {
 		offset = EEPROM_SPEED_LIMIT_Z_OFFSET;
 		length = EEPROM_SPEED_LIMIT_Z_LENGTH;
+		type = EEPROM_SPEED_LIMIT_Z_TYPE;
 	}
 	else if(name == "Speed limit E+") {
 		offset = EEPROM_SPEED_LIMIT_E_POSITIVE_OFFSET;
 		length = EEPROM_SPEED_LIMIT_E_POSITIVE_LENGTH;
+		type = EEPROM_SPEED_LIMIT_E_POSITIVE_TYPE;
 	}
 	else if(name == "Speed limit E-") {
 		offset = EEPROM_SPEED_LIMIT_E_NEGATIVE_OFFSET;
 		length = EEPROM_SPEED_LIMIT_E_NEGATIVE_LENGTH;
+		type = EEPROM_SPEED_LIMIT_E_NEGATIVE_TYPE;
 	}
 	else if(name == "X motor steps/mm") {
 		offset = EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET;
 		length = EEPROM_X_MOTOR_STEPS_PER_MM_LENGTH;
+		type = EEPROM_X_MOTOR_STEPS_PER_MM_TYPE;
 	}
 	else if(name == "Y motor steps/mm") {
 		offset = EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET;
 		length = EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH;
+		type = EEPROM_Y_MOTOR_STEPS_PER_MM_TYPE;
 	}
 	else if(name == "Z motor steps/mm") {
 		offset = EEPROM_Z_MOTOR_STEPS_PER_MM_OFFSET;
 		length = EEPROM_Z_MOTOR_STEPS_PER_MM_LENGTH;
+		type = EEPROM_Z_MOTOR_STEPS_PER_MM_TYPE;
 	}
 	else if(name == "E motor steps/mm") {
 		offset = EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET;
 		length = EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH;
+		type = EEPROM_E_MOTOR_STEPS_PER_MM_TYPE;
+	}
+	else if(name == "X jerk homing sensitivity") {
+		offset = EEPROM_X_JERK_SENSITIVITY_OFFSET;
+		length = EEPROM_X_JERK_SENSITIVITY_LENGTH;
+		type = EEPROM_X_JERK_SENSITIVITY_TYPE;
+	}
+	else if(name == "Y jerk homing sensitivity") {
+		offset = EEPROM_Y_JERK_SENSITIVITY_OFFSET;
+		length = EEPROM_Y_JERK_SENSITIVITY_LENGTH;
+		type = EEPROM_Y_JERK_SENSITIVITY_TYPE;
 	}
 }
 

@@ -182,8 +182,11 @@ float &Vector::operator[](int index) {
 
 Vector &Vector::operator=(const Vector &vector) {
 
-	// Copy values
-	memmove(this, &vector, sizeof(Vector));
+	// Check if not calling on self
+	if(this != &vector)
+
+		// Copy values
+		memcpy(this, &vector, sizeof(Vector));
 	
 	// Return self
 	return *this;

@@ -712,7 +712,7 @@ int main() {
 										fan.setSpeed(FAN_MIN_SPEED);
 										heater.setTemperature(HEATER_OFF_TEMPERATURE);
 					
-										// Set response to if calibrating bed center Z0 was successful
+										// Set response to if calibrating was successful
 										strcpy(responseBuffer, (requests[currentProcessingRequest].valueG == 30 ? motors.calibrateBedCenterZ0() : motors.calibrateBedOrientation()) ? "ok" : "Error: Accelerometer isn't working");
 									break;
 									
@@ -740,55 +740,61 @@ int main() {
 									// G92
 									case 92:
 									
-										// Check if an X, Y, Z, or E value is provided
-										if(requests[currentProcessingRequest].commandParameters & (PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET)) {
+										// Go through all motors
+										for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
 									
-											// Go through all motors
-											for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
+											// Get parameter offset and value
+											uint16_t parameterOffset;
+											float *value;
+											switch(i) {
+										
+												case X:
+													parameterOffset = PARAMETER_X_OFFSET;
+													value = &requests[currentProcessingRequest].valueX;
+												break;
 											
-												// Get parameter offset and value
-												uint16_t parameterOffset;
-												float *value;
-												switch(i) {
-												
-													case X:
-														parameterOffset = PARAMETER_X_OFFSET;
-														value = &requests[currentProcessingRequest].valueX;
-													break;
-													
-													case Y:
-														parameterOffset = PARAMETER_Y_OFFSET;
-														value = &requests[currentProcessingRequest].valueY;
-													break;
-													
-													case Z:
-														parameterOffset = PARAMETER_Z_OFFSET;
-														value = &requests[currentProcessingRequest].valueZ;
-													break;
-													
-													case E:
-													default:
-														parameterOffset = PARAMETER_E_OFFSET;
-														value = &requests[currentProcessingRequest].valueE;
-												}
-												
-												// Check if parameter is provided
-												if(requests[currentProcessingRequest].commandParameters & parameterOffset) {
-												
-													// Disable saving motors state
-													tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
-												
-													// Set motors current value
-													motors.currentValues[i] = *value;
-													
-													// Enable saving motors state
-													tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
-												}
+												case Y:
+													parameterOffset = PARAMETER_Y_OFFSET;
+													value = &requests[currentProcessingRequest].valueY;
+												break;
+											
+												case Z:
+													parameterOffset = PARAMETER_Z_OFFSET;
+													value = &requests[currentProcessingRequest].valueZ;
+												break;
+											
+												case E:
+												default:
+													parameterOffset = PARAMETER_E_OFFSET;
+													value = &requests[currentProcessingRequest].valueE;
 											}
-			
-											// Set response to confirmation
-											strcpy(responseBuffer, "ok");
+											
+											// Check if X, Y, Z, and E values aren't provided
+											if(!(requests[currentProcessingRequest].commandParameters & (PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET))) {
+											
+												// Set parameter offset to something that the command definitely has
+												parameterOffset = PARAMETER_G_OFFSET;
+											
+												// Set value to zero
+												*value = 0;
+											}
+										
+											// Check if parameter is provided
+											if(requests[currentProcessingRequest].commandParameters & parameterOffset) {
+										
+												// Disable saving motors state
+												tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
+										
+												// Set motors current value
+												motors.currentValues[i] = *value;
+											
+												// Enable saving motors state
+												tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
+											}
 										}
+		
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
 									break;
 									
 									// G20 or G21

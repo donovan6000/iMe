@@ -2531,7 +2531,8 @@ void MyFrame::savePrinterSetting(wxCommandEvent& event) {
 			// Set offset and length
 			uint16_t offset;
 			uint8_t length;
-			printer.getEepromOffsetAndLength(static_cast<string>(printerSettingChoice->GetString(printerSettingChoice->GetSelection())), offset, length);
+			EEPROM_TYPES type;
+			printer.getEepromOffsetLengthAndType(static_cast<string>(printerSettingChoice->GetString(printerSettingChoice->GetSelection())), offset, length, type);
 			
 			// Append thread start callback to queue
 			threadStartCallbackQueue.push([=]() -> void {
@@ -2542,9 +2543,18 @@ void MyFrame::savePrinterSetting(wxCommandEvent& event) {
 		
 			// Append thread task to queue
 			threadTaskQueue.push([=]() -> ThreadTaskResponse {
+			
+				// Save value in EEPROM
+				bool error = false;
+				if(type == EEPROM_INT)
+					error = !printer.eepromWriteInt(offset, length, stoi(value));
+				else if(type == EEPROM_FLOAT)
+					error = !printer.eepromWriteFloat(offset, length, stof(value));
+				else if(type == EEPROM_STRING)
+					error = !printer.eepromWriteString(offset, length, value);
 		
 				// Check if saving value in EEPROM was successful
-				if(printer.eepromWriteFloat(offset, length, stof(value)))
+				if(!error)
 				
 					// Return message
 					return {"Setting successfully saved", wxOK | wxICON_INFORMATION | wxCENTRE};
@@ -2577,16 +2587,25 @@ void MyFrame::setPrinterSettingValue() {
 	// Set offset and length
 	uint16_t offset;
 	uint8_t length;
-	printer.getEepromOffsetAndLength(static_cast<string>(printerSettingChoice->GetString(printerSettingChoice->GetSelection())), offset, length);
+	EEPROM_TYPES type;
+	printer.getEepromOffsetLengthAndType(static_cast<string>(printerSettingChoice->GetString(printerSettingChoice->GetSelection())), offset, length, type);
 	
 	// Get value from EEPROM
-	string value = to_string(printer.eepromGetFloat(offset, length));
+	string value;
+	if(type == EEPROM_INT)
+		value = to_string(printer.eepromGetInt(offset, length));
+	else if(type == EEPROM_FLOAT)
+		value = to_string(printer.eepromGetFloat(offset, length));
+	else if(type == EEPROM_STRING)
+		value = printer.eepromGetString(offset, length);
 	
-	// Clean up value
-	while(value.back() == '0')
-		value.pop_back();
-	if(value.back() == '.')
-		value.pop_back();
+	// Clean up floating point values
+	if(type == EEPROM_FLOAT) {
+		while(value.back() == '0')
+			value.pop_back();
+		if(value.back() == '.')
+			value.pop_back();
+	}
 	
 	// Set printer setting input
 	printerSettingInput->SetValue(value);
@@ -3158,7 +3177,7 @@ void MyFrame::checkInvalidValues() {
 						bool incompatible = true;
 						if((printer.getFirmwareType() == M3D || printer.getFirmwareType() == M3D_MOD) && stoi(printer.getFirmwareRelease()) >= 2015122112)
 							incompatible = false;
-						else if(printer.getFirmwareType() == IME && printer.getFirmwareVersion() >= 1900000006)
+						else if(printer.getFirmwareType() == IME && printer.getFirmwareVersion() >= 1900000112)
 							incompatible = false;
 						
 						// Get iMe version
