@@ -1,5 +1,13 @@
 Changelog:
 
+V00.00.01.12 August 17, 2016
+
+	* Continually checks if accelerometer and heater are working while they're being used
+	* Prevents moving higher than the initial starting point when moving to Z0
+	* Allows setting the jerk sensitivity for homing in the EEPROM
+	* Fixed potential issue that can occur when interrupts read/write to the EEPROM or multibyte global variables
+	* Prevents the M618 and M619 from reading/writing to the firmware decryption table in the EEPROM
+
 V00.00.01.06 July 28, 2016
 
 	* First non-alpha release of iMe. Huge thanks to everyone who contributed!

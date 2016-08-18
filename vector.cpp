@@ -1,5 +1,6 @@
 // Header files
 #include <math.h>
+#include <string.h>
 #include "vector.h"
 
 
@@ -146,16 +147,14 @@ const float& Vector::operator[](int index) const {
 	
 		case 0:
 			return x;
-		break;
 		
 		case 1:
 			return y;
-		break;
 		
 		case 2:
 			return z;
-		break;
 		
+		case 3:
 		default:
 			return e;
 	}
@@ -168,16 +167,14 @@ float &Vector::operator[](int index) {
 	
 		case 0:
 			return x;
-		break;
 		
 		case 1:
 			return y;
-		break;
 		
 		case 2:
 			return z;
-		break;
 		
+		case 3:
 		default:
 			return e;
 	}
@@ -185,15 +182,11 @@ float &Vector::operator[](int index) {
 
 Vector &Vector::operator=(const Vector &vector) {
 
-	// Return self if calling on self
-	if(this == &vector)
-		return *this;
-	
-	// Copy vector components
-	x = vector.x;
-	y = vector.y;
-	z = vector.z;
-	e = vector.e;
+	// Check if not calling on self
+	if(this != &vector)
+
+		// Copy values
+		memcpy(this, &vector, sizeof(Vector));
 	
 	// Return self
 	return *this;

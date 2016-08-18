@@ -4,8 +4,6 @@
 
 
 // Definitions
-#define X_JERK_ACCELERATION 60
-#define Y_JERK_ACCELERATION 90
 #define Y_TILT_ACCELERATION 10
 
 
@@ -16,36 +14,39 @@ class Accelerometer {
 	public:
 	
 		// Initialize
-		void initialize();
+		static void initialize();
+		
+		// Test connection
+		static bool testConnection();
 		
 		// Read Acceleration values
-		void readAccelerationValues();
+		static bool readAccelerationValues();
 		
 		// X, Y, and Z acceleration
-		int16_t xAcceleration;
-		int16_t yAcceleration;
-		int16_t zAcceleration;
+		static int16_t xAcceleration;
+		static int16_t yAcceleration;
+		static int16_t zAcceleration;
 		
 		// Is working
-		bool isWorking;
+		static bool isWorking;
 	
 	// Private
 	private:
 		
 		// Data available
-		bool dataAvailable();
+		static inline bool dataAvailable();
 	
 		// Send command
-		void sendCommand(uint8_t command);
+		static bool sendCommand(uint8_t command);
 		
 		// Write value
-		void writeValue(uint8_t address, uint8_t value);
+		static bool writeValue(uint8_t address, uint8_t value);
 	
 		// Read value
-		void readValue(uint8_t address, uint8_t *responseBuffer, uint8_t responseLength = 1);
+		static bool readValue(uint8_t address, uint8_t *responseBuffer, uint8_t responseLength = 1);
 		
 		// transmit
-		void transmit(uint8_t command, uint8_t value = 0, bool sendValue = false, uint8_t *responseBuffer = nullptr, uint8_t responseLength = 0);
+		static bool transmit(uint8_t command, uint8_t value = 0, bool sendValue = false, uint8_t *responseBuffer = nullptr, uint8_t responseLength = 0);
 };
 
 

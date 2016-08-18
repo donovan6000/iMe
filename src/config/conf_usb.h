@@ -4,8 +4,8 @@
 
 
 // Header files
-#include <compiler.h>
-#include <eeprom.h>
+#include "compiler.h"
+#include "eeprom.h"
 
 
 // Device definitions
@@ -19,7 +19,7 @@
 
 // Device string definitions
 #define USB_DEVICE_MANUFACTURE_NAME "M3D"
-#define USB_DEVICE_PRODUCT_NAME "The Micro"
+#define USB_DEVICE_PRODUCT_NAME "Micro 3D"
 #define USB_DEVICE_SERIAL_NAME
 #define USB_DEVICE_GET_SERIAL_NAME_POINTER serialNumber
 #define USB_DEVICE_GET_SERIAL_NAME_LENGTH (EEPROM_SERIAL_NUMBER_LENGTH - 1)

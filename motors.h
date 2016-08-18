@@ -5,6 +5,7 @@
 
 // Header files
 #include "accelerometer.h"
+#include "fan.h"
 #include "gcode.h"
 #include "vector.h"
 
@@ -13,12 +14,13 @@
 #define MOTORS_VREF_TIMER TCD0
 #define MOTORS_VREF_TIMER_PERIOD 0x27F
 #define NUMBER_OF_MOTORS 4
+#define MOTORS_SAVE_TIMER FAN_TIMER
+//#define REGULATE_EXTRUDER_CURRENT
 
 // Tasks
 #define NO_TASK 0
 #define BACKLASH_TASK 1
 #define BED_LEVELING_TASK (1 << 1)
-#define SAVE_CHANGES_TASK (1 << 2)
 
 // State changes
 #define saveState(motor, parameter) changeState(true, motor, parameter)
@@ -53,19 +55,19 @@ class Motors {
 		void turnOff();
 		
 		// Move
-		void move(const Gcode &gcode, uint8_t tasks = BACKLASH_TASK | BED_LEVELING_TASK | SAVE_CHANGES_TASK);
+		bool move(const Gcode &gcode, uint8_t tasks = BACKLASH_TASK | BED_LEVELING_TASK);
 		
 		// Home XY
-		void homeXY(bool adjustHeight = true);
+		bool homeXY(bool adjustHeight = true);
 		
 		// Save Z as bed center Z0
 		void saveZAsBedCenterZ0();
 		
 		// Calibrate bed center Z0
-		void calibrateBedCenterZ0();
+		bool calibrateBedCenterZ0();
 		
 		// Calibrate bed center orientation
-		void calibrateBedOrientation();
+		bool calibrateBedOrientation();
 		
 		// Update bed changes
 		void updateBedChanges(bool adjustHeight = true);
@@ -106,19 +108,26 @@ class Motors {
 		void splitUpMovement(bool adjustHeight);
 	
 		// Move to Z0
-		void moveToZ0();
+		bool moveToZ0();
 		
 		// Get height adjustment required
 		float getHeightAdjustmentRequired(float x, float y);
 		
-		// Current sense ADC controller and channel
-		adc_config currentSenseAdcController;
-		adc_channel_config currentSenseAdcChannel;
+		// Start and stop motors step timer
+		void startMotorsStepTimer();
+		void stopMotorsStepTimer();
 		
-		// Segment values
+		// Are motors moving
+		bool areMotorsMoving();
+		
+		// Current sense ADC controller and channel
+		#ifdef REGULATE_EXTRUDER_CURRENT
+			adc_config currentSenseAdcController;
+			adc_channel_config currentSenseAdcChannel;
+		#endif
+		
+		// Segment start values
 		float startValues[NUMBER_OF_MOTORS];
-		float endValues[NUMBER_OF_MOTORS];
-		float valueChanges[NUMBER_OF_MOTORS];
 		
 		// Vectors
 		Vector backRightVector;

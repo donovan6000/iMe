@@ -2,10 +2,10 @@
 extern "C" {
 	#include <asf.h>
 }
-#include <string.h>
 #include <ctype.h>
-#include "gcode.h"
+#include <string.h>
 #include "common.h"
+#include "gcode.h"
 
 
 // Definitions
@@ -13,13 +13,13 @@ extern "C" {
 
 
 // Supporting function implementation
-bool Gcode::parseCommand(const char *command) {
+void Gcode::parseCommand(const char *command) {
 
-	// Clear command
-	clearCommand();
-	
 	// Set that command has been parsed
-	commandParameters |= PARSED_OFFSET;
+	isParsed = true;
+	
+	// Clear command parameters
+	commandParameters = 0;
 
 	// Remove leading whitespace
 	const char *firstValidCharacter = command;
@@ -27,146 +27,146 @@ bool Gcode::parseCommand(const char *command) {
 	
 	// Get last valid character
 	const char *lastValidCharacter = firstValidCharacter;
-	for(; *lastValidCharacter && *lastValidCharacter != ';' && *lastValidCharacter != '*'; lastValidCharacter++);
+	for(; *lastValidCharacter && *lastValidCharacter != ';' && *lastValidCharacter != '*' && *lastValidCharacter != '\n'; lastValidCharacter++);
 	
 	// Remove trailing white space
 	for(lastValidCharacter--; (lastValidCharacter >= firstValidCharacter) && isspace(*lastValidCharacter); lastValidCharacter--);
 	
 	// Check if command is empty
-	if(++lastValidCharacter == firstValidCharacter)
+	if(++lastValidCharacter != firstValidCharacter) {
 	
-		// Return false
-		return false;
+		// Set start and stop parsing offsets
+		uint8_t startParsingOffset = firstValidCharacter - command;
+		uint8_t stopParsingOffset = lastValidCharacter - command;
 	
-	// Set start and stop parsing offsets
-	uint8_t startParsingOffset = firstValidCharacter - command;
-	uint8_t stopParsingOffset = lastValidCharacter - command;
+		// Check if command is a host command
+		if(*firstValidCharacter == '@') {
 	
-	// Check if command is a host command
-	if(*firstValidCharacter == '@') {
-	
-		// Set command length
-		uint8_t commandLength = min(static_cast<uint8_t>(stopParsingOffset - startParsingOffset - 1), sizeof(hostCommand) - 1);
-	
-		// Check if host command is empty
-		if(!commandLength)
+			// Check if host commands are allowed
+			#ifdef ALLOW_HOST_COMMANDS
 		
-			// Return false
-			return false;
+				// Set command length
+				uint8_t commandLength = min(static_cast<uint8_t>(stopParsingOffset - startParsingOffset - 1), sizeof(hostCommand) - 1);
 	
-		// Save host command
-		strncpy(hostCommand, firstValidCharacter + 1, commandLength);
-		hostCommand[commandLength] = 0;
+				// Check if host command isn't empty
+				if(commandLength) {
+	
+					// Save host command
+					strncpy(hostCommand, firstValidCharacter + 1, commandLength);
+					hostCommand[commandLength] = 0;
 		
-		// Set command parameters
-		commandParameters |= PARAMETER_HOST_COMMAND_OFFSET;
-	}
+					// Set command parameters
+					commandParameters |= PARAMETER_HOST_COMMAND_OFFSET;
+				}
+			#endif
+		}
 	
-	// Otherwise
-	else
-	
-		// Go through each valid character in the command
-		for(uint8_t i = startParsingOffset; i < stopParsingOffset; i++) {
+		// Otherwise
+		else {
 		
-			// Check if character is a valid parameter
-			const char *parameterIndex = strchr(PARAMETER_ORDER, toupper(command[i]));
-			if(parameterIndex) {
+			// Go through each valid character in the command
+			for(uint8_t i = startParsingOffset; i < stopParsingOffset; i++) {
+		
+				// Check if character is a valid parameter
+				const char *parameterIndex = strchr(PARAMETER_ORDER, toupper(command[i]));
+				if(parameterIndex) {
 			
-				// Check if parameter hasn't been obtained yet
-				uint16_t parameterBit = 1 << (parameterIndex - PARAMETER_ORDER);
-				if(!(commandParameters & parameterBit)) {
+					// Check if parameter hasn't been obtained yet
+					uint16_t parameterBit = 1 << (parameterIndex - PARAMETER_ORDER);
+					if(!(commandParameters & parameterBit)) {
 			
-					// Save parameter value
-					char *lastParameterCharacter;
-					switch(parameterBit) {
+						// Save parameter value
+						char *lastParameterCharacter;
+						switch(parameterBit) {
 			
-						case PARAMETER_G_OFFSET:
-							valueG = strtoull(&command[++i], &lastParameterCharacter);
-						break;
+							case PARAMETER_G_OFFSET:
+								valueG = strtoull(&command[++i], &lastParameterCharacter);
+							break;
 				
-						case PARAMETER_M_OFFSET:
-							valueM = strtoull(&command[++i], &lastParameterCharacter);
-						break;
+							case PARAMETER_M_OFFSET:
+								valueM = strtoull(&command[++i], &lastParameterCharacter);
+							break;
 				
-						case PARAMETER_T_OFFSET:
-							valueT = strtoull(&command[++i], &lastParameterCharacter);
-						break;
+							case PARAMETER_T_OFFSET:
+								valueT = strtoull(&command[++i], &lastParameterCharacter);
+							break;
 				
-						case PARAMETER_S_OFFSET:
-							valueS = strtoll(&command[++i], &lastParameterCharacter);
-						break;
+							case PARAMETER_S_OFFSET:
+								valueS = strtoll(&command[++i], &lastParameterCharacter);
+							break;
 				
-						case PARAMETER_P_OFFSET:
-							valueP = strtoll(&command[++i], &lastParameterCharacter);
-						break;
+							case PARAMETER_P_OFFSET:
+								valueP = strtoll(&command[++i], &lastParameterCharacter);
+							break;
 				
-						case PARAMETER_X_OFFSET:
-							valueX = strtof(&command[++i], &lastParameterCharacter);
-						break;
+							case PARAMETER_X_OFFSET:
+								valueX = strtof(&command[++i], &lastParameterCharacter);
+							break;
 				
-						case PARAMETER_Y_OFFSET:
-							valueY = strtof(&command[++i], &lastParameterCharacter);
-						break;
+							case PARAMETER_Y_OFFSET:
+								valueY = strtof(&command[++i], &lastParameterCharacter);
+							break;
 				
-						case PARAMETER_Z_OFFSET:
-							valueZ = strtof(&command[++i], &lastParameterCharacter);
-						break;
+							case PARAMETER_Z_OFFSET:
+								valueZ = strtof(&command[++i], &lastParameterCharacter);
+							break;
 				
-						case PARAMETER_F_OFFSET:
-							valueF = strtof(&command[++i], &lastParameterCharacter);
-						break;
+							case PARAMETER_F_OFFSET:
+								valueF = strtof(&command[++i], &lastParameterCharacter);
+							break;
 				
-						case PARAMETER_E_OFFSET:
-							valueE = strtof(&command[++i], &lastParameterCharacter);
-						break;
+							case PARAMETER_E_OFFSET:
+								valueE = strtof(&command[++i], &lastParameterCharacter);
+							break;
 				
-						case PARAMETER_N_OFFSET:
-							valueN = strtoull(&command[++i], &lastParameterCharacter);
-						
-							// Check if command contains a checksum
-							const char *checksumCharacter = strchr(command, '*');
-							if(checksumCharacter) {
-						
-								// Check if checksum exists
-								char *lastChecksumCharacter;
-								uint8_t providedChecksum = strtoull(++checksumCharacter, &lastChecksumCharacter);
-								if(lastChecksumCharacter != checksumCharacter) {
-							
-									// Calculate checksum
-									uint8_t calculatedChecksum = 0;
-									for(uint8_t j = 0; command[j] != '*'; j++)
-										calculatedChecksum ^= command[j];
-								
-									// Set valid checksum
-									if(calculatedChecksum == providedChecksum)
-										commandParameters |= VALID_CHECKSUM_OFFSET;
-								}
-							}
-					}
+							case PARAMETER_N_OFFSET:
+							default:
+								valueN = strtoull(&command[++i], &lastParameterCharacter);
+						}
 				
-					// Check if parameter exists
-					if(lastParameterCharacter != &command[i]) {
+						// Check if parameter exists
+						if(lastParameterCharacter != &command[i]) {
 				
-						// Set command parameters
-						commandParameters |= parameterBit;
+							// Set command parameters
+							commandParameters |= parameterBit;
 					
-						// Set index
-						i = lastParameterCharacter - command;
-					}
+							// Set index
+							i = lastParameterCharacter - command;
+						}
 				
-					// Decrement index
-					i--;
+						// Decrement index
+						i--;
+					}
+				}
+			}
+			
+			// Check if command contains a checksum
+			const char *checksumCharacter = strchr(lastValidCharacter, '*');
+			if(checksumCharacter) {
+	
+				// Check if checksum exists
+				char *lastChecksumCharacter;
+				uint8_t providedChecksum = strtoull(++checksumCharacter, &lastChecksumCharacter);
+				if(lastChecksumCharacter != checksumCharacter) {
+		
+					// Calculate checksum
+					uint8_t calculatedChecksum = 0;
+					for(uint8_t i = 0; command[i] != '*'; i++)
+						calculatedChecksum ^= command[i];
+			
+					// Set valid checksum
+					if(calculatedChecksum == providedChecksum)
+						commandParameters |= VALID_CHECKSUM_OFFSET;
 				}
 			}
 		}
-	
-	// Return if command contains parameters
-	return commandParameters;
+	}
 }
 
 void Gcode::clearCommand() {
 
 	// Set values to defaults
+	isParsed = false;
 	commandParameters = 0;
 	valueG = 0;
 	valueM = 0;
@@ -179,13 +179,16 @@ void Gcode::clearCommand() {
 	valueF = 0;
 	valueE = 0;
 	valueN = 0;
-	*hostCommand = 0;
+	
+	#ifdef ALLOW_HOST_COMMANDS
+		*hostCommand = 0;
+	#endif
 }
 
 bool Gcode::isEmpty() const {
 
-	// Return if command contains no parameters
-	return !commandParameters;
+	// Return if command hasn't been parsed
+	return !isParsed;
 }
 
 bool Gcode::hasParameterG() const {
@@ -320,45 +323,22 @@ uint64_t Gcode::getParameterN() const {
 	return valueN;
 }
 
-bool Gcode::hasHostCommand() const {
+#ifdef ALLOW_HOST_COMMANDS
+	bool Gcode::hasHostCommand() const {
 
-	// Return is host command is set
-	return commandParameters & PARAMETER_HOST_COMMAND_OFFSET;
-}
+		// Return is host command is set
+		return commandParameters & PARAMETER_HOST_COMMAND_OFFSET;
+	}
 
-const char *Gcode::getHostCommand() const {
+	const char *Gcode::getHostCommand() const {
 
-	// Return host command
-	return hostCommand;
-}
+		// Return host command
+		return hostCommand;
+	}
+#endif
 
 bool Gcode::hasValidChecksum() const {
 
 	// Return if checksum is valid
 	return commandParameters & VALID_CHECKSUM_OFFSET;
-}
-
-Gcode &Gcode::operator=(const Gcode &gcode) {
-
-	// Return self if calling on self
-	if(this == &gcode)
-		return *this;
-	
-	// Copy vector components
-	commandParameters = gcode.commandParameters;
-	valueG = gcode.valueG;
-	valueM = gcode.valueM;
-	valueT = gcode.valueT;
-	valueS = gcode.valueS;
-	valueP = gcode.valueP;
-	valueX = gcode.valueX;
-	valueY = gcode.valueY;
-	valueZ = gcode.valueZ;
-	valueF = gcode.valueF;
-	valueE = gcode.valueE;
-	valueN = gcode.valueN;
-	strcpy(hostCommand, gcode.hostCommand);
-	
-	// Return self
-	return *this;
 }

@@ -2,9 +2,9 @@
 extern "C" {
 	#include <asf.h>
 }
-#include "led.h"
-#include "fan.h"
 #include "common.h"
+#include "fan.h"
+#include "led.h"
 
 
 // Definitions

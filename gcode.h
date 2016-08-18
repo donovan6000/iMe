@@ -3,11 +3,6 @@
 #define GCODE_H
 
 
-// Header files
-#include <stdint.h>
-#include "common.h"
-
-
 // Definitions
 //#define ALLOW_HOST_COMMANDS
 
@@ -25,7 +20,6 @@
 #define PARAMETER_N_OFFSET (1 << 10)
 #define PARAMETER_HOST_COMMAND_OFFSET (1 << 11)
 #define VALID_CHECKSUM_OFFSET (1 << 12)
-#define PARSED_OFFSET (1 << 13)
 
 
 // Gcode class
@@ -35,7 +29,7 @@ class Gcode {
 	public:
 		
 		// Parse command
-		bool parseCommand(const char *command);
+		void parseCommand(const char *command);
 		
 		// Clear command
 		void clearCommand();
@@ -109,17 +103,20 @@ class Gcode {
 		// Get parameter N
 		uint64_t getParameterN() const;
 		
-		// Has host command
-		bool hasHostCommand() const;
+		#ifdef ALLOW_HOST_COMMANDS
 		
-		// Get host command
-		const char *getHostCommand() const;
+			// Has host command
+			bool hasHostCommand() const;
+		
+			// Get host command
+			const char *getHostCommand() const;
+		#endif
 		
 		// Has valid checksum
 		bool hasValidChecksum() const;
 		
-		// Assignment operator
-		Gcode &operator=(const Gcode &gcode);
+		// Is parsed
+		bool isParsed;
 		
 		// Command parameters
 		uint16_t commandParameters;
@@ -140,8 +137,6 @@ class Gcode {
 		// Host command
 		#ifdef ALLOW_HOST_COMMANDS
 			char hostCommand[UINT8_MAX + 1];
-		#else
-			char hostCommand[1];
 		#endif
 };
 
