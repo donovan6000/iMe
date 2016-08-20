@@ -916,7 +916,7 @@ void cdcRxNotifyCallback(uint8_t port) {
 		if(!emergencyStopOccured) {
 	
 			// Go through all commands in request
-			for(char *offset = accumulatedBuffer; *offset;) {
+			for(char *offset = accumulatedBuffer; *offset; offset++) {
 	
 				// Parse request
 				Gcode gcode;
@@ -942,9 +942,11 @@ void cdcRxNotifyCallback(uint8_t port) {
 					currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
 				}
 			
-				// Go to next command
-				if(*(offset = strchr(offset, '\n')))
-					offset++;
+				// Check if next command doesn't exist
+				if(!(offset = strchr(offset, '\n')))
+				
+					// Break
+					break;
 			}
 		}
 	}

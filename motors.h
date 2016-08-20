@@ -120,6 +120,9 @@ class Motors {
 		// Are motors moving
 		bool areMotorsMoving();
 		
+		// Set motor delay and skip
+		void setMotorDelayAndSkip(AXES motor, float slowestNumberOfCycles);
+		
 		// Current sense ADC controller and channel
 		#ifdef REGULATE_EXTRUDER_CURRENT
 			adc_config currentSenseAdcController;

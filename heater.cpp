@@ -206,7 +206,7 @@ bool Heater::setTemperature(uint16_t value, bool wait) {
 		// Set if newer temperature is lower
 		bool lowerNewValue = value < getTemperature();
 	
-		// Turn on/off heater depending on new temperature
+		// Turn on or off heater depending on new temperature
 		ioport_set_pin_level(HEATER_MODE_SELECT_PIN, lowerNewValue ? HEATER_OFF : HEATER_ON);
 		
 		// Wait until temperature has been reached
