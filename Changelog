@@ -1,8 +1,9 @@
 Changelog:
 
-V00.00.01.13 August X, 2016
+V00.00.01.14 August X, 2016
 
 	* Sped up movements
+	* Allows setting the calibrate Z0 correction factor
 
 V00.00.01.12 August 17, 2016
 

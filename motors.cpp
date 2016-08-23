@@ -19,7 +19,6 @@ extern "C" {
 #define HOMING_FEED_RATE 1500.0
 #define CALIBRATING_Z_FEED_RATE 17.0
 #define BED_ORIENTATION_VERSION 1
-#define CALIBRATE_Z0_CORRECTION 0.2
 #define HOMING_ADDITIONAL_DISTANCE 8.0
 
 // Bed dimensions
@@ -711,7 +710,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 						motorFeedRate = getValueInRange(motorFeedRate, minFeedRate, maxFeedRate);
 						
 						// Get axis's slowest number of cycles
-						float axisSlowestNumberOfCycles = max(distanceTraveled / motorFeedRate * 60 * sysclk_get_cpu_hz(), static_cast<float>(motorsNumberOfSteps[i]) * MOTORS_STEP_TIMER_PERIOD);
+						float axisSlowestNumberOfCycles = max(motorsNumberOfSteps[i] / (stepsPerMm * MICROSTEPS_PER_STEP) / motorFeedRate * 60 * sysclk_get_cpu_hz(), static_cast<float>(motorsNumberOfSteps[i]) * MOTORS_STEP_TIMER_PERIOD);
 						
 						// Set slowest number of cycles
 						slowestNumberOfCycles = max(axisSlowestNumberOfCycles, slowestNumberOfCycles);
@@ -1575,14 +1574,18 @@ bool Motors::moveToZ0() {
 		if(fabs(lastZ0 - currentValues[Z]) <= 1) {
 			if(++matchCounter >= 2) {
 			
+				// Get calibrate Z0 correction
+				float calibrateZ0Correction;
+				nvm_eeprom_read_buffer(EEPROM_CALIBRATE_Z0_CORRECTION_OFFSET, &calibrateZ0Correction, EEPROM_CALIBRATE_Z0_CORRECTION_LENGTH);
+			
 				// Move by correction factor
-				moveToHeight(currentValues[Z] + CALIBRATE_Z0_CORRECTION);
+				moveToHeight(currentValues[Z] + calibrateZ0Correction);
 				
 				// Disable saving motors state
 				tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
 				
 				// Adjust height to compensate for correction factor
-				currentValues[Z] -= CALIBRATE_Z0_CORRECTION;
+				currentValues[Z] -= calibrateZ0Correction;
 				
 				// Enable saving motors state
 				tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);

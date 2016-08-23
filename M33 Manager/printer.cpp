@@ -1024,6 +1024,17 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 						// Return false
 						return false;
 					}
+					
+					// Check if updating calibrate Z0 correction failed
+					if(!eepromKeepFloatWithinRange(EEPROM_CALIBRATE_Z0_CORRECTION_OFFSET, EEPROM_CALIBRATE_Z0_CORRECTION_LENGTH, EEPROM_CALIBRATE_Z0_CORRECTION_MIN, EEPROM_CALIBRATE_Z0_CORRECTION_MAX, EEPROM_CALIBRATE_Z0_CORRECTION_DEFAULT)) {
+				
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating calibrate Z0 correction failed");
+
+						// Return false
+						return false;
+					}
 				}
 				
 				// Check if updating last recorded Z value failed
@@ -1065,6 +1076,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				float stepsPerMmE = eepromGetFloat(EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH);
 				uint8_t xJerkSensitivity = eepromGetInt(EEPROM_X_JERK_SENSITIVITY_OFFSET, EEPROM_X_JERK_SENSITIVITY_LENGTH);
 				uint8_t yJerkSensitivity = eepromGetInt(EEPROM_Y_JERK_SENSITIVITY_OFFSET, EEPROM_Y_JERK_SENSITIVITY_LENGTH);
+				float calibrateZ0Correction = eepromGetFloat(EEPROM_CALIBRATE_Z0_CORRECTION_OFFSET, EEPROM_CALIBRATE_Z0_CORRECTION_LENGTH);
 				
 				// Set if firmware is valid
 				validFirmware = chipCrc == eepromCrc;
@@ -1107,6 +1119,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					logFunction("Using " + to_string(stepsPerMmE) + " E motor steps/mm");
 					logFunction("Using " + to_string(xJerkSensitivity) + " / " + to_string(EEPROM_X_JERK_SENSITIVITY_MAX) + " X jerk homing sensitivity");
 					logFunction("Using " + to_string(yJerkSensitivity) + " / " + to_string(EEPROM_Y_JERK_SENSITIVITY_MAX) + " Y jerk homing sensitivity");
+					logFunction("Using " + to_string(calibrateZ0Correction) + "mm calibrate Z0 correction");
 					logFunction(static_cast<string>("Firmware is ") + (validFirmware ? "valid" : "corrupt"));
 					logFunction(static_cast<string>("Bed position is ") + (validBedPosition ? "valid" : "invalid"));
 					logFunction(static_cast<string>("Bed orientation is ") + (validBedOrientation ? "valid" : "invalid"));
@@ -1798,12 +1811,12 @@ bool Printer::installFirmware(const string &file) {
 				logFunction("Successfully saved converted last recorded Z value");
 		}
 			
-		// Check if clearing X and Y sensitivity, value, direction, and validity in EEPROM failed
-		if(!eepromWriteInt(EEPROM_X_JERK_SENSITIVITY_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_X_JERK_SENSITIVITY_OFFSET, 0)) {
+		// Check if clearing calibrate Z0 correction and X and Y sensitivity, value, direction, and validity in EEPROM failed
+		if(!eepromWriteInt(EEPROM_CALIBRATE_Z0_CORRECTION_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_CALIBRATE_Z0_CORRECTION_OFFSET, 0)) {
 
 			// Log error
 			if(logFunction)
-				logFunction("Failed to clear X and Y sensitivity, value, direction, and validity");
+				logFunction("Failed to clear calibrate Z0 correction and X and Y sensitivity, value, direction, and validity");
 
 			// Return false
 			return false;
@@ -1811,7 +1824,7 @@ bool Printer::installFirmware(const string &file) {
 		
 		// Log X and Y value, direction, and validity status
 		if(logFunction)
-			logFunction("Successfully cleared out X and Y sensitivity, value, direction, and validity");
+			logFunction("Successfully cleared out calibrate Z0 correction and X and Y sensitivity, value, direction, and validity");
 		
 		// Check if clearing motor's steps/mm failed
 		if(!eepromWriteInt(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH + EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET - EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, 0)) {
@@ -3011,6 +3024,7 @@ vector<string> Printer::getEepromSettingsNames() {
 	settingsNames.push_back("E motor steps/mm");
 	settingsNames.push_back("X jerk homing sensitivity");
 	settingsNames.push_back("Y jerk homing sensitivity");
+	settingsNames.push_back("Calibrate Z0 correction");
 	
 	// Return settings names
 	return settingsNames;
@@ -3133,6 +3147,11 @@ void Printer::getEepromOffsetLengthAndType(const string &name, uint16_t &offset,
 		offset = EEPROM_Y_JERK_SENSITIVITY_OFFSET;
 		length = EEPROM_Y_JERK_SENSITIVITY_LENGTH;
 		type = EEPROM_Y_JERK_SENSITIVITY_TYPE;
+	}
+	else if(name == "Calibrate Z0 correction") {
+		offset = EEPROM_CALIBRATE_Z0_CORRECTION_OFFSET;
+		length = EEPROM_CALIBRATE_Z0_CORRECTION_LENGTH;
+		type = EEPROM_CALIBRATE_Z0_CORRECTION_TYPE;
 	}
 }
 
