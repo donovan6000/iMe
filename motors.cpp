@@ -47,7 +47,7 @@ extern "C" {
 #define BED_HIGH_MIN_Z BED_MEDIUM_MAX_Z
 
 // Motors settings
-#define MICROSTEPS_PER_STEP 8
+#define MICROSTEPS_PER_STEP 32
 #define MOTORS_ENABLE_PIN IOPORT_CREATE_PIN(PORTB, 3)
 #define MOTORS_STEP_CONTROL_PIN IOPORT_CREATE_PIN(PORTB, 2)
 #define MOTORS_CURRENT_SENSE_RESISTANCE 0.1
@@ -128,9 +128,12 @@ bool motorsIsMoving[NUMBER_OF_MOTORS];
 
 // Supporting function implementation
 void motorsStepAction(AXES motor) {
+
+	// The motorsDelaySkips and motorsStepDelay are used to delay the motor's movements to make sure that all motors end at the same time given the feed rate of the movement and all the motor's speed limits
+	// totalCpuCycles[motor] = ceil(motorsNumberOfSteps[motor] * motorsStepDelay[motor] * (1 + (motorsDelaySkips[motor] ? 1 / motorsDelaySkips[motor] : 0)) - (motorsDelaySkips[motor] ? 1 : 0)) * MOTORS_STEP_TIMER_PERIOD;
 	
 	// Check if time to skip a motor delay
-	if(motorsDelaySkips[motor] > 1 && ++motorsDelaySkipsCounter[motor] >= motorsDelaySkips[motor])
+	if(motorsDelaySkips[motor] && motorsDelaySkipsCounter[motor]++ >= motorsDelaySkips[motor])
 	
 		// Clear motor skip delay counter
 		motorsDelaySkipsCounter[motor] = 0;
@@ -1788,15 +1791,29 @@ float Motors::getMovementsNumberOfCycles(AXES motor, float stepsPerMm, float fee
 
 void Motors::setMotorDelayAndSkip(AXES motor, float movementsNumberOfCycles) {
 
+	// Clear motor counters
+	motorsStepDelayCounter[motor] = motorsDelaySkipsCounter[motor] = 0;
+
 	// Set motor step delay
-	motorsStepDelayCounter[motor] = 0;
 	motorsStepDelay[motor] = getValueInRange(movementsNumberOfCycles / MOTORS_STEP_TIMER_PERIOD / motorsNumberOfSteps[motor], 1, UINT32_MAX);
 
-	// Set motor delay skips
-	float numerator = static_cast<float>(motorsNumberOfSteps[motor]) * MOTORS_STEP_TIMER_PERIOD * motorsStepDelay[motor];
-	float denominator = movementsNumberOfCycles - numerator;
-	motorsDelaySkipsCounter[motor] = 0;
-	motorsDelaySkips[motor] = denominator ? getValueInRange(numerator / denominator, 0, UINT32_MAX) : 0;
+	// Check if skipping delays won't achieve the desired number of cycles
+	if(ceil(motorsNumberOfSteps[motor] * motorsStepDelay[motor] * (1 + 1 / 1) - 1) * MOTORS_STEP_TIMER_PERIOD < movementsNumberOfCycles) {
+	
+		// Increment motor step delay
+		motorsStepDelay[motor]++;
+		
+		// Clear motor delay skips
+		motorsDelaySkips[motor] = 0;
+	}
+	
+	// Otherwise
+	else {
+	
+		// Set motor delay skips
+		float denominator = movementsNumberOfCycles / MOTORS_STEP_TIMER_PERIOD - (motorsNumberOfSteps[motor] * motorsStepDelay[motor] - 1);
+		motorsDelaySkips[motor] = denominator ? getValueInRange(motorsNumberOfSteps[motor] * motorsStepDelay[motor] / denominator, 0, UINT32_MAX) : 0;
+	}
 }
 
 void Motors::reset() {
