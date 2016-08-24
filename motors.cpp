@@ -522,7 +522,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 		currentValues[F] = gcode.valueF;
 	
 	// Initialize variables
-	float slowestNumberOfCycles = 0;
+	float movementsHighestNumberOfCycles = 0;
 	BACKLASH_DIRECTION backlashDirections[2] = {NONE, NONE};
 	bool validValues[3];
 	
@@ -709,11 +709,8 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 						// Enforce min/max feed rates
 						motorFeedRate = getValueInRange(motorFeedRate, minFeedRate, maxFeedRate);
 						
-						// Get axis's slowest number of cycles
-						float axisSlowestNumberOfCycles = max(motorsNumberOfSteps[i] / (stepsPerMm * MICROSTEPS_PER_STEP) / motorFeedRate * 60 * sysclk_get_cpu_hz(), static_cast<float>(motorsNumberOfSteps[i]) * MOTORS_STEP_TIMER_PERIOD);
-						
-						// Set slowest number of cycles
-						slowestNumberOfCycles = max(axisSlowestNumberOfCycles, slowestNumberOfCycles);
+						// Set the movement's highest number of cycles
+						movementsHighestNumberOfCycles = max(getMovementsNumberOfCycles(static_cast<AXES>(i), stepsPerMm, motorFeedRate), movementsHighestNumberOfCycles);
 					}
 					
 					// Otherwise
@@ -816,7 +813,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 			if(motorsIsMoving[i]) {
 			
 				// Set motor delay and skip to achieve desired feed rate
-				setMotorDelayAndSkip(static_cast<AXES>(i), slowestNumberOfCycles);
+				setMotorDelayAndSkip(static_cast<AXES>(i), movementsHighestNumberOfCycles);
 		
 				// Set motor Vref to active
 				switch(i) {
@@ -1343,7 +1340,7 @@ bool Motors::homeXY(bool adjustHeight) {
 		motorsNumberOfRemainingSteps[i] = 0;
 		
 		// Set motor delay and skip to achieve desired feed rate
-		setMotorDelayAndSkip(static_cast<AXES>(i), max(motorsNumberOfSteps[i] / (stepsPerMm * MICROSTEPS_PER_STEP) / HOMING_FEED_RATE * 60 * sysclk_get_cpu_hz(), static_cast<float>(motorsNumberOfSteps[i]) * MOTORS_STEP_TIMER_PERIOD));
+		setMotorDelayAndSkip(static_cast<AXES>(i), getMovementsNumberOfCycles(static_cast<AXES>(i), stepsPerMm, HOMING_FEED_RATE));
 		
 		// Set that motor moves
 		motorsIsMoving[i] = true;
@@ -1511,7 +1508,7 @@ bool Motors::moveToZ0() {
 		nvm_eeprom_read_buffer(EEPROM_Z_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Z_MOTOR_STEPS_PER_MM_LENGTH);
 		
 		// Set motor delay and skip to achieve desired feed rate
-		setMotorDelayAndSkip(Z, max(motorsNumberOfSteps[Z] / (stepsPerMm * MICROSTEPS_PER_STEP) / CALIBRATING_Z_FEED_RATE * 60 * sysclk_get_cpu_hz(), static_cast<float>(motorsNumberOfSteps[Z]) * MOTORS_STEP_TIMER_PERIOD));
+		setMotorDelayAndSkip(Z, getMovementsNumberOfCycles(Z, stepsPerMm, CALIBRATING_Z_FEED_RATE));
 		
 		// Set motor Z Vref to active
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
@@ -1783,15 +1780,21 @@ bool Motors::calibrateBedOrientation() {
 	return accelerometer.isWorking;
 }
 
-void Motors::setMotorDelayAndSkip(AXES motor, float slowestNumberOfCycles) {
+float Motors::getMovementsNumberOfCycles(AXES motor, float stepsPerMm, float feedRate) {
+
+	// Return the highest number of cycles required to perform the movement which is limited by either the movement's feed rate or the motor's step timer period
+	return max(motorsNumberOfSteps[motor] / stepsPerMm / MICROSTEPS_PER_STEP / feedRate * 60 * sysclk_get_cpu_hz(), static_cast<float>(motorsNumberOfSteps[motor]) * MOTORS_STEP_TIMER_PERIOD);
+}
+
+void Motors::setMotorDelayAndSkip(AXES motor, float movementsNumberOfCycles) {
 
 	// Set motor step delay
 	motorsStepDelayCounter[motor] = 0;
-	motorsStepDelay[motor] = getValueInRange(slowestNumberOfCycles / MOTORS_STEP_TIMER_PERIOD / motorsNumberOfSteps[motor], 1, UINT32_MAX);
+	motorsStepDelay[motor] = getValueInRange(movementsNumberOfCycles / MOTORS_STEP_TIMER_PERIOD / motorsNumberOfSteps[motor], 1, UINT32_MAX);
 
 	// Set motor delay skips
 	float numerator = static_cast<float>(motorsNumberOfSteps[motor]) * MOTORS_STEP_TIMER_PERIOD * motorsStepDelay[motor];
-	float denominator = slowestNumberOfCycles - numerator;
+	float denominator = movementsNumberOfCycles - numerator;
 	motorsDelaySkipsCounter[motor] = 0;
 	motorsDelaySkips[motor] = denominator ? getValueInRange(numerator / denominator, 0, UINT32_MAX) : 0;
 }
