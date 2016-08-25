@@ -1401,8 +1401,9 @@ bool Motors::homeXY(bool adjustHeight) {
 	Gcode gcode;
 	gcode.valueX = -BED_CENTER_X_DISTANCE_FROM_HOMING_CORNER;
 	gcode.valueY = -BED_CENTER_Y_DISTANCE_FROM_HOMING_CORNER;
+	gcode.valueZ = 0;
 	gcode.valueF = EEPROM_SPEED_LIMIT_X_MAX;
-	gcode.commandParameters = PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
+	gcode.commandParameters = PARAMETER_X_OFFSET | PARAMETER_F_OFFSET;
 	
 	// Save Z motor's validity
 	bool validZ = currentStateOfValues[Z];
@@ -1411,7 +1412,6 @@ bool Motors::homeXY(bool adjustHeight) {
 	if(adjustHeight) {
 	
 		// Set G-code's Z parameter
-		gcode.commandParameters |= PARAMETER_Z_OFFSET;
 		gcode.valueZ = getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
 	
 		// Set that Z is invalid
@@ -1428,7 +1428,13 @@ bool Motors::homeXY(bool adjustHeight) {
 	float savedZ = currentValues[Z];
 	float savedF = currentValues[F];
 	
-	// Move to center
+	// Move to center X
+	move(gcode, BACKLASH_TASK);
+	
+	// Set G-code paramaters
+	gcode.commandParameters = PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET;
+	
+	// Move to center Y
 	move(gcode, BACKLASH_TASK);
 	
 	// Disable saving motors state

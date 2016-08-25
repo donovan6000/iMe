@@ -1,9 +1,10 @@
 Changelog:
 
-V00.00.01.16 August X, 2016
+V00.00.01.17 August X, 2016
 
 	* Sped up movements
 	* Allows setting the calibrate Z0 correction factor
+	* Changed from 8 micro steps/step to 32 micro steps/step
 
 V00.00.01.12 August 17, 2016
 
