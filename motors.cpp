@@ -1725,28 +1725,28 @@ bool Motors::calibrateBedOrientation() {
 		uint8_t orientationLength, offsetLength;
 		switch(i) {
 		
-			case 0:
+			case 1:
 				orientationOffset = EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET;
 				orientationLength = EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH;
 				offsetOffset = EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET;
 				offsetLength = EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH;
 			break;
 			
-			case 1:
+			case 2:
 				orientationOffset = EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET;
 				orientationLength = EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH;
 				offsetOffset = EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET;
 				offsetLength = EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH;
 			break;
 			
-			case 2:
+			case 3:
 				orientationOffset = EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET;
 				orientationLength = EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH;
 				offsetOffset = EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET;
 				offsetLength = EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH;
 			break;
 			
-			case 3:
+			case 4:
 				orientationOffset = EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET;
 				orientationLength = EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH;
 				offsetOffset = EEPROM_BED_OFFSET_BACK_LEFT_OFFSET;
