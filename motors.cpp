@@ -47,7 +47,7 @@ extern "C" {
 #define BED_HIGH_MIN_Z BED_MEDIUM_MAX_Z
 
 // Motors settings
-#define MICROSTEPS_PER_STEP 32
+#define MICROSTEPS_PER_STEP 8
 #define MOTORS_ENABLE_PIN IOPORT_CREATE_PIN(PORTB, 3)
 #define MOTORS_STEP_CONTROL_PIN IOPORT_CREATE_PIN(PORTB, 2)
 #define MOTORS_CURRENT_SENSE_RESISTANCE 0.1
@@ -1078,7 +1078,7 @@ void Motors::splitUpMovement(bool adjustHeight) {
 	mode = ABSOLUTE;
 	
 	// Go through all segments
-	for(uint32_t numberOfSegments = minimumOneCeil(horizontalDistance / SEGMENT_LENGTH), segmentCounter = adjustHeight ? 1 : numberOfSegments; segmentCounter <= numberOfSegments; segmentCounter++) {
+	for(uint32_t numberOfSegments = minimumOneCeil(horizontalDistance / SEGMENT_LENGTH), segmentCounter = adjustHeight ? 1 : numberOfSegments;; segmentCounter++) {
 	
 		// Go through all motors
 		for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
@@ -1115,6 +1115,12 @@ void Motors::splitUpMovement(bool adjustHeight) {
 		
 		// Move to end of current segment
 		move(gcode, NO_TASK);
+		
+		// Check if at last segment
+		if(segmentCounter == numberOfSegments)
+		
+			// Break
+			break;
 	}
 	
 	// Disable saving motors state
@@ -1808,22 +1814,14 @@ void Motors::setMotorDelayAndSkip(AXES motor, float movementsNumberOfCycles) {
 	motorsStepDelay[motor] = getValueInRange(movementsNumberOfCycles / MOTORS_STEP_TIMER_PERIOD / motorsNumberOfSteps[motor], 1, UINT32_MAX);
 
 	// Check if skipping delays won't achieve the desired number of cycles
-	if(ceil(motorsNumberOfSteps[motor] * motorsStepDelay[motor] * (1 + 1 / 1) - 1) * MOTORS_STEP_TIMER_PERIOD < movementsNumberOfCycles) {
+	if(ceil(static_cast<float>(motorsNumberOfSteps[motor]) * motorsStepDelay[motor] * (1 + 1 / 1) - 1) * MOTORS_STEP_TIMER_PERIOD < movementsNumberOfCycles)
 	
 		// Increment motor step delay
 		motorsStepDelay[motor]++;
-		
-		// Clear motor delay skips
-		motorsDelaySkips[motor] = 0;
-	}
 	
-	// Otherwise
-	else {
-	
-		// Set motor delay skips
-		float denominator = movementsNumberOfCycles / MOTORS_STEP_TIMER_PERIOD - (motorsNumberOfSteps[motor] * motorsStepDelay[motor] - 1);
-		motorsDelaySkips[motor] = denominator ? getValueInRange(motorsNumberOfSteps[motor] * motorsStepDelay[motor] / denominator, 0, UINT32_MAX) : 0;
-	}
+	// Set motor delay skips
+	float denominator = movementsNumberOfCycles / MOTORS_STEP_TIMER_PERIOD - (static_cast<float>(motorsNumberOfSteps[motor]) * motorsStepDelay[motor] - 1);
+	motorsDelaySkips[motor] = denominator ? getValueInRange(static_cast<float>(motorsNumberOfSteps[motor]) * motorsStepDelay[motor] / denominator, 0, UINT32_MAX) : 0;
 }
 
 void Motors::reset() {

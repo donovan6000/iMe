@@ -1,10 +1,10 @@
 Changelog:
 
-V00.00.01.17 August X, 2016
+V00.00.01.18 August X, 2016
 
 	* Sped up movements
 	* Allows setting the calibrate Z0 correction factor
-	* Changed from 8 micro steps/step to 32 micro steps/step
+	* Fixed issue where motors could move faster than the feedrate provided by a command
 
 V00.00.01.12 August 17, 2016
 

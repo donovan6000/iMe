@@ -3177,7 +3177,7 @@ void MyFrame::checkInvalidValues() {
 						bool incompatible = true;
 						if((printer.getFirmwareType() == M3D || printer.getFirmwareType() == M3D_MOD) && stoi(printer.getFirmwareRelease()) >= 2015122112)
 							incompatible = false;
-						else if(printer.getFirmwareType() == IME && printer.getFirmwareVersion() >= 1900000112)
+						else if(printer.getFirmwareType() == IME && printer.getFirmwareVersion() >= 1900000117)
 							incompatible = false;
 						
 						// Get iMe version
