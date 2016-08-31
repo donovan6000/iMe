@@ -120,6 +120,12 @@ class Motors {
 		// Are motors moving
 		bool areMotorsMoving();
 		
+		// Get movement's number of cycles
+		float getMovementsNumberOfCycles(AXES motor, float stepsPerMm, float feedRate);
+		
+		// Set motor delay and skip
+		void setMotorDelayAndSkip(AXES motor, float movementsNumberOfCycles);
+		
 		// Current sense ADC controller and channel
 		#ifdef REGULATE_EXTRUDER_CURRENT
 			adc_config currentSenseAdcController;

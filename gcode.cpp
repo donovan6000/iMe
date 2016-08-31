@@ -30,7 +30,7 @@ void Gcode::parseCommand(const char *command) {
 	for(; *lastValidCharacter && *lastValidCharacter != ';' && *lastValidCharacter != '*' && *lastValidCharacter != '\n'; lastValidCharacter++);
 	
 	// Remove trailing white space
-	for(lastValidCharacter--; (lastValidCharacter >= firstValidCharacter) && isspace(*lastValidCharacter); lastValidCharacter--);
+	for(lastValidCharacter--; lastValidCharacter >= firstValidCharacter && isspace(*lastValidCharacter); lastValidCharacter--);
 	
 	// Check if command is empty
 	if(++lastValidCharacter != firstValidCharacter) {

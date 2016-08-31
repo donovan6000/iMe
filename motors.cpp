@@ -19,7 +19,7 @@ extern "C" {
 #define HOMING_FEED_RATE 1500.0
 #define CALIBRATING_Z_FEED_RATE 17.0
 #define BED_ORIENTATION_VERSION 1
-#define CALIBRATE_Z0_CORRECTION 0.2
+#define HOMING_ADDITIONAL_DISTANCE 8.0
 
 // Bed dimensions
 #define BED_CENTER_X 54.0
@@ -55,7 +55,7 @@ extern "C" {
 #define MOTORS_SAVE_TIMER_PERIOD FAN_TIMER_PERIOD
 #define MOTORS_SAVE_VALUE_MILLISECONDS 200
 #define MOTORS_STEP_TIMER TCC0
-#define MOTORS_STEP_TIMER_PERIOD (8192 / MICROSTEPS_PER_STEP)
+#define MOTORS_STEP_TIMER_PERIOD 1024
 
 // Motor X settings
 #define MOTOR_X_DIRECTION_PIN IOPORT_CREATE_PIN(PORTC, 2)
@@ -128,9 +128,12 @@ bool motorsIsMoving[NUMBER_OF_MOTORS];
 
 // Supporting function implementation
 void motorsStepAction(AXES motor) {
+
+	// The motorsDelaySkips and motorsStepDelay are used to delay the motor's movements to make sure that all motors end at the same time given the feed rate of the movement and all the motor's speed limits
+	// totalCpuCycles[motor] = ceil(motorsNumberOfSteps[motor] * motorsStepDelay[motor] * (1 + (motorsDelaySkips[motor] ? 1 / motorsDelaySkips[motor] : 0)) - (motorsDelaySkips[motor] ? 1 : 0)) * MOTORS_STEP_TIMER_PERIOD;
 	
 	// Check if time to skip a motor delay
-	if(motorsDelaySkips[motor] > 1 && ++motorsDelaySkipsCounter[motor] >= motorsDelaySkips[motor])
+	if(motorsDelaySkips[motor] && motorsDelaySkipsCounter[motor]++ >= motorsDelaySkips[motor])
 	
 		// Clear motor skip delay counter
 		motorsDelaySkipsCounter[motor] = 0;
@@ -219,7 +222,7 @@ Vector generatePlaneEquation(const Vector &v1, const Vector &v2, const Vector &v
 float getZFromXYAndPlane(const Vector &point, const Vector &planeABC) {
 
 	// Return Z
-	return (planeABC[0] * point.x + planeABC[1] * point.y + planeABC[3]) / -planeABC[2];
+	return planeABC[2] ? (planeABC[0] * point.x + planeABC[1] * point.y + planeABC[3]) / -planeABC[2] : 0;
 }
 
 float sign(const Vector &p1, const Vector &p2, const Vector &p3) {
@@ -522,7 +525,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 		currentValues[F] = gcode.valueF;
 	
 	// Initialize variables
-	float slowestTime = 0;
+	float movementsHighestNumberOfCycles = 0;
 	BACKLASH_DIRECTION backlashDirections[2] = {NONE, NONE};
 	bool validValues[3];
 	
@@ -708,9 +711,9 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 			
 						// Enforce min/max feed rates
 						motorFeedRate = getValueInRange(motorFeedRate, minFeedRate, maxFeedRate);
-	
-						// Set slowest time
-						slowestTime = max(distanceTraveled / motorFeedRate * 60, slowestTime);
+						
+						// Set the movement's highest number of cycles
+						movementsHighestNumberOfCycles = max(getMovementsNumberOfCycles(static_cast<AXES>(i), stepsPerMm, motorFeedRate), movementsHighestNumberOfCycles);
 					}
 					
 					// Otherwise
@@ -804,8 +807,6 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 	else if(!emergencyStopOccured) {
 	
 		// Initialize variables
-		uint32_t motorsTotalRoundedTime[NUMBER_OF_MOTORS];
-		uint32_t slowestRoundedTime = 0;
 		float motorVoltageE;
 	
 		// Go through all motors
@@ -814,15 +815,8 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 			// Check if motor moves
 			if(motorsIsMoving[i]) {
 			
-				// Set motor step delay
-				motorsStepDelayCounter[i] = 0;
-				motorsStepDelay[i] = minimumOneCeil(slowestTime * sysclk_get_cpu_hz() / MOTORS_STEP_TIMER_PERIOD / motorsNumberOfSteps[i]);
-		
-				// Set motor total rounded time
-				motorsTotalRoundedTime[i] = motorsNumberOfSteps[i] > UINT32_MAX / motorsStepDelay[i] ? UINT32_MAX : motorsNumberOfSteps[i] * motorsStepDelay[i];
-		
-				// Set slowest rounded time
-				slowestRoundedTime = max(motorsTotalRoundedTime[i], slowestRoundedTime);
+				// Set motor delay and skip to achieve desired feed rate
+				setMotorDelayAndSkip(static_cast<AXES>(i), movementsHighestNumberOfCycles);
 		
 				// Set motor Vref to active
 				switch(i) {
@@ -850,14 +844,6 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 						tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_E_VREF_CHANNEL, round(motorVoltageE / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 				}
 			}
-		
-		// Go through all motors
-		for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
-		
-			// Set motor delay skips
-			motorsDelaySkipsCounter[i] = 0;
-			motorsDelaySkips[i] = slowestRoundedTime != motorsTotalRoundedTime[i] ? round(static_cast<float>(motorsTotalRoundedTime[i]) / (slowestRoundedTime - motorsTotalRoundedTime[i])) : 0;
-		}
 		
 		// Wait enough time for motor voltages to stabilize
 		delay_us(500);
@@ -1092,7 +1078,7 @@ void Motors::splitUpMovement(bool adjustHeight) {
 	mode = ABSOLUTE;
 	
 	// Go through all segments
-	for(uint32_t numberOfSegments = minimumOneCeil(horizontalDistance / SEGMENT_LENGTH), segmentCounter = adjustHeight ? 1 : numberOfSegments; segmentCounter <= numberOfSegments; segmentCounter++) {
+	for(uint32_t numberOfSegments = minimumOneCeil(horizontalDistance / SEGMENT_LENGTH), segmentCounter = adjustHeight ? 1 : numberOfSegments;; segmentCounter++) {
 	
 		// Go through all motors
 		for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
@@ -1129,6 +1115,12 @@ void Motors::splitUpMovement(bool adjustHeight) {
 		
 		// Move to end of current segment
 		move(gcode, NO_TASK);
+		
+		// Check if at last segment
+		if(segmentCounter == numberOfSegments)
+		
+			// Break
+			break;
 	}
 	
 	// Disable saving motors state
@@ -1233,7 +1225,7 @@ bool Motors::gantryClipsDetected() {
 void Motors::changeState(bool save, AXES motor, AXES_PARAMETER parameter) {
 
 	// Go through X, Y, and Z motors
-	for(uint8_t i = motor; i <= (save ? motor : 2); i++) {
+	for(uint8_t i = motor; i <= (save ? motor : Z); i++) {
 	
 		// Get value, state, and direction offsets
 		eeprom_addr_t savedValueOffset, savedStateOffset, savedDirectionOffset = EEPROM_SIZE;
@@ -1321,7 +1313,7 @@ bool Motors::homeXY(bool adjustHeight) {
 		int16_t *accelerometerValue;
 		eeprom_addr_t eepromOffset;
 		if(i == Y) {
-			distance = max(max(BED_LOW_MAX_Y, BED_MEDIUM_MAX_Y), BED_HIGH_MAX_Y) - min(min(BED_LOW_MIN_Y, BED_MEDIUM_MIN_Y), BED_HIGH_MIN_Y) + 8;
+			distance = max(max(BED_LOW_MAX_Y, BED_MEDIUM_MAX_Y), BED_HIGH_MAX_Y) - min(min(BED_LOW_MIN_Y, BED_MEDIUM_MIN_Y), BED_HIGH_MIN_Y) + HOMING_ADDITIONAL_DISTANCE;
 			nvm_eeprom_read_buffer(EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH);
 			ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, DIRECTION_BACKWARD);
 			currentMotorDirections[Y] = DIRECTION_BACKWARD;
@@ -1334,7 +1326,7 @@ bool Motors::homeXY(bool adjustHeight) {
 			tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Y_VREF_CHANNEL, round(MOTOR_Y_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
 		}
 		else {
-			distance = max(max(BED_LOW_MAX_X, BED_MEDIUM_MAX_X), BED_HIGH_MAX_X) - min(min(BED_LOW_MIN_X, BED_MEDIUM_MIN_X), BED_HIGH_MIN_X) + 8;
+			distance = max(max(BED_LOW_MAX_X, BED_MEDIUM_MAX_X), BED_HIGH_MAX_X) - min(min(BED_LOW_MIN_X, BED_MEDIUM_MIN_X), BED_HIGH_MIN_X) + HOMING_ADDITIONAL_DISTANCE;
 			nvm_eeprom_read_buffer(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_X_MOTOR_STEPS_PER_MM_LENGTH);
 			ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, DIRECTION_RIGHT);
 			currentMotorDirections[X] = DIRECTION_RIGHT;
@@ -1356,11 +1348,8 @@ bool Motors::homeXY(bool adjustHeight) {
 		// Clear number of remaining steps
 		motorsNumberOfRemainingSteps[i] = 0;
 		
-		// Set motor delay to achieve desired feed rate
-		motorsStepDelayCounter[i] = motorsDelaySkipsCounter[i] = 0;
-		motorsStepDelay[i] = minimumOneCeil((distance * 60 * sysclk_get_cpu_hz()) / (HOMING_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * motorsNumberOfSteps[i]));
-		float denominator = (distance * 60 * sysclk_get_cpu_hz()) / (HOMING_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * motorsNumberOfSteps[i] * motorsStepDelay[i]) - 1;
-		motorsDelaySkips[i] = denominator ? min(round(1 / denominator), UINT32_MAX) : 0;
+		// Set motor delay and skip to achieve desired feed rate
+		setMotorDelayAndSkip(static_cast<AXES>(i), getMovementsNumberOfCycles(static_cast<AXES>(i), stepsPerMm, HOMING_FEED_RATE));
 		
 		// Set that motor moves
 		motorsIsMoving[i] = true;
@@ -1418,8 +1407,9 @@ bool Motors::homeXY(bool adjustHeight) {
 	Gcode gcode;
 	gcode.valueX = -BED_CENTER_X_DISTANCE_FROM_HOMING_CORNER;
 	gcode.valueY = -BED_CENTER_Y_DISTANCE_FROM_HOMING_CORNER;
+	gcode.valueZ = 0;
 	gcode.valueF = EEPROM_SPEED_LIMIT_X_MAX;
-	gcode.commandParameters = PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
+	gcode.commandParameters = PARAMETER_X_OFFSET | PARAMETER_F_OFFSET;
 	
 	// Save Z motor's validity
 	bool validZ = currentStateOfValues[Z];
@@ -1428,7 +1418,6 @@ bool Motors::homeXY(bool adjustHeight) {
 	if(adjustHeight) {
 	
 		// Set G-code's Z parameter
-		gcode.commandParameters |= PARAMETER_Z_OFFSET;
 		gcode.valueZ = getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
 	
 		// Set that Z is invalid
@@ -1445,7 +1434,13 @@ bool Motors::homeXY(bool adjustHeight) {
 	float savedZ = currentValues[Z];
 	float savedF = currentValues[F];
 	
-	// Move to center
+	// Move to center X
+	move(gcode, BACKLASH_TASK);
+	
+	// Set G-code paramaters
+	gcode.commandParameters = PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET;
+	
+	// Move to center Y
 	move(gcode, BACKLASH_TASK);
 	
 	// Disable saving motors state
@@ -1527,11 +1522,8 @@ bool Motors::moveToZ0() {
 		float stepsPerMm;
 		nvm_eeprom_read_buffer(EEPROM_Z_MOTOR_STEPS_PER_MM_OFFSET, &stepsPerMm, EEPROM_Z_MOTOR_STEPS_PER_MM_LENGTH);
 		
-		// Set motor delay to achieve desired feed rate
-		motorsStepDelayCounter[Z] = motorsDelaySkipsCounter[Z] = 0;
-		motorsStepDelay[Z] = minimumOneCeil(((motorsNumberOfSteps[Z] / (stepsPerMm * MICROSTEPS_PER_STEP)) * 60 * sysclk_get_cpu_hz()) / (CALIBRATING_Z_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * (motorsNumberOfSteps[Z] / (stepsPerMm * MICROSTEPS_PER_STEP)) * stepsPerMm * MICROSTEPS_PER_STEP));
-		float denominator = ((motorsNumberOfSteps[Z] / (stepsPerMm * MICROSTEPS_PER_STEP)) * 60 * sysclk_get_cpu_hz()) / (CALIBRATING_Z_FEED_RATE * MOTORS_STEP_TIMER_PERIOD * (motorsNumberOfSteps[Z] / (stepsPerMm * MICROSTEPS_PER_STEP)) * stepsPerMm * MICROSTEPS_PER_STEP * motorsStepDelay[Z]) - 1;
-		motorsDelaySkips[Z] = denominator ? min(round(1 / denominator), UINT32_MAX) : 0;
+		// Set motor delay and skip to achieve desired feed rate
+		setMotorDelayAndSkip(Z, getMovementsNumberOfCycles(Z, stepsPerMm, CALIBRATING_Z_FEED_RATE));
 		
 		// Set motor Z Vref to active
 		tc_write_cc(&MOTORS_VREF_TIMER, MOTOR_Z_VREF_CHANNEL, round(MOTOR_Z_CURRENT_ACTIVE * MOTORS_CURRENT_TO_VOLTAGE_SCALAR / MICROCONTROLLER_VOLTAGE * MOTORS_VREF_TIMER_PERIOD));
@@ -1594,14 +1586,18 @@ bool Motors::moveToZ0() {
 		if(fabs(lastZ0 - currentValues[Z]) <= 1) {
 			if(++matchCounter >= 2) {
 			
+				// Get calibrate Z0 correction
+				float calibrateZ0Correction;
+				nvm_eeprom_read_buffer(EEPROM_CALIBRATE_Z0_CORRECTION_OFFSET, &calibrateZ0Correction, EEPROM_CALIBRATE_Z0_CORRECTION_LENGTH);
+			
 				// Move by correction factor
-				moveToHeight(currentValues[Z] + CALIBRATE_Z0_CORRECTION);
+				moveToHeight(currentValues[Z] + calibrateZ0Correction);
 				
 				// Disable saving motors state
 				tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
 				
 				// Adjust height to compensate for correction factor
-				currentValues[Z] -= CALIBRATE_Z0_CORRECTION;
+				currentValues[Z] -= calibrateZ0Correction;
 				
 				// Enable saving motors state
 				tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
@@ -1683,16 +1679,20 @@ bool Motors::calibrateBedOrientation() {
 	// Initialize X and Y positions
 	float positionsX[] = {
 		BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
+		BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
 		BED_CENTER_X + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
 		BED_CENTER_X + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
+		BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
 		BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
 		BED_CENTER_X
 	};
 	float positionsY[] = {
+		BED_CENTER_Y,
 		BED_CENTER_Y - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
 		BED_CENTER_Y - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
 		BED_CENTER_Y + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
 		BED_CENTER_Y + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER,
+		BED_CENTER_Y,
 		BED_CENTER_Y
 	};
 	
@@ -1731,28 +1731,28 @@ bool Motors::calibrateBedOrientation() {
 		uint8_t orientationLength, offsetLength;
 		switch(i) {
 		
-			case 0:
+			case 1:
 				orientationOffset = EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET;
 				orientationLength = EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH;
 				offsetOffset = EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET;
 				offsetLength = EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH;
 			break;
 			
-			case 1:
+			case 2:
 				orientationOffset = EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET;
 				orientationLength = EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH;
 				offsetOffset = EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET;
 				offsetLength = EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH;
 			break;
 			
-			case 2:
+			case 3:
 				orientationOffset = EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET;
 				orientationLength = EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH;
 				offsetOffset = EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET;
 				offsetLength = EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH;
 			break;
 			
-			case 3:
+			case 4:
 				orientationOffset = EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET;
 				orientationLength = EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH;
 				offsetOffset = EEPROM_BED_OFFSET_BACK_LEFT_OFFSET;
@@ -1797,6 +1797,31 @@ bool Motors::calibrateBedOrientation() {
 	
 	// Return if accelerometer is working
 	return accelerometer.isWorking;
+}
+
+float Motors::getMovementsNumberOfCycles(AXES motor, float stepsPerMm, float feedRate) {
+
+	// Return the highest number of cycles required to perform the movement which is limited by either the movement's feed rate or the motor's step timer period
+	return max(motorsNumberOfSteps[motor] / stepsPerMm / MICROSTEPS_PER_STEP / feedRate * 60 * sysclk_get_cpu_hz(), static_cast<float>(motorsNumberOfSteps[motor]) * MOTORS_STEP_TIMER_PERIOD);
+}
+
+void Motors::setMotorDelayAndSkip(AXES motor, float movementsNumberOfCycles) {
+
+	// Clear motor counters
+	motorsStepDelayCounter[motor] = motorsDelaySkipsCounter[motor] = 0;
+
+	// Set motor step delay
+	motorsStepDelay[motor] = getValueInRange(movementsNumberOfCycles / MOTORS_STEP_TIMER_PERIOD / motorsNumberOfSteps[motor], 1, UINT32_MAX);
+
+	// Check if skipping delays won't achieve the desired number of cycles
+	if(ceil(static_cast<float>(motorsNumberOfSteps[motor]) * motorsStepDelay[motor] * (1 + 1 / 1) - 1) * MOTORS_STEP_TIMER_PERIOD < movementsNumberOfCycles)
+	
+		// Increment motor step delay
+		motorsStepDelay[motor]++;
+	
+	// Set motor delay skips
+	float denominator = movementsNumberOfCycles / MOTORS_STEP_TIMER_PERIOD - (static_cast<float>(motorsNumberOfSteps[motor]) * motorsStepDelay[motor] - 1);
+	motorsDelaySkips[motor] = denominator ? getValueInRange(static_cast<float>(motorsNumberOfSteps[motor]) * motorsStepDelay[motor] / denominator, 0, UINT32_MAX) : 0;
 }
 
 void Motors::reset() {

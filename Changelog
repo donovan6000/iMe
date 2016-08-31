@@ -1,5 +1,11 @@
 Changelog:
 
+V00.00.01.18 August 30, 2016
+
+	* Sped up movements
+	* Allows setting the calibrate Z0 correction factor
+	* Fixed issue where motors could move faster than the feedrate provided by a command. Huge thanks to qwerty8224!
+
 V00.00.01.12 August 17, 2016
 
 	* Continually checks if accelerometer and heater are working while they're being used

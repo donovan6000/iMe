@@ -497,10 +497,14 @@ int main() {
 									case 115:
 			
 										// Check if command is to reset
-										if(requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET && requests[currentProcessingRequest].valueS == 628)
-			
+										if(requests[currentProcessingRequest].commandParameters & PARAMETER_S_OFFSET && requests[currentProcessingRequest].valueS == 628) {
+											
+											// Disable interrupts
+											cpu_irq_disable();
+											
 											// Reset
 											reset_do_soft_reset();
+										}
 			
 										// Otherwise
 										else {
@@ -816,8 +820,8 @@ int main() {
 						// Check if command has an N parameter and it was processed
 						if(requests[currentProcessingRequest].commandParameters & PARAMETER_N_OFFSET && (!strncmp(responseBuffer, "ok", strlen("ok")) || !strncmp(responseBuffer, "rs", strlen("rs")) || !strncmp(responseBuffer, "skip", strlen("skip")))) {
 						
-							// Check if response is a confirmation and current command number isn't at its max
-							if(!strncmp(responseBuffer, "ok", strlen("ok")) && currentCommandNumber != UINT64_MAX)
+							// Check if response is a confirmation
+							if(!strncmp(responseBuffer, "ok", strlen("ok")))
 							
 								// Increment current command number
 								currentCommandNumber++;
@@ -916,7 +920,7 @@ void cdcRxNotifyCallback(uint8_t port) {
 		if(!emergencyStopOccured) {
 	
 			// Go through all commands in request
-			for(char *offset = accumulatedBuffer; *offset;) {
+			for(char *offset = accumulatedBuffer; *offset; offset++) {
 	
 				// Parse request
 				Gcode gcode;
@@ -942,9 +946,11 @@ void cdcRxNotifyCallback(uint8_t port) {
 					currentReceivingRequest = currentReceivingRequest == REQUEST_BUFFER_SIZE - 1 ? 0 : currentReceivingRequest + 1;
 				}
 			
-				// Go to next command
-				if(*(offset = strchr(offset, '\n')))
-					offset++;
+				// Check if next command doesn't exist
+				if(!(offset = strchr(offset, '\n')))
+				
+					// Break
+					break;
 			}
 		}
 	}
