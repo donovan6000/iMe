@@ -15,7 +15,7 @@
 #define MOTORS_VREF_TIMER_PERIOD 0x27F
 #define NUMBER_OF_MOTORS 4
 #define MOTORS_SAVE_TIMER FAN_TIMER
-//#define REGULATE_EXTRUDER_CURRENT
+#define REGULATE_EXTRUDER_CURRENT false
 
 // Tasks
 #define NO_TASK 0
@@ -127,7 +127,7 @@ class Motors {
 		void setMotorDelayAndSkip(AXES motor, float movementsNumberOfCycles);
 		
 		// Current sense ADC controller and channel
-		#ifdef REGULATE_EXTRUDER_CURRENT
+		#if REGULATE_EXTRUDER_CURRENT == true
 			adc_config currentSenseAdcController;
 			adc_channel_config currentSenseAdcChannel;
 		#endif

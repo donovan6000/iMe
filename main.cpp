@@ -21,7 +21,7 @@ extern "C" {
 #define REQUEST_BUFFER_SIZE 5
 #define WAIT_TIMER MOTORS_VREF_TIMER
 #define WAIT_TIMER_PERIOD MOTORS_VREF_TIMER_PERIOD
-//#define ALLOW_USELESS_COMMANDS
+#define ALLOW_USELESS_COMMANDS false
 
 // Unknown pin (Connected to transistors above the microcontroller. Maybe related to detecting if USB is connected)
 #define UNKNOWN_PIN IOPORT_CREATE_PIN(PORTA, 1)
@@ -188,7 +188,7 @@ int main() {
 					*responseBuffer = 0;
 	
 					// Check if host commands are allowed
-					#ifdef ALLOW_HOST_COMMANDS
+					#if ALLOW_HOST_COMMANDS == true
 
 						// Check if command is a host command
 						if(requests[currentProcessingRequest].commandParameters & PARAMETER_HOST_COMMAND_OFFSET) {
@@ -198,7 +198,7 @@ int main() {
 					
 								// Send lock bits
 								strcpy(responseBuffer, "ok\n0x");
-								ltoa(NVM_LOCKBITS, numberBuffer, 16);
+								ltoa(NVM.LOCKBITS, numberBuffer, 16);
 								strcat(responseBuffer, numberBuffer);
 							}
 					
@@ -263,9 +263,9 @@ int main() {
 							
 								// Set CRC32 to use 0xFFFFFFFF seed and target flash memory
 								CRC.CTRL = CRC_RESET_RESET1_gc;
-    								CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
-    								
-    								// Wait for calculating the CRC32 to finish
+								CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
+								
+								// Wait for calculating the CRC32 to finish
 								nvm_issue_flash_range_crc(APP_SECTION_START, APP_SECTION_END);
 								nvm_wait_until_ready();
 								while(CRC.STATUS & CRC_BUSY_bm);
@@ -287,9 +287,9 @@ int main() {
 					
 								// Set CRC32 to use 0xFFFFFFFF seed and target flash memory
 								CRC.CTRL = CRC_RESET_RESET1_gc;
-    								CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
-    								
-    								// Wait for calculating the CRC32 to finish
+								CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
+								
+								// Wait for calculating the CRC32 to finish
 								nvm_issue_flash_range_crc(APP_SECTION_START, APP_SECTION_END);
 								nvm_wait_until_ready();
 								while(CRC.STATUS & CRC_BUSY_bm);
@@ -528,7 +528,7 @@ int main() {
 									break;
 									
 									// Check if useless commands are allowed
-									#ifdef ALLOW_USELESS_COMMANDS
+									#if ALLOW_USELESS_COMMANDS == true
 									
 										// M404
 										case 404:
@@ -551,7 +551,7 @@ int main() {
 									break;
 									
 									// Check if useless commands are allowed
-									#ifdef ALLOW_USELESS_COMMANDS
+									#if ALLOW_USELESS_COMMANDS == true
 									
 										// M583
 										case 583:
@@ -574,7 +574,7 @@ int main() {
 									
 										{
 											// Check if EEPROM parameters are provided
-											uint16_t parameters = PARAMETER_S_OFFSET | PARAMETER_T_OFFSET | (requests[currentProcessingRequest].valueM == 618 ? PARAMETER_P_OFFSET : 0);
+											gcodeParameterOffset parameters = PARAMETER_S_OFFSET | PARAMETER_T_OFFSET | (requests[currentProcessingRequest].valueM == 618 ? PARAMETER_P_OFFSET : 0);
 											if(requests[currentProcessingRequest].commandParameters & parameters) {
 					
 												// Check if parameters are valid
@@ -622,7 +622,7 @@ int main() {
 									break;
 									
 									// Check if useless commands are allowed
-									#ifdef ALLOW_USELESS_COMMANDS
+									#if ALLOW_USELESS_COMMANDS == true
 									
 										// M5321
 										case 5321:
@@ -748,7 +748,7 @@ int main() {
 										for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
 									
 											// Get parameter offset and value
-											uint16_t parameterOffset;
+											gcodeParameterOffset parameterOffset;
 											float *value;
 											switch(i) {
 										
@@ -902,7 +902,7 @@ void cdcRxNotifyCallback(uint8_t port) {
 	udi_cdc_read_buf(buffer, size);
 	
 	// Prevent request from overflowing accumulated request
-	if(size + lastCharacterOffset >= sizeof(accumulatedBuffer))
+	if(size >= sizeof(accumulatedBuffer) - lastCharacterOffset)
 		size = sizeof(accumulatedBuffer) - lastCharacterOffset - 1;
 	buffer[size] = 0;
 	
@@ -927,14 +927,10 @@ void cdcRxNotifyCallback(uint8_t port) {
 				gcode.parseCommand(offset);
 	
 				// Check if request is an emergency stop and it has a valid checksum if it has an N parameter
-				if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.commandParameters & VALID_CHECKSUM_OFFSET)) {
+				if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.commandParameters & VALID_CHECKSUM_OFFSET))
 
 					// Stop all peripherals
 					heater.emergencyStopOccured = motors.emergencyStopOccured = emergencyStopOccured = true;
-				
-					// Break
-					break;
-				}
 
 				// Otherwise check if currently receiving request is empty
 				else if(!requests[currentReceivingRequest].isParsed) {

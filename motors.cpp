@@ -1,5 +1,5 @@
 // DRV8834 motor driver http://www.ti.com/lit/ds/slvsb19d/slvsb19d.pdf
-// 24BYJ-48 5V 1/64 ratio stepper motor used in 4 wire bipolar mode, so just ignore the common wire (usually red) if it has one http://robocraft.ru/files/datasheet/28BYJ-48.pdf
+// 24BYJ-48 5V 1/64 ratio stepper motor used in 4 wire bipolar mode, so just ignore the common wire (usually red) if it has one. Connecting a new motor to the existing male connector can be done by connecting the following wires: pink to grey, yellow to black, red to nothing, blue to orange, and orange to blue. http://robocraft.ru/files/datasheet/28BYJ-48.pdf
 
 
 // Header files
@@ -427,7 +427,7 @@ void Motors::initialize() {
 	});
 	
 	// Check if regulating extruder current
-	#ifdef REGULATE_EXTRUDER_CURRENT
+	#if REGULATE_EXTRUDER_CURRENT == true
 	
 		// Set ADC controller to use unsigned, 12-bit, Vref refrence, and manual trigger
 		adc_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &currentSenseAdcController);
@@ -546,7 +546,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 		}
 	
 		// Get parameter offset and parameter value
-		uint16_t parameterOffset;
+		gcodeParameterOffset parameterOffset;
 		float newValue;
 		switch(i) {
 		
@@ -855,7 +855,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 		while(areMotorsMoving() && !emergencyStopOccured) {
 		
 			// Check if regulating extruder current
-			#ifdef REGULATE_EXTRUDER_CURRENT
+			#if REGULATE_EXTRUDER_CURRENT == true
 	
 				// Check if motor E is moving
 				if(motorsIsMoving[E]) {

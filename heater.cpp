@@ -213,14 +213,10 @@ bool Heater::setTemperature(uint16_t value, bool wait) {
 		while(wait) {
 		
 			// Break if an emergency stop occured or heater isn't working
-			if(emergencyStopOccured || !isWorking) {
-			
-				// Clear temperature
-				clearTemperature();
+			if(emergencyStopOccured || !isWorking)
 				
 				// Break
 				break;
-			}
 		
 			// Set response to temperature
 			char buffer[FLOAT_BUFFER_SIZE + strlen("T:\n")];
@@ -229,8 +225,11 @@ bool Heater::setTemperature(uint16_t value, bool wait) {
 			// Prevent updating temperature
 			tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
 			
+			// Set if done heating
+			bool doneHeating = ioport_get_pin_level(HEATER_MODE_SELECT_PIN) != (lowerNewValue ? HEATER_OFF : HEATER_ON);
+			
 			// Append temperature to response
-			ftoa(ioport_get_pin_level(HEATER_MODE_SELECT_PIN) == (lowerNewValue ? HEATER_OFF : HEATER_ON) ? actualTemperature : idealTemperature, &buffer[strlen("T:")]);
+			ftoa(doneHeating ? idealTemperature : actualTemperature, &buffer[strlen("T:")]);
 
 			// Allow updating temperature
 			tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
@@ -242,7 +241,7 @@ bool Heater::setTemperature(uint16_t value, bool wait) {
 			sendDataToUsb(buffer, true);
 			
 			// Check if done heating
-			if(ioport_get_pin_level(HEATER_MODE_SELECT_PIN) != (lowerNewValue ? HEATER_OFF : HEATER_ON))
+			if(doneHeating)
 			
 				// Break
 				break;

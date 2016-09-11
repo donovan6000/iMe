@@ -1,5 +1,9 @@
 Changelog:
 
+V00.00.01.19 September X, 2016
+
+	* Fixed aesthetic issue with M109 command's output
+
 V00.00.01.18 August 30, 2016
 
 	* Sped up movements
