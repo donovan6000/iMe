@@ -502,6 +502,18 @@ int main() {
 											// Disable interrupts
 											cpu_irq_disable();
 											
+											// Go through X, Y, and Z axes	
+											for(AXES currentSaveMotor = X; currentSaveMotor <= Z; currentSaveMotor = static_cast<AXES>(currentSaveMotor + 1))
+											
+												// Go through direction, validity, and value axes parameters
+												for(AXES_PARAMETER currentSaveParameter = DIRECTION; currentSaveParameter <= VALUE; currentSaveParameter = static_cast<AXES_PARAMETER>(currentSaveParameter + 1))
+											
+													// Save current axis's parameter
+													motors.saveState(currentSaveMotor, currentSaveParameter);
+											
+											// Wait until non-volatile memory controller isn't busy
+											nvm_wait_until_ready();
+											
 											// Reset
 											reset_do_soft_reset();
 										}

@@ -1,8 +1,9 @@
 Changelog:
 
-V00.00.01.19 September X, 2016
+V00.00.01.20 September X, 2016
 
 	* Fixed aesthetic issue with M109 command's output
+	* Saves X, Y, and Z axes direction, validity, and value in EEPROM before resetting due to an M115 S628 command
 
 V00.00.01.18 August 30, 2016
 

@@ -75,6 +75,9 @@ class Motors {
 		// Gantry clips detected
 		bool gantryClipsDetected();
 		
+		// Change state
+		void changeState(bool save = false, AXES motor = X, AXES_PARAMETER parameter = DIRECTION);
+		
 		// Reset
 		void reset();
 		
@@ -94,9 +97,6 @@ class Motors {
 	
 	// Private
 	private:
-	
-		// Change state
-		void changeState(bool save = false, AXES motor = X, AXES_PARAMETER parameter = DIRECTION);
 		
 		// Move to height
 		void moveToHeight(float height);
