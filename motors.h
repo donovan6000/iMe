@@ -38,6 +38,9 @@ enum BACKLASH_DIRECTION {NONE, POSITIVE, NEGATIVE};
 // Axes parameter
 enum AXES_PARAMETER {DIRECTION, VALIDITY, VALUE};
 
+// Units
+enum UNITS {MILLIMETERS, INCHES};
+
 
 // Motors class
 class Motors {
@@ -86,8 +89,12 @@ class Motors {
 		bool currentMotorDirections[2];
 		bool currentStateOfValues[3];
 		
-		// Mode
+		// Modes
 		MODES mode;
+		MODES extruderMode;
+		
+		// Unit
+		UNITS units;
 		
 		// Accelerometer
 		Accelerometer accelerometer;

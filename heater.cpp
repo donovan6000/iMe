@@ -228,8 +228,17 @@ bool Heater::setTemperature(uint16_t value, bool wait) {
 			// Set if done heating
 			bool doneHeating = ioport_get_pin_level(HEATER_MODE_SELECT_PIN) != (lowerNewValue ? HEATER_OFF : HEATER_ON);
 			
-			// Append temperature to response
-			ftoa(doneHeating ? idealTemperature : actualTemperature, &buffer[strlen("T:")]);
+			// Check if done heating, but temperature doesn't look correct
+			if(doneHeating && (lowerNewValue ? actualTemperature >= idealTemperature : actualTemperature <= idealTemperature))
+			
+				// Append correctly looking temperature to response
+				ftoa(idealTemperature + (lowerNewValue ? -1 : 1) / pow(10, NUMBER_OF_DECIMAL_PLACES), &buffer[strlen("T:")]);
+			
+			// Otherwise
+			else
+			
+				// Append temperature to response
+				ftoa(actualTemperature, &buffer[strlen("T:")]);
 
 			// Allow updating temperature
 			tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);

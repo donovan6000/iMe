@@ -406,11 +406,23 @@ int main() {
 										strcpy(responseBuffer, "ok");
 									break;
 				
-									// M18
+									// M18 or M84
 									case 18:
+									case 84:
 					
 										// Turn off motors
 										motors.turnOff();
+						
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+									break;
+									
+									// M82 or M83
+									case 82:
+									case 83:
+					
+										// Set extruder mode
+										motors.extruderMode = requests[currentProcessingRequest].valueM == 82 ? ABSOLUTE : RELATIVE;
 						
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
@@ -471,26 +483,37 @@ int main() {
 					
 									// M114
 									case 114:
-					
-										// Set response to confirmation and motors current X
-										strcpy(responseBuffer, "ok\nX:");
-										ftoa(motors.currentValues[X], numberBuffer);
-										strcat(responseBuffer, numberBuffer);
-					
-										// Append motors current Y to response
-										strcat(responseBuffer, " Y:");
-										ftoa(motors.currentValues[Y], numberBuffer);
-										strcat(responseBuffer, numberBuffer);
-						
-										// Append motors current Z to response
-										strcat(responseBuffer, " Z:");
-										ftoa(motors.currentValues[Z], numberBuffer);
-										strcat(responseBuffer, numberBuffer);
-					
-										// Append motors current E to response
-										strcat(responseBuffer, " E:");
-										ftoa(motors.currentValues[E], numberBuffer);
-										strcat(responseBuffer, numberBuffer);
+									
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+									
+										// Go through all motors
+										for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
+										
+											// Append motor's name to response
+											switch(i) {
+											
+												case X:
+													strcat(responseBuffer, "\nX:");
+												break;
+												
+												case Y:
+													strcat(responseBuffer, " Y:");
+												break;
+												
+												case Z:
+													strcat(responseBuffer, " Z:");
+												break;
+												
+												case E:
+												default:
+													strcat(responseBuffer, " E:");
+											}
+											
+											// Append motor's current value to response
+											ftoa(motors.currentValues[i] * (motors.units == INCHES ? MILLIMETERS_TO_INCHES_SCALAR : 1), numberBuffer);
+											strcat(responseBuffer, numberBuffer);
+										}
 									break;
 			
 									// M115
@@ -522,21 +545,39 @@ int main() {
 										else {
 			
 											// Set response to device and firmware details
-											strcpy(responseBuffer, "ok\nPROTOCOL:RepRap FIRMWARE_NAME:" TOSTRING(FIRMWARE_NAME) " FIRMWARE_VERSION:" TOSTRING(FIRMWARE_VERSION) " MACHINE_TYPE:Micro_3D SERIAL_NUMBER:");
+											strcpy(responseBuffer, "ok\nPROTOCOL:RepRap FIRMWARE_NAME:" TOSTRING(FIRMWARE_NAME) " FIRMWARE_VERSION:" TOSTRING(FIRMWARE_VERSION) " MACHINE_TYPE:Micro_3D EXTRUDER_COUNT:1 SERIAL_NUMBER:");
 											strcat(responseBuffer, serialNumber);
 										}
 									break;
 					
 									// M117
 									case 117:
-					
-										// Set response to valid values
-										strcpy(responseBuffer, "ok\nXV:");
-										strcat(responseBuffer, motors.currentStateOfValues[X] ? "1" : "0");
-										strcat(responseBuffer, " YV:");
-										strcat(responseBuffer, motors.currentStateOfValues[Y] ? "1" : "0");
-										strcat(responseBuffer, " ZV:");
-										strcat(responseBuffer, motors.currentStateOfValues[Z] ? "1" : "0");
+									
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+									
+										// Go through X, Y, and Z motors
+										for(uint8_t i = X; i <= Z; i++) {
+										
+											// Append motor's name to response
+											switch(i) {
+											
+												case X:
+													strcat(responseBuffer, "\nXV:");
+												break;
+												
+												case Y:
+													strcat(responseBuffer, " YV:");
+												break;
+												
+												case Z:
+												default:
+													strcat(responseBuffer, " ZV:");
+											}
+											
+											// Append motor's current validity to response
+											strcat(responseBuffer, motors.currentStateOfValues[i] ? "1" : "0");
+										}
 									break;
 									
 									// Check if useless commands are allowed
@@ -653,14 +694,13 @@ int main() {
 											}
 										break;
 									#endif
-					
-									// M20, M21, M80, M82, M83, M84, M110, M111, or M999
+									
+									// M20, M21, M22, M80, M81, M110, M111, or M999
 									case 20:
 									case 21:
+									case 22:
 									case 80:
-									case 82:
-									case 83:
-									case 84:
+									case 81:
 									case 110:
 									case 111:
 									case 999:
@@ -746,8 +786,8 @@ int main() {
 									case 90:
 									case 91:
 					
-										// Set mode to absolute
-										motors.mode = requests[currentProcessingRequest].valueG == 90 ? ABSOLUTE : RELATIVE;
+										// Set modes
+										motors.mode = motors.extruderMode = requests[currentProcessingRequest].valueG == 90 ? ABSOLUTE : RELATIVE;
 						
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
@@ -802,7 +842,7 @@ int main() {
 												tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
 										
 												// Set motors current value
-												motors.currentValues[i] = *value;
+												motors.currentValues[i] = *value * (motors.units == INCHES ? INCHES_TO_MILLIMETERS_SCALAR : 1);
 											
 												// Enable saving motors state
 												tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
@@ -817,6 +857,9 @@ int main() {
 									case 20:
 									case 21:
 			
+										// Set units
+										motors.units = requests[currentProcessingRequest].valueG == 20 ? INCHES : MILLIMETERS;
+						
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
 								}
@@ -938,8 +981,8 @@ void cdcRxNotifyCallback(uint8_t port) {
 				Gcode gcode;
 				gcode.parseCommand(offset);
 	
-				// Check if request is an emergency stop and it has a valid checksum if it has an N parameter
-				if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.commandParameters & VALID_CHECKSUM_OFFSET))
+				// Check if request is an unconditional, conditional, or emergency stop and it has a valid checksum if it has an N parameter
+				if(gcode.commandParameters & PARAMETER_M_OFFSET && (gcode.valueM == 0 || gcode.valueM == 1 || gcode.valueM == 112) && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.commandParameters & VALID_CHECKSUM_OFFSET))
 
 					// Stop all peripherals
 					heater.emergencyStopOccured = motors.emergencyStopOccured = emergencyStopOccured = true;

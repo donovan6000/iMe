@@ -340,8 +340,11 @@ void Motors::initialize() {
 	// Restore state
 	restoreState();
 
-	// Set mode
-	mode = ABSOLUTE;
+	// Set modes
+	mode = extruderMode = ABSOLUTE;
+	
+	// Set units
+	units = MILLIMETERS;
 	
 	// Set initial values
 	currentValues[E] = 0;
@@ -573,12 +576,20 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 	
 		// Check if G-code has parameter
 		if(gcode.commandParameters & parameterOffset) {
+		
+			// Check if movement is from a command and units are inches
+			if(tasks & BED_LEVELING_TASK && units == INCHES)
+			
+				// Convert value to millimeters
+				newValue *= INCHES_TO_MILLIMETERS_SCALAR;
 	
-			// Set new value
-			if(mode == RELATIVE)
+			// Check if movement is relative
+			if(((i == X || i == Y || i == Z) && mode == RELATIVE) || (i == E && extruderMode == RELATIVE))
+			
+				// Add current value to value
 				newValue += currentValues[i];
 			
-			// Check if performing bed leveling task and calculating the X or Y movement
+			// Check if movement is from a command and calculating the X or Y movement
 			if(tasks & BED_LEVELING_TASK && (i == X || i == Y)) {
 	
 				// Limit X and Y from moving out of bounds
@@ -1071,11 +1082,12 @@ void Motors::splitUpMovement(bool adjustHeight) {
 	Gcode gcode;
 	gcode.commandParameters = PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET;
 	
-	// Save mode
+	// Save modes
 	MODES savedMode = mode;
+	MODES savedExtruderMode = extruderMode;
 	
-	// Set mode to absolute
-	mode = ABSOLUTE;
+	// Set modes to absolute
+	mode = extruderMode = ABSOLUTE;
 	
 	// Go through all segments
 	for(uint32_t numberOfSegments = minimumOneCeil(horizontalDistance / SEGMENT_LENGTH), segmentCounter = adjustHeight ? 1 : numberOfSegments;; segmentCounter++) {
@@ -1132,8 +1144,9 @@ void Motors::splitUpMovement(bool adjustHeight) {
 	// Enable saving motors state
 	tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
 	
-	// Restore mode
+	// Restore modes
 	mode = savedMode;
+	extruderMode = savedExtruderMode;
 }
 
 void Motors::updateBedChanges(bool adjustHeight) {

@@ -14,6 +14,10 @@
 #define INT_BUFFER_SIZE (sizeof("18446744073709551615") + sizeof('-'))
 #define FLOAT_BUFFER_SIZE (sizeof("4294967296") + sizeof('-') + sizeof('.') + NUMBER_OF_DECIMAL_PLACES)
 
+// Unit conversions
+#define INCHES_TO_MILLIMETERS_SCALAR 25.4
+#define MILLIMETERS_TO_INCHES_SCALAR (1 / INCHES_TO_MILLIMETERS_SCALAR)
+
 // Integer limits
 #define UINT12_MAX static_cast<uint16_t>(pow(2, 12) - 1)
 #define INT12_MAX static_cast<int16_t>(pow(2, 12 - 1) - 1)
