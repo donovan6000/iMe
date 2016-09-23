@@ -4,7 +4,7 @@
 
 
 // Definitions
-//#define ALLOW_HOST_COMMANDS
+#define ALLOW_HOST_COMMANDS false
 
 // Parameters
 #define PARAMETER_G_OFFSET 1
@@ -20,6 +20,10 @@
 #define PARAMETER_N_OFFSET (1 << 10)
 #define PARAMETER_HOST_COMMAND_OFFSET (1 << 11)
 #define VALID_CHECKSUM_OFFSET (1 << 12)
+
+
+// Types
+typedef uint16_t gcodeParameterOffset;
 
 
 // Gcode class
@@ -103,7 +107,7 @@ class Gcode {
 		// Get parameter N
 		uint64_t getParameterN() const;
 		
-		#ifdef ALLOW_HOST_COMMANDS
+		#if ALLOW_HOST_COMMANDS == true
 		
 			// Has host command
 			bool hasHostCommand() const;
@@ -119,7 +123,7 @@ class Gcode {
 		bool isParsed;
 		
 		// Command parameters
-		uint16_t commandParameters;
+		gcodeParameterOffset commandParameters;
 		
 		// Values
 		uint8_t valueG;
@@ -135,7 +139,7 @@ class Gcode {
 		uint64_t valueN;
 		
 		// Host command
-		#ifdef ALLOW_HOST_COMMANDS
+		#if ALLOW_HOST_COMMANDS == true
 			char hostCommand[UINT8_MAX + 1];
 		#endif
 };

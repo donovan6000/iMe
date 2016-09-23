@@ -43,7 +43,7 @@ void Gcode::parseCommand(const char *command) {
 		if(*firstValidCharacter == '@') {
 	
 			// Check if host commands are allowed
-			#ifdef ALLOW_HOST_COMMANDS
+			#if ALLOW_HOST_COMMANDS == true
 		
 				// Set command length
 				uint8_t commandLength = min(static_cast<uint8_t>(stopParsingOffset - startParsingOffset - 1), sizeof(hostCommand) - 1);
@@ -72,7 +72,7 @@ void Gcode::parseCommand(const char *command) {
 				if(parameterIndex) {
 			
 					// Check if parameter hasn't been obtained yet
-					uint16_t parameterBit = 1 << (parameterIndex - PARAMETER_ORDER);
+					gcodeParameterOffset parameterBit = 1 << (parameterIndex - PARAMETER_ORDER);
 					if(!(commandParameters & parameterBit)) {
 			
 						// Save parameter value
@@ -180,7 +180,7 @@ void Gcode::clearCommand() {
 	valueE = 0;
 	valueN = 0;
 	
-	#ifdef ALLOW_HOST_COMMANDS
+	#if ALLOW_HOST_COMMANDS == true
 		*hostCommand = 0;
 	#endif
 }
@@ -323,7 +323,7 @@ uint64_t Gcode::getParameterN() const {
 	return valueN;
 }
 
-#ifdef ALLOW_HOST_COMMANDS
+#if ALLOW_HOST_COMMANDS == true
 	bool Gcode::hasHostCommand() const {
 
 		// Return is host command is set

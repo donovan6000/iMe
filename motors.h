@@ -15,12 +15,13 @@
 #define MOTORS_VREF_TIMER_PERIOD 0x27F
 #define NUMBER_OF_MOTORS 4
 #define MOTORS_SAVE_TIMER FAN_TIMER
-//#define REGULATE_EXTRUDER_CURRENT
+#define REGULATE_EXTRUDER_CURRENT false
 
 // Tasks
 #define NO_TASK 0
 #define BACKLASH_TASK 1
 #define BED_LEVELING_TASK (1 << 1)
+#define HANDLE_RECEIVED_COMMAND_TASK (1 << 2)
 
 // State changes
 #define saveState(motor, parameter) changeState(true, motor, parameter)
@@ -37,6 +38,9 @@ enum BACKLASH_DIRECTION {NONE, POSITIVE, NEGATIVE};
 
 // Axes parameter
 enum AXES_PARAMETER {DIRECTION, VALIDITY, VALUE};
+
+// Units
+enum UNITS {MILLIMETERS, INCHES};
 
 
 // Motors class
@@ -55,7 +59,7 @@ class Motors {
 		void turnOff();
 		
 		// Move
-		bool move(const Gcode &gcode, uint8_t tasks = BACKLASH_TASK | BED_LEVELING_TASK);
+		bool move(const Gcode &gcode, uint8_t tasks = BACKLASH_TASK | BED_LEVELING_TASK | HANDLE_RECEIVED_COMMAND_TASK);
 		
 		// Home XY
 		bool homeXY(bool adjustHeight = true);
@@ -75,6 +79,9 @@ class Motors {
 		// Gantry clips detected
 		bool gantryClipsDetected();
 		
+		// Change state
+		void changeState(bool save = false, AXES motor = X, AXES_PARAMETER parameter = DIRECTION);
+		
 		// Reset
 		void reset();
 		
@@ -83,8 +90,12 @@ class Motors {
 		bool currentMotorDirections[2];
 		bool currentStateOfValues[3];
 		
-		// Mode
+		// Modes
 		MODES mode;
+		MODES extruderMode;
+		
+		// Unit
+		UNITS units;
 		
 		// Accelerometer
 		Accelerometer accelerometer;
@@ -94,9 +105,6 @@ class Motors {
 	
 	// Private
 	private:
-	
-		// Change state
-		void changeState(bool save = false, AXES motor = X, AXES_PARAMETER parameter = DIRECTION);
 		
 		// Move to height
 		void moveToHeight(float height);
@@ -127,7 +135,7 @@ class Motors {
 		void setMotorDelayAndSkip(AXES motor, float movementsNumberOfCycles);
 		
 		// Current sense ADC controller and channel
-		#ifdef REGULATE_EXTRUDER_CURRENT
+		#if REGULATE_EXTRUDER_CURRENT == true
 			adc_config currentSenseAdcController;
 			adc_channel_config currentSenseAdcChannel;
 		#endif

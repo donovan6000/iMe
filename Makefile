@@ -1,7 +1,7 @@
 # Firmware name and version
 FIRMWARE_NAME = iMe
-FIRMWARE_VERSION = 00.00.01.18
-ROM_VERSION_STRING = 1900000118
+FIRMWARE_VERSION = 00.00.01.22
+ROM_VERSION_STRING = 1900000122
 
 # Tool locations
 ifeq ($(OS), Windows_NT)
@@ -94,7 +94,7 @@ INCPATH = . \
 	src/config
 
 # Compiler flags
-FLAGS = -D BOARD=USER_BOARD -D FIRMWARE_NAME=$(FIRMWARE_NAME) -D FIRMWARE_VERSION=$(FIRMWARE_VERSION) -Os -mmcu=atxmega32c4 -Wall -Wno-maybe-uninitialized -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -fno-strict-aliasing -Werror-implicit-function-declaration -Wpointer-arith -mcall-prologues -mstrict-X -maccumulate-args -fno-tree-ter -mrelax -fno-math-errno -flto -flto-partition=1to1
+FLAGS = -D BOARD=USER_BOARD -D FIRMWARE_NAME=$(FIRMWARE_NAME) -D FIRMWARE_VERSION=$(FIRMWARE_VERSION) -Os -mmcu=atxmega32c4 -Wall -Wno-maybe-uninitialized -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -fno-strict-aliasing -Werror-implicit-function-declaration -Wpointer-arith -mcall-prologues -mstrict-X -maccumulate-args -fno-tree-ter -mrelax -flto -flto-partition=1to1
 ASFLAGS = -std=c++14 -x assembler-with-cpp
 CFLAGS = -std=gnu99 -x c -Wstrict-prototypes -Wmissing-prototypes
 CPPFLAGS = -std=c++14 -x c++

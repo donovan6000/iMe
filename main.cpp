@@ -21,7 +21,7 @@ extern "C" {
 #define REQUEST_BUFFER_SIZE 5
 #define WAIT_TIMER MOTORS_VREF_TIMER
 #define WAIT_TIMER_PERIOD MOTORS_VREF_TIMER_PERIOD
-//#define ALLOW_USELESS_COMMANDS
+#define ALLOW_USELESS_COMMANDS false
 
 // Unknown pin (Connected to transistors above the microcontroller. Maybe related to detecting if USB is connected)
 #define UNKNOWN_PIN IOPORT_CREATE_PIN(PORTA, 1)
@@ -188,7 +188,7 @@ int main() {
 					*responseBuffer = 0;
 	
 					// Check if host commands are allowed
-					#ifdef ALLOW_HOST_COMMANDS
+					#if ALLOW_HOST_COMMANDS == true
 
 						// Check if command is a host command
 						if(requests[currentProcessingRequest].commandParameters & PARAMETER_HOST_COMMAND_OFFSET) {
@@ -198,7 +198,7 @@ int main() {
 					
 								// Send lock bits
 								strcpy(responseBuffer, "ok\n0x");
-								ltoa(NVM_LOCKBITS, numberBuffer, 16);
+								ltoa(NVM.LOCKBITS, numberBuffer, 16);
 								strcat(responseBuffer, numberBuffer);
 							}
 					
@@ -263,9 +263,9 @@ int main() {
 							
 								// Set CRC32 to use 0xFFFFFFFF seed and target flash memory
 								CRC.CTRL = CRC_RESET_RESET1_gc;
-    								CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
-    								
-    								// Wait for calculating the CRC32 to finish
+								CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
+								
+								// Wait for calculating the CRC32 to finish
 								nvm_issue_flash_range_crc(APP_SECTION_START, APP_SECTION_END);
 								nvm_wait_until_ready();
 								while(CRC.STATUS & CRC_BUSY_bm);
@@ -287,9 +287,9 @@ int main() {
 					
 								// Set CRC32 to use 0xFFFFFFFF seed and target flash memory
 								CRC.CTRL = CRC_RESET_RESET1_gc;
-    								CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
-    								
-    								// Wait for calculating the CRC32 to finish
+								CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
+								
+								// Wait for calculating the CRC32 to finish
 								nvm_issue_flash_range_crc(APP_SECTION_START, APP_SECTION_END);
 								nvm_wait_until_ready();
 								while(CRC.STATUS & CRC_BUSY_bm);
@@ -406,11 +406,23 @@ int main() {
 										strcpy(responseBuffer, "ok");
 									break;
 				
-									// M18
+									// M18 or M84
 									case 18:
+									case 84:
 					
 										// Turn off motors
 										motors.turnOff();
+						
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+									break;
+									
+									// M82 or M83
+									case 82:
+									case 83:
+					
+										// Set extruder mode
+										motors.extruderMode = requests[currentProcessingRequest].valueM == 82 ? ABSOLUTE : RELATIVE;
 						
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
@@ -471,26 +483,37 @@ int main() {
 					
 									// M114
 									case 114:
-					
-										// Set response to confirmation and motors current X
-										strcpy(responseBuffer, "ok\nX:");
-										ftoa(motors.currentValues[X], numberBuffer);
-										strcat(responseBuffer, numberBuffer);
-					
-										// Append motors current Y to response
-										strcat(responseBuffer, " Y:");
-										ftoa(motors.currentValues[Y], numberBuffer);
-										strcat(responseBuffer, numberBuffer);
-						
-										// Append motors current Z to response
-										strcat(responseBuffer, " Z:");
-										ftoa(motors.currentValues[Z], numberBuffer);
-										strcat(responseBuffer, numberBuffer);
-					
-										// Append motors current E to response
-										strcat(responseBuffer, " E:");
-										ftoa(motors.currentValues[E], numberBuffer);
-										strcat(responseBuffer, numberBuffer);
+									
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+									
+										// Go through all motors
+										for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
+										
+											// Append motor's name to response
+											switch(i) {
+											
+												case X:
+													strcat(responseBuffer, "\nX:");
+												break;
+												
+												case Y:
+													strcat(responseBuffer, " Y:");
+												break;
+												
+												case Z:
+													strcat(responseBuffer, " Z:");
+												break;
+												
+												case E:
+												default:
+													strcat(responseBuffer, " E:");
+											}
+											
+											// Append motor's current value to response
+											ftoa(motors.currentValues[i] * (motors.units == INCHES ? MILLIMETERS_TO_INCHES_SCALAR : 1), numberBuffer);
+											strcat(responseBuffer, numberBuffer);
+										}
 									break;
 			
 									// M115
@@ -502,6 +525,18 @@ int main() {
 											// Disable interrupts
 											cpu_irq_disable();
 											
+											// Go through X, Y, and Z axes	
+											for(AXES currentSaveMotor = X; currentSaveMotor <= Z; currentSaveMotor = static_cast<AXES>(currentSaveMotor + 1))
+											
+												// Go through direction, validity, and value axes parameters
+												for(AXES_PARAMETER currentSaveParameter = DIRECTION; currentSaveParameter <= VALUE; currentSaveParameter = static_cast<AXES_PARAMETER>(currentSaveParameter + 1))
+											
+													// Save current axis's parameter
+													motors.saveState(currentSaveMotor, currentSaveParameter);
+											
+											// Wait until non-volatile memory controller isn't busy
+											nvm_wait_until_ready();
+											
 											// Reset
 											reset_do_soft_reset();
 										}
@@ -510,25 +545,43 @@ int main() {
 										else {
 			
 											// Set response to device and firmware details
-											strcpy(responseBuffer, "ok\nPROTOCOL:RepRap FIRMWARE_NAME:" TOSTRING(FIRMWARE_NAME) " FIRMWARE_VERSION:" TOSTRING(FIRMWARE_VERSION) " MACHINE_TYPE:Micro_3D SERIAL_NUMBER:");
+											strcpy(responseBuffer, "ok\nPROTOCOL:RepRap FIRMWARE_NAME:" TOSTRING(FIRMWARE_NAME) " FIRMWARE_VERSION:" TOSTRING(FIRMWARE_VERSION) " MACHINE_TYPE:Micro_3D EXTRUDER_COUNT:1 SERIAL_NUMBER:");
 											strcat(responseBuffer, serialNumber);
 										}
 									break;
 					
 									// M117
 									case 117:
-					
-										// Set response to valid values
-										strcpy(responseBuffer, "ok\nXV:");
-										strcat(responseBuffer, motors.currentStateOfValues[X] ? "1" : "0");
-										strcat(responseBuffer, " YV:");
-										strcat(responseBuffer, motors.currentStateOfValues[Y] ? "1" : "0");
-										strcat(responseBuffer, " ZV:");
-										strcat(responseBuffer, motors.currentStateOfValues[Z] ? "1" : "0");
+									
+										// Set response to confirmation
+										strcpy(responseBuffer, "ok");
+									
+										// Go through X, Y, and Z motors
+										for(uint8_t i = X; i <= Z; i++) {
+										
+											// Append motor's name to response
+											switch(i) {
+											
+												case X:
+													strcat(responseBuffer, "\nXV:");
+												break;
+												
+												case Y:
+													strcat(responseBuffer, " YV:");
+												break;
+												
+												case Z:
+												default:
+													strcat(responseBuffer, " ZV:");
+											}
+											
+											// Append motor's current validity to response
+											strcat(responseBuffer, motors.currentStateOfValues[i] ? "1" : "0");
+										}
 									break;
 									
 									// Check if useless commands are allowed
-									#ifdef ALLOW_USELESS_COMMANDS
+									#if ALLOW_USELESS_COMMANDS == true
 									
 										// M404
 										case 404:
@@ -551,7 +604,7 @@ int main() {
 									break;
 									
 									// Check if useless commands are allowed
-									#ifdef ALLOW_USELESS_COMMANDS
+									#if ALLOW_USELESS_COMMANDS == true
 									
 										// M583
 										case 583:
@@ -574,7 +627,7 @@ int main() {
 									
 										{
 											// Check if EEPROM parameters are provided
-											uint16_t parameters = PARAMETER_S_OFFSET | PARAMETER_T_OFFSET | (requests[currentProcessingRequest].valueM == 618 ? PARAMETER_P_OFFSET : 0);
+											gcodeParameterOffset parameters = PARAMETER_S_OFFSET | PARAMETER_T_OFFSET | (requests[currentProcessingRequest].valueM == 618 ? PARAMETER_P_OFFSET : 0);
 											if(requests[currentProcessingRequest].commandParameters & parameters) {
 					
 												// Check if parameters are valid
@@ -622,7 +675,7 @@ int main() {
 									break;
 									
 									// Check if useless commands are allowed
-									#ifdef ALLOW_USELESS_COMMANDS
+									#if ALLOW_USELESS_COMMANDS == true
 									
 										// M5321
 										case 5321:
@@ -641,14 +694,13 @@ int main() {
 											}
 										break;
 									#endif
-					
-									// M20, M21, M80, M82, M83, M84, M110, M111, or M999
+									
+									// M20, M21, M22, M80, M81, M110, M111, or M999
 									case 20:
 									case 21:
+									case 22:
 									case 80:
-									case 82:
-									case 83:
-									case 84:
+									case 81:
 									case 110:
 									case 111:
 									case 999:
@@ -734,8 +786,8 @@ int main() {
 									case 90:
 									case 91:
 					
-										// Set mode to absolute
-										motors.mode = requests[currentProcessingRequest].valueG == 90 ? ABSOLUTE : RELATIVE;
+										// Set modes
+										motors.mode = motors.extruderMode = requests[currentProcessingRequest].valueG == 90 ? ABSOLUTE : RELATIVE;
 						
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
@@ -748,7 +800,7 @@ int main() {
 										for(uint8_t i = 0; i < NUMBER_OF_MOTORS; i++) {
 									
 											// Get parameter offset and value
-											uint16_t parameterOffset;
+											gcodeParameterOffset parameterOffset;
 											float *value;
 											switch(i) {
 										
@@ -790,7 +842,7 @@ int main() {
 												tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
 										
 												// Set motors current value
-												motors.currentValues[i] = *value;
+												motors.currentValues[i] = *value * (motors.units == INCHES ? INCHES_TO_MILLIMETERS_SCALAR : 1);
 											
 												// Enable saving motors state
 												tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
@@ -805,6 +857,9 @@ int main() {
 									case 20:
 									case 21:
 			
+										// Set units
+										motors.units = requests[currentProcessingRequest].valueG == 20 ? INCHES : MILLIMETERS;
+						
 										// Set response to confirmation
 										strcpy(responseBuffer, "ok");
 								}
@@ -902,7 +957,7 @@ void cdcRxNotifyCallback(uint8_t port) {
 	udi_cdc_read_buf(buffer, size);
 	
 	// Prevent request from overflowing accumulated request
-	if(size + lastCharacterOffset >= sizeof(accumulatedBuffer))
+	if(size >= sizeof(accumulatedBuffer) - lastCharacterOffset)
 		size = sizeof(accumulatedBuffer) - lastCharacterOffset - 1;
 	buffer[size] = 0;
 	
@@ -926,15 +981,11 @@ void cdcRxNotifyCallback(uint8_t port) {
 				Gcode gcode;
 				gcode.parseCommand(offset);
 	
-				// Check if request is an emergency stop and it has a valid checksum if it has an N parameter
-				if(gcode.commandParameters & PARAMETER_M_OFFSET && !gcode.valueM && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.commandParameters & VALID_CHECKSUM_OFFSET)) {
+				// Check if request is an unconditional, conditional, or emergency stop and it has a valid checksum if it has an N parameter
+				if(gcode.commandParameters & PARAMETER_M_OFFSET && (gcode.valueM == 0 || gcode.valueM == 1 || gcode.valueM == 112) && (!(gcode.commandParameters & PARAMETER_N_OFFSET) || gcode.commandParameters & VALID_CHECKSUM_OFFSET))
 
 					// Stop all peripherals
 					heater.emergencyStopOccured = motors.emergencyStopOccured = emergencyStopOccured = true;
-				
-					// Break
-					break;
-				}
 
 				// Otherwise check if currently receiving request is empty
 				else if(!requests[currentReceivingRequest].isParsed) {

@@ -1,5 +1,5 @@
 // DRV8834 motor driver http://www.ti.com/lit/ds/slvsb19d/slvsb19d.pdf
-// 24BYJ-48 5V 1/64 ratio stepper motor used in 4 wire bipolar mode, so just ignore the common wire (usually red) if it has one http://robocraft.ru/files/datasheet/28BYJ-48.pdf
+// 24BYJ-48 5V 1/64 ratio stepper motor used in 4 wire bipolar mode, so just ignore the common wire (usually red) if it has one. Connecting a new motor to the existing male connector can be done by connecting the following wires: pink to grey, yellow to black, red to nothing, blue to orange, and orange to blue. http://robocraft.ru/files/datasheet/28BYJ-48.pdf
 
 
 // Header files
@@ -340,8 +340,11 @@ void Motors::initialize() {
 	// Restore state
 	restoreState();
 
-	// Set mode
-	mode = ABSOLUTE;
+	// Set modes
+	mode = extruderMode = ABSOLUTE;
+	
+	// Set units
+	units = MILLIMETERS;
 	
 	// Set initial values
 	currentValues[E] = 0;
@@ -427,7 +430,7 @@ void Motors::initialize() {
 	});
 	
 	// Check if regulating extruder current
-	#ifdef REGULATE_EXTRUDER_CURRENT
+	#if REGULATE_EXTRUDER_CURRENT == true
 	
 		// Set ADC controller to use unsigned, 12-bit, Vref refrence, and manual trigger
 		adc_read_configuration(&MOTOR_E_CURRENT_SENSE_ADC, &currentSenseAdcController);
@@ -519,10 +522,17 @@ void Motors::turnOff() {
 bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 
 	// Check if G-code has an F parameter
-	if(gcode.commandParameters & PARAMETER_F_OFFSET)
+	if(gcode.commandParameters & PARAMETER_F_OFFSET) {
 	
-		// Save F value
+		// Set F value
 		currentValues[F] = gcode.valueF;
+		
+		// Check if movement is from a received command and units are inches
+		if(tasks & HANDLE_RECEIVED_COMMAND_TASK && units == INCHES)
+		
+			// Convert F value to millimeters
+			currentValues[F] *= INCHES_TO_MILLIMETERS_SCALAR;
+	}
 	
 	// Initialize variables
 	float movementsHighestNumberOfCycles = 0;
@@ -546,7 +556,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 		}
 	
 		// Get parameter offset and parameter value
-		uint16_t parameterOffset;
+		gcodeParameterOffset parameterOffset;
 		float newValue;
 		switch(i) {
 		
@@ -573,13 +583,21 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 	
 		// Check if G-code has parameter
 		if(gcode.commandParameters & parameterOffset) {
+		
+			// Check if movement is from a received command and units are inches
+			if(tasks & HANDLE_RECEIVED_COMMAND_TASK && units == INCHES)
+			
+				// Convert value to millimeters
+				newValue *= INCHES_TO_MILLIMETERS_SCALAR;
 	
-			// Set new value
-			if(mode == RELATIVE)
+			// Check if movement is relative
+			if(((i == X || i == Y || i == Z) && mode == RELATIVE) || (i == E && extruderMode == RELATIVE))
+			
+				// Add current value to value
 				newValue += currentValues[i];
 			
-			// Check if performing bed leveling task and calculating the X or Y movement
-			if(tasks & BED_LEVELING_TASK && (i == X || i == Y)) {
+			// Check if movement is from a received command and calculating the X or Y movement
+			if(tasks & HANDLE_RECEIVED_COMMAND_TASK && (i == X || i == Y)) {
 	
 				// Limit X and Y from moving out of bounds
 				float minValue, maxValue;
@@ -781,7 +799,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 			// Compensate for backlash
 			compensateForBacklash(backlashDirections[X], backlashDirections[Y]);
 		
-		// Split up movement
+		// Split up movement and compensate for bed leveling if set
 		splitUpMovement(tasks & BED_LEVELING_TASK);
 		
 		// Go through X and Y motors
@@ -855,7 +873,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 		while(areMotorsMoving() && !emergencyStopOccured) {
 		
 			// Check if regulating extruder current
-			#ifdef REGULATE_EXTRUDER_CURRENT
+			#if REGULATE_EXTRUDER_CURRENT == true
 	
 				// Check if motor E is moving
 				if(motorsIsMoving[E]) {
@@ -1071,11 +1089,12 @@ void Motors::splitUpMovement(bool adjustHeight) {
 	Gcode gcode;
 	gcode.commandParameters = PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_Z_OFFSET | PARAMETER_E_OFFSET;
 	
-	// Save mode
+	// Save modes
 	MODES savedMode = mode;
+	MODES savedExtruderMode = extruderMode;
 	
-	// Set mode to absolute
-	mode = ABSOLUTE;
+	// Set modes to absolute
+	mode = extruderMode = ABSOLUTE;
 	
 	// Go through all segments
 	for(uint32_t numberOfSegments = minimumOneCeil(horizontalDistance / SEGMENT_LENGTH), segmentCounter = adjustHeight ? 1 : numberOfSegments;; segmentCounter++) {
@@ -1132,8 +1151,9 @@ void Motors::splitUpMovement(bool adjustHeight) {
 	// Enable saving motors state
 	tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
 	
-	// Restore mode
+	// Restore modes
 	mode = savedMode;
+	extruderMode = savedExtruderMode;
 }
 
 void Motors::updateBedChanges(bool adjustHeight) {

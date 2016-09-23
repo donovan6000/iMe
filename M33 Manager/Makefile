@@ -1,9 +1,9 @@
 # Target platform options: WINDOWS32, WINDOWS64, OSX32, OSX64, LINUX32, LINUX64
 PROGRAM_NAME = M33\ Manager
-VERSION = 0.10
+VERSION = 0.13
 TARGET_PLATFORM = LINUX64
 USE_GUI = TRUE
-IME_ROM_VERSION_STRING = 1900000118
+IME_ROM_VERSION_STRING = 1900000122
 M3D_ROM_VERSION_STRING = 2016040401
 
 SRCS = main.cpp printer.cpp gcode.cpp common.cpp
@@ -13,6 +13,7 @@ ifeq ($(TARGET_PLATFORM), WINDOWS32)
 	PLATFORM = WINDOWS
 	EXECUTABLE = $(PROGRAM_NAME).exe
 	CC = i686-w64-mingw32-g++
+	CCP = g++
 	CFLAGS += -static-libgcc -static-libstdc++ -lsetupapi
 	ARCHIVE = "M33 Manager Windows.zip"
 	BUNDLE = $(EXECUTABLE)
@@ -28,6 +29,7 @@ ifeq ($(TARGET_PLATFORM), WINDOWS64)
 	PLATFORM = WINDOWS
 	EXECUTABLE = $(PROGRAM_NAME).exe
 	CC = x86_64-w64-mingw32-g++
+	CCP = g++
 	CFLAGS += -static-libgcc -static-libstdc++ -lsetupapi
 	ARCHIVE = "M33 Manager Windows.zip"
 	BUNDLE = $(EXECUTABLE)
@@ -43,6 +45,7 @@ ifeq ($(TARGET_PLATFORM), OSX32)
 	PLATFORM = OSX
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = clang++
+	CCP = clang++
 	CFLAGS += -framework IOKit -framework CoreFoundation -stdlib=libc++ -m32
 	ARCHIVE = "M33 Manager OS X.zip"
 	BUNDLE = "M33 Manager.app"
@@ -56,6 +59,7 @@ ifeq ($(TARGET_PLATFORM), OSX64)
 	PLATFORM = OSX
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = clang++
+	CCP = clang++
 	CFLAGS += -framework IOKit -framework CoreFoundation -stdlib=libc++ -m64
 	ARCHIVE = "M33 Manager OS X.zip"
 	BUNDLE = "M33 Manager.app"
@@ -69,6 +73,7 @@ ifeq ($(TARGET_PLATFORM), LINUX32)
 	PLATFORM = LINUX
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = g++
+	CCP = g++
 	CFLAGS += -pthread -static-libgcc -static-libstdc++ -m32
 	ARCHIVE = "M33 Manager Linux.zip"
 	BUNDLE = $(EXECUTABLE)
@@ -82,6 +87,7 @@ ifeq ($(TARGET_PLATFORM), LINUX64)
 	PLATFORM = LINUX
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = g++
+	CCP = g++
 	CFLAGS += -pthread -static-libgcc -static-libstdc++ -m64
 	ARCHIVE = "M33 Manager Linux.zip"
 	BUNDLE = $(EXECUTABLE)
@@ -92,7 +98,7 @@ ifeq ($(TARGET_PLATFORM), LINUX64)
 endif
 
 all:
-	$(CC) $(CFLAGS) "bin2h.cpp" -o "bin2h"
+	$(CCP) "bin2h.cpp" -o "bin2h"
 	./bin2h "resources/files/icon.png"
 	./bin2h "resources/files/refresh.png"
 	./bin2h "../iMe $(IME_ROM_VERSION_STRING).hex"
