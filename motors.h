@@ -21,6 +21,7 @@
 #define NO_TASK 0
 #define BACKLASH_TASK 1
 #define BED_LEVELING_TASK (1 << 1)
+#define HANDLE_RECEIVED_COMMAND_TASK (1 << 2)
 
 // State changes
 #define saveState(motor, parameter) changeState(true, motor, parameter)
@@ -58,7 +59,7 @@ class Motors {
 		void turnOff();
 		
 		// Move
-		bool move(const Gcode &gcode, uint8_t tasks = BACKLASH_TASK | BED_LEVELING_TASK);
+		bool move(const Gcode &gcode, uint8_t tasks = BACKLASH_TASK | BED_LEVELING_TASK | HANDLE_RECEIVED_COMMAND_TASK);
 		
 		// Home XY
 		bool homeXY(bool adjustHeight = true);

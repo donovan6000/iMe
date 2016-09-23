@@ -522,10 +522,17 @@ void Motors::turnOff() {
 bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 
 	// Check if G-code has an F parameter
-	if(gcode.commandParameters & PARAMETER_F_OFFSET)
+	if(gcode.commandParameters & PARAMETER_F_OFFSET) {
 	
-		// Save F value
+		// Set F value
 		currentValues[F] = gcode.valueF;
+		
+		// Check if movement is from a received command and units are inches
+		if(tasks & HANDLE_RECEIVED_COMMAND_TASK && units == INCHES)
+		
+			// Convert F value to millimeters
+			currentValues[F] *= INCHES_TO_MILLIMETERS_SCALAR;
+	}
 	
 	// Initialize variables
 	float movementsHighestNumberOfCycles = 0;
@@ -577,8 +584,8 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 		// Check if G-code has parameter
 		if(gcode.commandParameters & parameterOffset) {
 		
-			// Check if movement is from a command and units are inches
-			if(tasks & BED_LEVELING_TASK && units == INCHES)
+			// Check if movement is from a received command and units are inches
+			if(tasks & HANDLE_RECEIVED_COMMAND_TASK && units == INCHES)
 			
 				// Convert value to millimeters
 				newValue *= INCHES_TO_MILLIMETERS_SCALAR;
@@ -589,8 +596,8 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 				// Add current value to value
 				newValue += currentValues[i];
 			
-			// Check if movement is from a command and calculating the X or Y movement
-			if(tasks & BED_LEVELING_TASK && (i == X || i == Y)) {
+			// Check if movement is from a received command and calculating the X or Y movement
+			if(tasks & HANDLE_RECEIVED_COMMAND_TASK && (i == X || i == Y)) {
 	
 				// Limit X and Y from moving out of bounds
 				float minValue, maxValue;
@@ -792,7 +799,7 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) {
 			// Compensate for backlash
 			compensateForBacklash(backlashDirections[X], backlashDirections[Y]);
 		
-		// Split up movement
+		// Split up movement and compensate for bed leveling if set
 		splitUpMovement(tasks & BED_LEVELING_TASK);
 		
 		// Go through X and Y motors
