@@ -1,5 +1,9 @@
 Changelog:
 
+V00.00.01.23 September X, 2016
+
+	* Fixed rounding issue that could cause floating point number to be formatted incorrectly
+
 V00.00.01.22 September 22, 2016
 
 	* Fixed issue with the M109 command's output and Simplify3D

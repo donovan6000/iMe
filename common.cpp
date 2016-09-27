@@ -67,7 +67,7 @@ void ftoa(float value, char *buffer) {
 	} while(temp);
 	
 	// Go through all decimals
-	temp = round(value * pow(10, NUMBER_OF_DECIMAL_PLACES));
+	temp = value * pow(10, NUMBER_OF_DECIMAL_PLACES);
 	for(uint8_t k = NUMBER_OF_DECIMAL_PLACES; k; k--) {
 	
 		// Set decimal digit in buffer
