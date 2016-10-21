@@ -27,6 +27,9 @@ Every time the printer powers on it'll be in bootloader mode, so you'll need to 
 
 M33 Manager will let you know which serial port the printer is using when it switches it into firmware mode, so in order to use the printer you just have connect to that serial port at a baud rate of 115200 with the 3D printing software that you want to use.
 
+### Known Issues
+* iMe has no known issues, but M33 Manager has various issues related to thread management
+
 ### Images
 M33 Manager can be used on Windows, OS X, and Linux. In addition to installing iMe, it also allows manually sending commands to the printer in both bootloader and firmware mode which can be used to manage all aspects of the printer.
 ![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/m33%20manager.png "M33 Manager")
