@@ -1,6 +1,6 @@
 Changelog:
 
-V00.00.01.23 September X, 2016
+V00.00.01.23 October 20, 2016
 
 	* Fixed rounding issue that could cause floating point number to be formatted incorrectly
 
