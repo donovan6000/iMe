@@ -6,7 +6,7 @@ Firmware that allows using the Micro 3D printer with third-party 3D printing sof
 ### Description
 iMe is firmware for the Micro 3D printer that attempts to fix the printer's biggest problem: limited software compatibility. iMe uses RepRap G-code protocol, so it allows you to use the Micro 3D printer with any 3D printing software that supports that protocol. It also features builtin backlash and bed compensation which makes creating good looking prints with other software possible since the G-code never has to be pre-processed beforehand.
 
-The latest version of iMe is V00.00.01.22 released on September 22nd, 2016, and an entire changelog for it can be found [here](https://raw.githubusercontent.com/donovan6000/iMe/master/Changelog).
+The latest version of iMe is V00.00.01.23 released on October 20th, 2016, and an entire changelog for it can be found [here](https://raw.githubusercontent.com/donovan6000/iMe/master/Changelog).
 
 ### Features
 * Uses RepRap's G-code protocol
@@ -26,6 +26,9 @@ iMe is also fully compatible with [M33 Fio](https://github.com/donovan6000/M33-F
 Every time the printer powers on it'll be in bootloader mode, so you'll need to click the 'Switch to firmware mode' button in M33 Manager to put the printer into a mode where other 3D printing software can communicate with it. Make sure to disconnect the printer from M33 Manager or close M33 Manager before using the printer with other software so that the printer's serial port doesn't remain busy.
 
 M33 Manager will let you know which serial port the printer is using when it switches it into firmware mode, so in order to use the printer you just have connect to that serial port at a baud rate of 115200 with the 3D printing software that you want to use.
+
+### Known Issues
+* iMe has no known issues, but M33 Manager has various issues related to thread management
 
 ### Images
 M33 Manager can be used on Windows, OS X, and Linux. In addition to installing iMe, it also allows manually sending commands to the printer in both bootloader and firmware mode which can be used to manage all aspects of the printer.

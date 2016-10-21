@@ -972,7 +972,7 @@ void cdcRxNotifyCallback(uint8_t port) {
 		lastCharacterOffset = 0;
 	
 		// Check if an emergency stop isn't being processed
-		if(!emergencyStopOccured) {
+		if(!emergencyStopOccured)
 	
 			// Go through all commands in request
 			for(char *offset = accumulatedBuffer; *offset; offset++) {
@@ -1003,7 +1003,6 @@ void cdcRxNotifyCallback(uint8_t port) {
 					// Break
 					break;
 			}
-		}
 	}
 }
 
