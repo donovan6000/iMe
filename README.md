@@ -1,6 +1,4 @@
 # iMe
-Firmware that allows using the Micro 3D printer with third-party 3D printing software.
-
 © 2015-2016 Exploit Kings. All rights reserved.
 
 ### Description
