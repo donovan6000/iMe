@@ -3,7 +3,7 @@
  *
  * \brief Default descriptors for a USB Device with a single interface CDC
  *
- * Copyright (c) 2009-2015 Atmel Corporation. All rights reserved.
+ * Copyright (c) 2009-2016 Atmel Corporation. All rights reserved.
  *
  * \asf_license_start
  *
@@ -98,7 +98,7 @@ UDC_DESC_STORAGE usb_dev_desc_t udc_device_desc = {
 #else
 	.iProduct                  = 0,  // No product string
 #endif
-#ifdef USB_DEVICE_SERIAL_NAME
+#if (defined USB_DEVICE_SERIAL_NAME || defined USB_DEVICE_GET_SERIAL_NAME_POINTER) 
 	.iSerialNumber = 3,
 #else
 	.iSerialNumber             = 0,  // No serial string

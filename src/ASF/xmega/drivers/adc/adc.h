@@ -3,7 +3,7 @@
  *
  * \brief AVR XMEGA Analog to Digital Converter driver
  *
- * Copyright (C) 2010-2015 Atmel Corporation. All rights reserved.
+ * Copyright (C) 2010-2016 Atmel Corporation. All rights reserved.
  *
  * \asf_license_start
  *
@@ -105,7 +105,7 @@ typedef enum ADC_CH_MUXNEG_MODE11_enum
     ADC_CH_MUXNEG_MODE11_PIN6_gc = (0x02<<0),  /* Input pin 6 */
     ADC_CH_MUXNEG_MODE11_PIN7_gc = (0x03<<0),  /* Input pin 7 */
     ADC_CH_MUXNEG_MODE11_INTGND_gc = (0x04<<0),  /* Internal ground */
-    ADC_CH_MUXNEG_MODE11_GND_gc = (0x05<<0),  /* PAD ground */
+    ADC_CH_MUXNEG_MODE11_GND_gc = (0x07<<0),  /* PAD ground */
 } ADC_CH_MUXNEGH_t;
 #endif
 

@@ -1082,29 +1082,6 @@
 /** @} */
 
 /**
- * \name SAMDA0 series
- * @{
- */
-#define SAMDA0J ( \
-		SAM_PART_IS_DEFINED(SAMDA0J14A) || \
-		SAM_PART_IS_DEFINED(SAMDA0J15A) || \
-		SAM_PART_IS_DEFINED(SAMDA0J16A) \
-	)
-
-#define SAMDA0G ( \
-		SAM_PART_IS_DEFINED(SAMDA0G14A) || \
-		SAM_PART_IS_DEFINED(SAMDA0G15A) || \
-		SAM_PART_IS_DEFINED(SAMDA0G16A) \
-	)
-
-#define SAMDA0E ( \
-		SAM_PART_IS_DEFINED(SAMDA0E14A) || \
-		SAM_PART_IS_DEFINED(SAMDA0E15A) || \
-		SAM_PART_IS_DEFINED(SAMDA0E16A) \
-	)
-/** @} */
-
-/**
  * \name SAMDA1 series
  * @{
  */
@@ -1125,6 +1102,18 @@
 		SAM_PART_IS_DEFINED(SAMDA1E15A) || \
 		SAM_PART_IS_DEFINED(SAMDA1E16A) \
 	)
+/** @} */
+
+/**
+ * \name SAMHA1 series
+ * @{
+ */
+#define SAMHA1G ( \
+		SAM_PART_IS_DEFINED(SAMHA1G14A) || \
+		SAM_PART_IS_DEFINED(SAMHA1G15A) || \
+		SAM_PART_IS_DEFINED(SAMHA1G16A) \
+	)
+
 /** @} */
 
 /**
@@ -1509,6 +1498,9 @@
 /** SAMDA1 Family */
 #define SAMDA1 (SAMDA1J || SAMDA1G || SAMDA1E)
 
+/** SAMHA1 Family */
+#define SAMHA1 (SAMHA1G)
+
 /** SAMD Family */
 #define SAMD   (SAMD20 || SAMD21 || SAMD09 || SAMD10 || SAMD11 || SAMDA1)
 
@@ -1576,7 +1568,7 @@
 
 /** SAM0 product line (cortex-m0+) */
 #define SAM0 (SAMD20 || SAMD21 || SAMR21 || SAMD10 || SAMD11 || SAML21 ||\
-		SAMDA1 || SAMC20 || SAMC21 || SAML22 || SAMD09 || SAMR30)
+		SAMDA1 || SAMC20 || SAMC21 || SAML22 || SAMD09 || SAMR30 || SAMHA1)
 
 /** @} */
 
