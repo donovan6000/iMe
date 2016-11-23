@@ -159,6 +159,7 @@ extern "C" {
 #define SAMB11CSP_XPLAINED_PRO     91  //!< SAM B11 CSP Xplained Pro board.
 #define SAMB11ZR_XPLAINED_PRO      92  //!< SAM B11 ZR Xplained Pro board.
 #define SAMR30_XPLAINED_PRO        93  //!< SAM R30 Xplained Pro board.
+#define SAMHA1G16A_XPLAINED_PRO    94  //!< SAM HA1G16A Xplained Pro board.
 #define SIMULATOR_XMEGA_A1         97  //!< Simulator for XMEGA A1 devices.
 #define AVR_SIMULATOR_UC3          98  //!< Simulator for the AVR UC3 device family.
 #define USER_BOARD                 99  //!< User-reserved board (if any).
@@ -303,6 +304,8 @@ extern "C" {
 #  include "samd10_xplained_mini/samd10_xplained_mini.h"
 #elif BOARD == SAMDA1_XPLAINED_PRO
 #  include "samda1_xplained_pro/samda1_xplained_pro.h"
+#elif BOARD == SAMHA1G16A_XPLAINED_PRO
+#  include "samha1g16a_xplained_pro/samha1g16a_xplained_pro.h"
 #elif BOARD == SAMC21_XPLAINED_PRO
 #  include "samc21_xplained_pro/samc21_xplained_pro.h"
 #elif BOARD == SAM4N_XPLAINED_PRO
