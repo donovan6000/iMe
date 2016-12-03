@@ -16,7 +16,7 @@ The latest version of iMe is V00.00.01.23 released on October 20th, 2016, and an
 * Allows configuring the steps/mm for each of the motors
 
 ### Installation
-The easiest way to install iMe is with M33 Manager, which is available for [Windows](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20Windows.zip), [OS X](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20OS%20X.zip), and [Linux](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20Linux.zip). Just connect the printer to M33 Manager and click the 'Install iMe firmware' button to install iMe.
+The easiest way to install iMe is with M33 Manager, which is available for [Windows](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20Windows.zip), [macOS](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20macOS.zip), and [Linux](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20Linux.zip). Just connect the printer to M33 Manager and click the 'Install iMe firmware' button to install iMe.
 
 iMe is also fully compatible with [M33 Fio](https://github.com/donovan6000/M33-Fio), and it can be installed from there as well.
 
@@ -29,7 +29,7 @@ M33 Manager will let you know which serial port the printer is using when it swi
 * iMe has no known issues, but M33 Manager has various issues related to thread management
 
 ### Images
-M33 Manager can be used on Windows, OS X, and Linux. In addition to installing iMe, it also allows manually sending commands to the printer in both bootloader and firmware mode which can be used to manage all aspects of the printer.
+M33 Manager can be used on Windows, macOS, and Linux. In addition to installing iMe, it also allows manually sending commands to the printer in both bootloader and firmware mode which can be used to manage all aspects of the printer.
 ![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/m33%20manager.png "M33 Manager")
 So far iMe has been tested on [Cura](https://ultimaker.com/en/products/cura-software), [OctoPrint](http://octoprint.org/), [Simplify3D](https://www.simplify3d.com/), [Repetier-Host](https://www.repetier.com/), [Printrun](http://www.pronterface.com/), [MatterControl](http://www.mattercontrol.com/), and [CraftWare](https://craftunique.com/craftware).
 ![alt text](https://raw.githubusercontent.com/donovan6000/iMe/master/images/cura.png "Cura")

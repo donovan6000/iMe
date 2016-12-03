@@ -17,7 +17,7 @@
 #else
 	#include <termios.h>
 #endif
-#ifdef OSX
+#ifdef MACOS
 	#include <CoreFoundation/CoreFoundation.h>
 	#include <IOKit/IOKitLib.h>
 	#include <IOKit/serial/IOSerialKeys.h>
@@ -2471,8 +2471,8 @@ void Printer::updateAvailableSerialPorts() {
 		}
 	#endif
 	
-	// Otherwise check if using OS X
-	#ifdef OSX
+	// Otherwise check if using macOS
+	#ifdef MACOS
 		
 		// Check if establishing connection to IOKit was successful
 		mach_port_t masterPort;
