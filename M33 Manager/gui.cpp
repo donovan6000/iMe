@@ -67,7 +67,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#endif
 
 	// Add menu bar
-	#ifdef OSX
+	#ifdef MACOS
 		wxMenuBar *menuBar = new wxMenuBar;
 		SetMenuBar(menuBar);
 	#endif
@@ -86,7 +86,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		542, 90
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		549, 82
 	#endif
 	#ifdef LINUX
@@ -99,7 +99,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		15, 24
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		15, 23
 	#endif
 	#ifdef LINUX
@@ -112,7 +112,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		82, 20
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		87, 20
 	#endif
 	#ifdef LINUX
@@ -122,7 +122,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		324, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		324, -1
 	#endif
 	#ifdef LINUX
@@ -136,7 +136,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		-1, -1, 0, 2
 	#endif
 	#ifdef LINUX
@@ -146,7 +146,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		416, 19
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		416, 15
 	#endif
 	#ifdef LINUX
@@ -156,7 +156,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		27, -1
 	#endif
 	#ifdef LINUX
@@ -170,7 +170,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		450, 18
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		451, 18
 	#endif
 	#ifdef LINUX
@@ -184,7 +184,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		15, 59
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		15, 54
 	#endif
 	#ifdef LINUX
@@ -195,7 +195,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		53, 59
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		62, 54
 	#endif
 	#ifdef LINUX
@@ -214,8 +214,8 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	Bind(wxEVT_TIMER, &MyFrame::updateStatus, this, statusTimer->GetId());
 	statusTimer->Start(100);
 	
-	// Check if not using OS X
-	#ifndef OSX
+	// Check if not using macOS
+	#ifndef MACOS
 	
 		// Create install drivers button
 		installDriversButton = new wxButton(panel, wxID_ANY, "Install drivers", wxPoint(
@@ -234,7 +234,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		5, 91
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		5, 83
 	#endif
 	#ifdef LINUX
@@ -244,7 +244,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		542, 94
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		549, 95
 	#endif
 	#ifdef LINUX
@@ -260,7 +260,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		14, 111
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		11, 103
 	#endif
 	#ifdef LINUX
@@ -275,7 +275,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		14, 147
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		11, 139
 	#endif
 	#ifdef LINUX
@@ -290,7 +290,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		388, 111
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		363, 103
 	#endif
 	#ifdef LINUX
@@ -305,7 +305,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		373, 147
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		349, 139
 	#endif
 	#ifdef LINUX
@@ -320,7 +320,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		5, 186
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		5, 179
 	#endif
 	#ifdef LINUX
@@ -330,7 +330,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		542, 247
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		549, 267
 	#endif
 	#ifdef LINUX
@@ -343,7 +343,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		15, 206
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		19, 204
 	#endif
 	#ifdef LINUX
@@ -353,7 +353,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		522, 182
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		524, 198
 	#endif
 	#ifdef LINUX
@@ -364,7 +364,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		8
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		11
 	#endif
 	#ifdef LINUX
@@ -377,7 +377,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		15, 398
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		17, 410
 	#endif
 	#ifdef LINUX
@@ -387,7 +387,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		426, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		432, -1
 	#endif
 	#ifdef LINUX
@@ -402,7 +402,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		450, 396
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		451, 407
 	#endif
 	#ifdef LINUX
@@ -417,7 +417,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		201, 249
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		201, 249
 	#endif
 	#ifdef LINUX
@@ -430,7 +430,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		-1, -1, 0, 2
 	#endif
 	#ifdef LINUX
@@ -440,7 +440,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		615, 19
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		615, 15
 	#endif
 	#ifdef LINUX
@@ -450,7 +450,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		27, -1
 	#endif
 	#ifdef LINUX
@@ -470,7 +470,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		-1, -1, 0, 2
 	#endif
 	#ifdef LINUX
@@ -480,7 +480,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		565, 67
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		565, 63
 	#endif
 	#ifdef LINUX
@@ -490,7 +490,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		27, -1
 	#endif
 	#ifdef LINUX
@@ -510,7 +510,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		-1, -1, 0, 2
 	#endif
 	#ifdef LINUX
@@ -520,7 +520,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		615, 67
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		615, 63
 	#endif
 	#ifdef LINUX
@@ -530,7 +530,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		27, -1
 	#endif
 	#ifdef LINUX
@@ -549,7 +549,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		-1, -1, 0, 2
 	#endif
 	#ifdef LINUX
@@ -559,7 +559,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		665, 67
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		665, 63
 	#endif
 	#ifdef LINUX
@@ -569,7 +569,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		27, -1
 	#endif
 	#ifdef LINUX
@@ -589,7 +589,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		-1, -1, 0, 2
 	#endif
 	#ifdef LINUX
@@ -599,7 +599,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		615, 115
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		615, 111
 	#endif
 	#ifdef LINUX
@@ -609,7 +609,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		27, -1
 	#endif
 	#ifdef LINUX
@@ -629,7 +629,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		-1, -1, 0, 2
 	#endif
 	#ifdef LINUX
@@ -639,7 +639,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		695, 43
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		715, 39
 	#endif
 	#ifdef LINUX
@@ -649,7 +649,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		27, -1
 	#endif
 	#ifdef LINUX
@@ -669,7 +669,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		-1, -1, 0, 2
 	#endif
 	#ifdef LINUX
@@ -679,7 +679,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		695, 89
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		715, 87
 	#endif
 	#ifdef LINUX
@@ -689,7 +689,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		27, -1
 	#endif
 	#ifdef LINUX
@@ -709,7 +709,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		575, 157
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		575, 157
 	#endif
 	#ifdef LINUX
@@ -719,7 +719,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		179, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		179, -1
 	#endif
 	#ifdef LINUX
@@ -732,7 +732,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		575, 178
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		575, 178
 	#endif
 	#ifdef LINUX
@@ -742,7 +742,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		179, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		179, -1
 	#endif
 	#ifdef LINUX
@@ -762,7 +762,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		575, 205
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		575, 205
 	#endif
 	#ifdef LINUX
@@ -772,7 +772,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		179, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		179, -1
 	#endif
 	#ifdef LINUX
@@ -785,7 +785,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		575, 226
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		575, 226
 	#endif
 	#ifdef LINUX
@@ -795,7 +795,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		179, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		179, -1
 	#endif
 	#ifdef LINUX
@@ -815,7 +815,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		338, 99
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		338, 99
 	#endif
 	#ifdef LINUX
@@ -834,7 +834,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		785, 24
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		785, 23
 	#endif
 	#ifdef LINUX
@@ -847,7 +847,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		889, 20
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		889, 20
 	#endif
 	#ifdef LINUX
@@ -857,7 +857,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		215, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		215, -1
 	#endif
 	#ifdef LINUX
@@ -877,7 +877,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		785, 60
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		785, 60
 	#endif
 	#ifdef LINUX
@@ -887,7 +887,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		229, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		229, -1
 	#endif
 	#ifdef LINUX
@@ -902,7 +902,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		1019, 60
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		1019, 60
 	#endif
 	#ifdef LINUX
@@ -917,7 +917,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		105, 168
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		105, 168
 	#endif
 	#ifdef LINUX
@@ -930,7 +930,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		574, 270
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		574, 270
 	#endif
 	#ifdef LINUX
@@ -940,7 +940,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		85, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		85, -1
 	#endif
 	#ifdef LINUX
@@ -959,7 +959,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		574, 306
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		574, 306
 	#endif
 	#ifdef LINUX
@@ -969,7 +969,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		85, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		85, -1
 	#endif
 	#ifdef LINUX
@@ -988,7 +988,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		574, 342
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		574, 342
 	#endif
 	#ifdef LINUX
@@ -998,7 +998,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		85, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		85, -1
 	#endif
 	#ifdef LINUX
@@ -1017,7 +1017,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		574, 378
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		574, 378
 	#endif
 	#ifdef LINUX
@@ -1027,7 +1027,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		85, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		85, -1
 	#endif
 	#ifdef LINUX
@@ -1046,7 +1046,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		205, 131
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		205, 131
 	#endif
 	#ifdef LINUX
@@ -1059,7 +1059,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		689, 270
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		689, 270
 	#endif
 	#ifdef LINUX
@@ -1069,7 +1069,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		185, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		185, -1
 	#endif
 	#ifdef LINUX
@@ -1094,7 +1094,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		689, 306
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		689, 306
 	#endif
 	#ifdef LINUX
@@ -1104,7 +1104,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		185, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		185, -1
 	#endif
 	#ifdef LINUX
@@ -1128,7 +1128,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		689, 342
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		689, 342
 	#endif
 	#ifdef LINUX
@@ -1138,7 +1138,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		185, -1
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		185, -1
 	#endif
 	#ifdef LINUX
@@ -1165,7 +1165,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		-1, 15
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		-1, 14
 	#endif
 	#ifdef LINUX
@@ -1177,7 +1177,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		9
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		11
 	#endif
 	#ifdef LINUX
@@ -1197,7 +1197,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	#ifdef WINDOWS
 		2
 	#endif
-	#ifdef OSX
+	#ifdef MACOS
 		2
 	#endif
 	#ifdef LINUX
@@ -1231,7 +1231,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 void MyFrame::show(wxShowEvent &event) {
 
 	// Set initial focus
-	#ifdef OSX
+	#ifdef MACOS
 		commandInput->SetFocus();
 	#else
 		GetChildren().GetFirst()->GetData()->SetFocus();

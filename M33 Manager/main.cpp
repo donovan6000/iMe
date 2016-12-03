@@ -55,8 +55,8 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 	// Check if using GUI
 	#ifdef USE_GUI
 	
-		// Check if using OS X
-		#ifdef OSX
+		// Check if using macOS
+		#ifdef MACOS
 		
 			// Enable plainer transition
 			wxSystemOptions::SetOption(wxMAC_WINDOW_PLAIN_TRANSITION, 1);
@@ -99,7 +99,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 		
 					// Display help
 					cout << "Usage: \"M33 Manager\" -d -f -b -i -3 -r firmware.rom -m serialport" << endl;
-					#ifndef OSX
+					#ifndef MACOS
 						cout << "-d | --drivers: Install device drivers" << endl;
 					#endif
 					cout << "-f | --firmware: Switches printer into firmware mode" << endl;
@@ -114,8 +114,8 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 					return EXIT_SUCCESS;
 				}
 			
-				// Check if not using OS X
-				#ifndef OSX
+				// Check if not using macOS
+				#ifndef MACOS
 		
 					// Otherwise check if installing drivers
 					else if(!strcmp(argv[i], "-d") || !strcmp(argv[i], "--drivers")) {

@@ -1,4 +1,4 @@
-# Target platform options: WINDOWS32, WINDOWS64, OSX32, OSX64, LINUX32, LINUX64
+# Target platform options: WINDOWS32, WINDOWS64, MACOS32, MACOS64, LINUX32, LINUX64
 PROGRAM_NAME = M33\ Manager
 VERSION = 0.14
 TARGET_PLATFORM = LINUX64
@@ -41,13 +41,13 @@ ifeq ($(TARGET_PLATFORM), WINDOWS64)
 	WINDRES = x86_64-w64-mingw32-windres
 endif
 
-ifeq ($(TARGET_PLATFORM), OSX32)
-	PLATFORM = OSX
+ifeq ($(TARGET_PLATFORM), MACOS32)
+	PLATFORM = MACOS
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = clang++
 	CCP = clang++
 	CFLAGS += -framework IOKit -framework CoreFoundation -stdlib=libc++ -m32
-	ARCHIVE = "M33 Manager OS X.zip"
+	ARCHIVE = "M33 Manager macOS.zip"
 	BUNDLE = "M33 Manager.app"
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
@@ -55,13 +55,13 @@ ifeq ($(TARGET_PLATFORM), OSX32)
 	endif
 endif
 
-ifeq ($(TARGET_PLATFORM), OSX64)
-	PLATFORM = OSX
+ifeq ($(TARGET_PLATFORM), MACOS64)
+	PLATFORM = MACOS
 	EXECUTABLE = $(PROGRAM_NAME)
 	CC = clang++
 	CCP = clang++
 	CFLAGS += -framework IOKit -framework CoreFoundation -stdlib=libc++ -m64
-	ARCHIVE = "M33 Manager OS X.zip"
+	ARCHIVE = "M33 Manager macOS.zip"
 	BUNDLE = "M33 Manager.app"
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
@@ -126,7 +126,7 @@ resourceFile:
 
 app:
 	rm -rf "M33 Manager.app" "applet.iconset"
-	cp -r "resources/OS X/M33 Manager.app" .
+	cp -r "resources/macOS/M33 Manager.app" .
 	mv $(EXECUTABLE) "M33 Manager.app/Contents/MacOS"
 	mkdir "applet.iconset"
 	sips -z 16 16 "resources/files/icon.png" --out "applet.iconset/icon_16x16.png"
