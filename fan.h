@@ -1,4 +1,4 @@
-// Header gaurd
+// Header guard
 #ifndef FAN_H
 #define FAN_H
 

@@ -1,4 +1,4 @@
-// Header gaurd
+// Header guard
 #ifndef CONF_SLEEPMGR_H
 #define CONF_SLEEPMGR_H
 

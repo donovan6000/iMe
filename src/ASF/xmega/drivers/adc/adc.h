@@ -3,7 +3,7 @@
  *
  * \brief AVR XMEGA Analog to Digital Converter driver
  *
- * Copyright (C) 2010-2016 Atmel Corporation. All rights reserved.
+ * Copyright (C) 2010-2017 Atmel Corporation. All rights reserved.
  *
  * \asf_license_start
  *
@@ -87,7 +87,7 @@ extern "C" {
 #endif
 #if (!XMEGA_E)
 /* Negative input multiplexer selection without gain */
-typedef enum ADC_CH_MUXNEG_MODE10_enum
+enum ADC_CH_MUXNEG_MODE10_enum
 {
     ADC_CH_MUXNEG_MODE10_PIN0_gc = (0x00<<0),  /* Input pin 0 */
     ADC_CH_MUXNEG_MODE10_PIN1_gc = (0x01<<0),  /* Input pin 1 */
@@ -95,10 +95,10 @@ typedef enum ADC_CH_MUXNEG_MODE10_enum
     ADC_CH_MUXNEG_MODE10_PIN3_gc = (0x03<<0),  /* Input pin 3 */
     ADC_CH_MUXNEG_MODE10_GND_gc = (0x05<<0),  /* PAD ground */
     ADC_CH_MUXNEG_MODE10_INTGND_gc = (0x07<<0),  /* Internal ground */
-} ADC_CH_MUXNEGL_t;
+} ;
 
 /* Negative input multiplexer selection with gain */
-typedef enum ADC_CH_MUXNEG_MODE11_enum
+enum ADC_CH_MUXNEG_MODE11_enum
 {
     ADC_CH_MUXNEG_MODE11_PIN4_gc = (0x00<<0),  /* Input pin 4 */
     ADC_CH_MUXNEG_MODE11_PIN5_gc = (0x01<<0),  /* Input pin 5 */
@@ -106,7 +106,7 @@ typedef enum ADC_CH_MUXNEG_MODE11_enum
     ADC_CH_MUXNEG_MODE11_PIN7_gc = (0x03<<0),  /* Input pin 7 */
     ADC_CH_MUXNEG_MODE11_INTGND_gc = (0x04<<0),  /* Internal ground */
     ADC_CH_MUXNEG_MODE11_GND_gc = (0x07<<0),  /* PAD ground */
-} ADC_CH_MUXNEGH_t;
+} ;
 #endif
 
 /**

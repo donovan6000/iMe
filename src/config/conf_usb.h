@@ -1,4 +1,4 @@
-// Header gaurd
+// Header guard
 #ifndef CONF_USB_H
 #define CONF_USB_H
 

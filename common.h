@@ -1,4 +1,4 @@
-// Header gaurd
+// Header guard
 #ifndef COMMON_H
 #define COMMON_H
 
@@ -86,6 +86,12 @@ Name: Minimum one ceil
 Purpose: Returns the ceiling of the value that is at least one
 */
 uint32_t minimumOneCeil(float value);
+
+/*
+Name: Leading pad buffer
+Purpose: Adds leading padding to buffer to make it meet the size specified
+*/
+void leadingPadBuffer(char *buffer, uint8_t size = 2, char padding = '0');
 
 
 #endif

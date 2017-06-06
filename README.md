@@ -1,10 +1,10 @@
 # iMe
-© 2015-2016 Exploit Kings. All rights reserved.
+© 2015-2017 Exploit Kings. All rights reserved.
 
 ### Description
 iMe is firmware for the Micro 3D printer that attempts to fix the printer's biggest problem: limited software compatibility. iMe uses RepRap G-code protocol, so it allows you to use the Micro 3D printer with any 3D printing software that supports that protocol. It also features builtin backlash and bed compensation which makes creating good looking prints with other software possible since the G-code never has to be pre-processed beforehand.
 
-The latest version of iMe is V00.00.01.23 released on October 20th, 2016, and an entire changelog for it can be found [here](https://raw.githubusercontent.com/donovan6000/iMe/master/Changelog).
+The latest version of iMe is V00.00.01.24 released on June 6th, 2017, and an entire changelog for it can be found [here](https://raw.githubusercontent.com/donovan6000/iMe/master/Changelog).
 
 ### Features
 * Uses RepRap's G-code protocol
@@ -16,7 +16,7 @@ The latest version of iMe is V00.00.01.23 released on October 20th, 2016, and an
 * Allows configuring the steps/mm for each of the motors
 
 ### Installation
-The easiest way to install iMe is with M33 Manager, which is available for [Windows](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20Windows.zip), [macOS](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20macOS.zip), and [Linux](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20Linux.zip). Just connect the printer to M33 Manager and click the 'Install iMe firmware' button to install iMe.
+The easiest way to install iMe is with M33 Manager, which is available for [Windows](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20Windows.zip), [macOS](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20macOS.dmg), and [Linux](https://raw.githubusercontent.com/donovan6000/iMe/master/M33%20Manager/M33%20Manager%20Linux.zip). Just connect the printer to M33 Manager and click the 'Install iMe firmware' button to install iMe.
 
 iMe is also fully compatible with [M33 Fio](https://github.com/donovan6000/M33-Fio), and it can be installed from there as well.
 

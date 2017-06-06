@@ -1,4 +1,4 @@
-// Header gaurd
+// Header guard
 #ifndef CONF_TWIM_H
 #define CONF_TWIM_H
 
