@@ -1,4 +1,4 @@
-// Header gaurd
+// Header guard
 #ifndef PRINTER_H
 #define PRINTER_H
 

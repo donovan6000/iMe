@@ -62,7 +62,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	
 	#ifdef LINUX
 		wxIcon icon;
-		icon.CopyFromBitmap(loadImage(icon_pngData, sizeof(icon_pngData))); 
+		icon.CopyFromBitmap(loadImage(iconPngData, sizeof(iconPngData))); 
 		SetIcon(icon);
 	#endif
 
@@ -132,7 +132,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	serialPortChoice->SetSelection(serialPortChoice->FindString("Auto"));
 	
 	// Create refresh serial ports button
-	refreshSerialPortsButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	refreshSerialPortsButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refreshPngData, sizeof(refreshPngData),
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
@@ -426,7 +426,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	));
 	
 	// Create backward movement button
-	backwardMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	backwardMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refreshPngData, sizeof(refreshPngData),
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
@@ -466,7 +466,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	});
 	
 	// Create left movement button
-	leftMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	leftMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refreshPngData, sizeof(refreshPngData),
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
@@ -506,7 +506,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	});
 	
 	// Create home movement button
-	homeMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	homeMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refreshPngData, sizeof(refreshPngData),
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
@@ -545,7 +545,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	});
 	
 	// Create right movement button
-	rightMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	rightMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refreshPngData, sizeof(refreshPngData),
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
@@ -585,7 +585,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	});
 	
 	// Create forward movement button
-	forwardMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	forwardMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refreshPngData, sizeof(refreshPngData),
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
@@ -625,7 +625,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	});
 	
 	// Create up movement button
-	upMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	upMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refreshPngData, sizeof(refreshPngData),
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
@@ -665,7 +665,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size, 
 	});
 	
 	// Create down movement button
-	downMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refresh_pngData, sizeof(refresh_pngData),
+	downMovementButton = new wxBitmapButton(panel, wxID_ANY, loadImage(refreshPngData, sizeof(refreshPngData),
 	#ifdef WINDOWS
 		-1, -1, 0, 0
 	#endif
@@ -1905,8 +1905,8 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 			else {
 
 				// Unpack drivers
-				for(uint64_t i = 0; i < m3D_catSize; i++)
-					fout.put(m3D_catData[i]);
+				for(uint64_t i = 0; i < m3DV2CatSize; i++)
+					fout.put(m3DV2CatData[i]);
 				fout.close();
 
 				// Check if creating drivers file failed
@@ -1920,8 +1920,8 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 				else {
 
 					// Unpack drivers
-					for(uint64_t i = 0; i < m3D_infSize; i++)
-						fout.put(m3D_infData[i]);
+					for(uint64_t i = 0; i < m3DV2InfSize; i++)
+						fout.put(m3DV2InfData[i]);
 					fout.close();
 
 					// Check if creating process failed
@@ -2001,8 +2001,8 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 				else {
 
 					// Unpack udev rule
-					for(uint64_t i = 0; i < _90_micro_3d_local_rulesSize; i++)
-						fout.put(_90_micro_3d_local_rulesData[i]);
+					for(uint64_t i = 0; i < _90Micro3dLocalRulesSize; i++)
+						fout.put(_90Micro3dLocalRulesData[i]);
 					fout.close();
 
 					// Check if applying udev rule failed
