@@ -3,6 +3,7 @@ extern "C" {
 	#include <asf.h>
 }
 #include <ctype.h>
+#include <float.h>
 #include <string.h>
 #include "common.h"
 
@@ -217,4 +218,18 @@ uint32_t minimumOneCeil(float value) {
 
 	// Return ceiling of value that is at least one
 	return getValueInRange(ceil(value), 1, UINT32_MAX);
+}
+
+void leadingPadBuffer(char *buffer, uint8_t size, char padding) {
+
+	// Check if buffer is smaller that the specified size
+	uint8_t bufferSize = strlen(buffer);
+	if(bufferSize < size) {
+	
+		// Shift buffer toward the end
+		memmove(&buffer[size - bufferSize], buffer, bufferSize + 1);
+		
+		// Prepend padding to buffer
+		memset(buffer, padding, size - bufferSize);
+	}
 }

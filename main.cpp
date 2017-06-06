@@ -198,7 +198,8 @@ int main() {
 					
 								// Send lock bits
 								strcpy(responseBuffer, "ok\n0x");
-								ltoa(NVM.LOCKBITS, numberBuffer, 16);
+								ltoa(NVM.LOCK_BITS, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
 								strcat(responseBuffer, numberBuffer);
 							}
 					
@@ -206,23 +207,29 @@ int main() {
 							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Fuse bytes")) {
 					
 								// Send fuse bytes
-								strcpy(responseBuffer, "ok\n0:0x");
+								strcpy(responseBuffer, "ok\n0x");
 								ltoa(nvm_fuses_read(FUSEBYTE0), numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
 								strcat(responseBuffer, numberBuffer);
-								strcat(responseBuffer," 1:0x");
+								strcat(responseBuffer, " 0x");
 								ltoa(nvm_fuses_read(FUSEBYTE1), numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
 								strcat(responseBuffer, numberBuffer);
-								strcat(responseBuffer," 2:0x");
+								strcat(responseBuffer, " 0x");
 								ltoa(nvm_fuses_read(FUSEBYTE2), numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
 								strcat(responseBuffer, numberBuffer);
-								strcat(responseBuffer," 3:0x");
+								strcat(responseBuffer, " 0x");
 								ltoa(nvm_fuses_read(FUSEBYTE3), numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
 								strcat(responseBuffer, numberBuffer);
-								strcat(responseBuffer," 4:0x");
+								strcat(responseBuffer, " 0x");
 								ltoa(nvm_fuses_read(FUSEBYTE4), numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
 								strcat(responseBuffer, numberBuffer);
-								strcat(responseBuffer," 5:0x");
+								strcat(responseBuffer, " 0x");
 								ltoa(nvm_fuses_read(FUSEBYTE5), numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
 								strcat(responseBuffer, numberBuffer);
 							}
 					
@@ -236,8 +243,26 @@ int main() {
 								for(uint16_t i = APP_SECTION_START; i <= APP_SECTION_END; i++) {
 									strcpy(responseBuffer, i == APP_SECTION_START ? "0x" : " 0x");
 									ltoa(pgm_read_byte(i), numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
 									strcat(responseBuffer, numberBuffer);
 									if(i != APP_SECTION_END)
+										sendDataToUsb(responseBuffer);
+								}
+							}
+							
+							// Otherwise check if host command is to get application table contents
+							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Application table contents")) {
+					
+								strcpy(responseBuffer, "ok\n");
+								sendDataToUsb(responseBuffer);
+					
+								// Send application
+								for(uint16_t i = APPTABLE_SECTION_START; i <= APPTABLE_SECTION_END; i++) {
+									strcpy(responseBuffer, i == APPTABLE_SECTION_START ? "0x" : " 0x");
+									ltoa(pgm_read_byte(i), numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									if(i != APPTABLE_SECTION_END)
 										sendDataToUsb(responseBuffer);
 								}
 							}
@@ -247,62 +272,285 @@ int main() {
 					
 								strcpy(responseBuffer, "ok\n");
 								sendDataToUsb(responseBuffer);
-					
+								
 								// Send bootloader
 								for(uint16_t i = BOOT_SECTION_START; i <= BOOT_SECTION_END; i++) {
 									strcpy(responseBuffer, i == BOOT_SECTION_START ? "0x" : " 0x");
 									ltoa(pgm_read_byte(i), numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
 									strcat(responseBuffer, numberBuffer);
 									if(i != BOOT_SECTION_END)
 										sendDataToUsb(responseBuffer);
 								}
 							}
 							
-							// Otherwise check if host command is to get application CRC32
-							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Application CRC32")) {
+							// Otherwise check if host command is to get bootloader CRC steps
+							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Bootloader CRC steps")) {
 							
-								// Set CRC32 to use 0xFFFFFFFF seed and target flash memory
+								strcpy(responseBuffer, "ok\n");
+								sendDataToUsb(responseBuffer);
+							
+								// Go through every other byte in the bootloader
+								for(uint16_t i = 1; i < BOOT_SECTION_SIZE; i += 2) {
+							
+									// Wait until non-volatile memory controller isn't busy
+									nvm_wait_until_ready();
+				
+									// Set CRC to use 0xFFFFFFFF seed and target flash memory
+									CRC.CTRL = CRC_RESET_RESET1_gc;
+									CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
+							
+									// Clear high address bytes if total flash size doesn't extend that far (They are left unchanged otherwise. This is an error in Atmel's ASF library)
+									#if FLASH_SIZE < 0x10000UL
+										NVM.ADDR2 = 0;
+										NVM.DATA2 = 0;
+									#endif
+							
+									// Wait for calculating the CRC to finish
+									nvm_issue_flash_range_crc(BOOT_SECTION_START, BOOT_SECTION_START + i);
+									nvm_wait_until_ready();
+									while(CRC.STATUS & CRC_BUSY_bm);
+				
+									// Send bootloader CRC step
+									strcpy(responseBuffer, i == 1 ? "0x" : " 0x");
+									ltoa(CRC.CHECKSUM3, numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer, " 0x");
+									ltoa(CRC.CHECKSUM2, numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer, " 0x");
+									ltoa(CRC.CHECKSUM1, numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer, " 0x");
+									ltoa(CRC.CHECKSUM0, numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									
+									if(i != BOOT_SECTION_SIZE - 1)
+										sendDataToUsb(responseBuffer);
+								}
+							}
+							
+							// Otherwise check if host command is to get application CRC steps
+							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Application CRC steps")) {
+							
+								strcpy(responseBuffer, "ok\n");
+								sendDataToUsb(responseBuffer);
+							
+								// Go through every other byte in the application
+								for(uint16_t i = 1; i < APP_SECTION_SIZE; i += 2) {
+							
+									// Wait until non-volatile memory controller isn't busy
+									nvm_wait_until_ready();
+				
+									// Set CRC to use 0xFFFFFFFF seed and target flash memory
+									CRC.CTRL = CRC_RESET_RESET1_gc;
+									CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
+							
+									// Clear high address bytes if total flash size doesn't extend that far (They are left unchanged otherwise. This is an error in Atmel's ASF library)
+									#if FLASH_SIZE < 0x10000UL
+										NVM.ADDR2 = 0;
+										NVM.DATA2 = 0;
+									#endif
+							
+									// Wait for calculating the CRC to finish
+									nvm_issue_flash_range_crc(APP_SECTION_START, APP_SECTION_START + i);
+									nvm_wait_until_ready();
+									while(CRC.STATUS & CRC_BUSY_bm);
+				
+									// Send application CRC step
+									strcpy(responseBuffer, i == 1 ? "0x" : " 0x");
+									ltoa(CRC.CHECKSUM3, numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer, " 0x");
+									ltoa(CRC.CHECKSUM2, numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer, " 0x");
+									ltoa(CRC.CHECKSUM1, numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer, " 0x");
+									ltoa(CRC.CHECKSUM0, numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									
+									if(i != BOOT_SECTION_SIZE - 1)
+										sendDataToUsb(responseBuffer);
+								}
+							}
+							
+							// Otherwise check if host command is to get application table CRC steps
+							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Application table CRC steps")) {
+							
+								strcpy(responseBuffer, "ok\n");
+								sendDataToUsb(responseBuffer);
+							
+								// Go through every other byte in the application table
+								for(uint16_t i = 1; i < APPTABLE_SECTION_SIZE; i += 2) {
+							
+									// Wait until non-volatile memory controller isn't busy
+									nvm_wait_until_ready();
+				
+									// Set CRC to use 0xFFFFFFFF seed and target flash memory
+									CRC.CTRL = CRC_RESET_RESET1_gc;
+									CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
+							
+									// Clear high address bytes if total flash size doesn't extend that far (They are left unchanged otherwise. This is an error in Atmel's ASF library)
+									#if FLASH_SIZE < 0x10000UL
+										NVM.ADDR2 = 0;
+										NVM.DATA2 = 0;
+									#endif
+							
+									// Wait for calculating the CRC to finish
+									nvm_issue_flash_range_crc(APPTABLE_SECTION_START, APPTABLE_SECTION_START + i);
+									nvm_wait_until_ready();
+									while(CRC.STATUS & CRC_BUSY_bm);
+				
+									// Send application table CRC step
+									strcpy(responseBuffer, i == 1 ? "0x" : " 0x");
+									ltoa(CRC.CHECKSUM3, numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer, " 0x");
+									ltoa(CRC.CHECKSUM2, numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer, " 0x");
+									ltoa(CRC.CHECKSUM1, numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									strcat(responseBuffer, " 0x");
+									ltoa(CRC.CHECKSUM0, numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									
+									if(i != BOOT_SECTION_SIZE - 1)
+										sendDataToUsb(responseBuffer);
+								}
+							}
+							
+							// Otherwise check if host command is to get application CRC
+							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Application CRC")) {
+							
+								// Wait until non-volatile memory controller isn't busy
+								nvm_wait_until_ready();
+					
+								// Set CRC to use 0xFFFFFFFF seed and target flash memory
 								CRC.CTRL = CRC_RESET_RESET1_gc;
 								CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
 								
-								// Wait for calculating the CRC32 to finish
+								// Clear high address bytes if total flash size doesn't extend that far (They are left unchanged otherwise. This is an error in Atmel's ASF library)
+								#if FLASH_SIZE < 0x10000UL
+									NVM.ADDR2 = 0;
+									NVM.DATA2 = 0;
+								#endif
+								
+								// Wait for calculating the CRC to finish
 								nvm_issue_flash_range_crc(APP_SECTION_START, APP_SECTION_END);
 								nvm_wait_until_ready();
 								while(CRC.STATUS & CRC_BUSY_bm);
 					
-								// Send application CRC32
+								// Send application CRC
 								strcpy(responseBuffer, "ok\n0x");
-								ltoa(CRC.CHECKSUM0, numberBuffer, 16);
-								strcat(responseBuffer, numberBuffer);
-								ltoa(CRC.CHECKSUM1, numberBuffer, 16);
-								strcat(responseBuffer, numberBuffer);
-								ltoa(CRC.CHECKSUM2, numberBuffer, 16);
-								strcat(responseBuffer, numberBuffer);
 								ltoa(CRC.CHECKSUM3, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(CRC.CHECKSUM2, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(CRC.CHECKSUM1, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(CRC.CHECKSUM0, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+							}
+							
+							// Otherwise check if host command is to get application CRC
+							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Application table CRC")) {
+							
+								// Wait until non-volatile memory controller isn't busy
+								nvm_wait_until_ready();
+					
+								// Set CRC to use 0xFFFFFFFF seed and target flash memory
+								CRC.CTRL = CRC_RESET_RESET1_gc;
+								CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
+								
+								// Clear high address bytes if total flash size doesn't extend that far (They are left unchanged otherwise. This is an error in Atmel's ASF library)
+								#if FLASH_SIZE < 0x10000UL
+									NVM.ADDR2 = 0;
+									NVM.DATA2 = 0;
+								#endif
+								
+								// Wait for calculating the CRC to finish
+								nvm_issue_flash_range_crc(APPTABLE_SECTION_START, APPTABLE_SECTION_END);
+								nvm_wait_until_ready();
+								while(CRC.STATUS & CRC_BUSY_bm);
+					
+								// Send application table CRC
+								strcpy(responseBuffer, "ok\n0x");
+								ltoa(CRC.CHECKSUM3, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(CRC.CHECKSUM2, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(CRC.CHECKSUM1, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(CRC.CHECKSUM0, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
 								strcat(responseBuffer, numberBuffer);
 							}
 					
 							// Otherwise check if host command is to get bootloader CRC
-							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Bootloader CRC32")) {
+							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Bootloader CRC")) {
+							
+								// Wait until non-volatile memory controller isn't busy
+								nvm_wait_until_ready();
 					
-								// Set CRC32 to use 0xFFFFFFFF seed and target flash memory
+								// Set CRC to use 0xFFFFFFFF seed and target flash memory
 								CRC.CTRL = CRC_RESET_RESET1_gc;
 								CRC.CTRL = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
 								
-								// Wait for calculating the CRC32 to finish
-								nvm_issue_flash_range_crc(APP_SECTION_START, APP_SECTION_END);
+								// Clear high address bytes if total flash size doesn't extend that far (They are left unchanged otherwise. This is an error in Atmel's ASF library)
+								#if FLASH_SIZE < 0x10000UL
+									NVM.ADDR2 = 0;
+									NVM.DATA2 = 0;
+								#endif
+								
+								// Wait for calculating the CRC to finish
+								nvm_issue_flash_range_crc(BOOT_SECTION_START, BOOT_SECTION_END);
 								nvm_wait_until_ready();
 								while(CRC.STATUS & CRC_BUSY_bm);
 					
-								// Send bootloader CRC32
+								// Send bootloader CRC
 								strcpy(responseBuffer, "ok\n0x");
-								ltoa(CRC.CHECKSUM0, numberBuffer, 16);
-								strcat(responseBuffer, numberBuffer);
-								ltoa(CRC.CHECKSUM1, numberBuffer, 16);
-								strcat(responseBuffer, numberBuffer);
-								ltoa(CRC.CHECKSUM2, numberBuffer, 16);
-								strcat(responseBuffer, numberBuffer);
 								ltoa(CRC.CHECKSUM3, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(CRC.CHECKSUM2, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(CRC.CHECKSUM1, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(CRC.CHECKSUM0, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
 								strcat(responseBuffer, numberBuffer);
 							}
 					
@@ -316,6 +564,7 @@ int main() {
 								for(uint16_t i = EEPROM_START; i <= EEPROM_END; i++) {
 									strcpy(responseBuffer, i == EEPROM_START ? "0x" : " 0x");
 									ltoa(nvm_eeprom_read_byte(i), numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
 									strcat(responseBuffer, numberBuffer);
 									if(i != EEPROM_END)
 										sendDataToUsb(responseBuffer);
@@ -332,10 +581,114 @@ int main() {
 								for(uint16_t i = USER_SIGNATURES_START; i <= USER_SIGNATURES_END; i++) {
 									strcpy(responseBuffer, i == USER_SIGNATURES_START ? "0x" : " 0x");
 									ltoa(nvm_read_user_signature_row(i), numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
 									strcat(responseBuffer, numberBuffer);
 									if(i != USER_SIGNATURES_END)
 										sendDataToUsb(responseBuffer);
 								}
+							}
+							
+							// Otherwise check if host command is to get production signature
+							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Production signature")) {
+					
+								strcpy(responseBuffer, "ok\n");
+								sendDataToUsb(responseBuffer);
+					
+								// Send EEPROM
+								for(uint16_t i = PROD_SIGNATURES_START; i <= PROD_SIGNATURES_END; i++) {
+									strcpy(responseBuffer, i == PROD_SIGNATURES_START ? "0x" : " 0x");
+									ltoa(nvm_read_production_signature_row(i), numberBuffer, 16);
+									leadingPadBuffer(numberBuffer);
+									strcat(responseBuffer, numberBuffer);
+									if(i != PROD_SIGNATURES_END)
+										sendDataToUsb(responseBuffer);
+								}
+							}
+							
+							// Otherwise check if host command is to get device ID
+							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Device ID")) {
+					
+								// Get device ID
+								nvm_device_id deviceId;
+								nvm_read_device_id(&deviceId);
+								
+								// Send device ID
+								strcpy(responseBuffer, "ok\n0x");
+								ltoa(deviceId.devid2, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(deviceId.devid1, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(deviceId.devid0, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+							}
+							
+							// Otherwise check if host command is to get device revision
+							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Device revision")) {
+					
+								// Send device revision
+								strcpy(responseBuffer, "ok\n0x");
+								ltoa(nvm_read_device_rev(), numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+							}
+							
+							// Otherwise check if host command is to get device serial
+							else if(!strcmp(requests[currentProcessingRequest].hostCommand, "Device serial")) {
+					
+								// Get device serial
+								nvm_device_serial deviceSerial;
+								nvm_read_device_serial(&deviceSerial);
+								
+								// Send device serial
+								strcpy(responseBuffer, "ok\n0x");
+								ltoa(deviceSerial.coordx1, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(deviceSerial.coordx0, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(deviceSerial.coordy1, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(deviceSerial.coordy0, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(deviceSerial.lotnum5, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(deviceSerial.lotnum4, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(deviceSerial.lotnum3, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(deviceSerial.lotnum2, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(deviceSerial.lotnum1, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(deviceSerial.lotnum0, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
+								strcat(responseBuffer, " 0x");
+								ltoa(deviceSerial.wafnum, numberBuffer, 16);
+								leadingPadBuffer(numberBuffer);
+								strcat(responseBuffer, numberBuffer);
 							}
 					
 							// Otherwise

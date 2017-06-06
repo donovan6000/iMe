@@ -1,4 +1,4 @@
-// Header gaurd
+// Header guard
 #ifndef CONF_CLOCK_H
 #define CONF_CLOCK_H
 

@@ -1,4 +1,4 @@
-// Header gaurd
+// Header guard
 #ifndef ACCELEROMETER_H
 #define ACCELEROMETER_H
 

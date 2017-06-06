@@ -1,4 +1,4 @@
-// Header gaurd
+// Header guard
 #ifndef HEATER_H
 #define HEATER_H
 

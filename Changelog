@@ -1,5 +1,11 @@
 Changelog:
 
+V00.00.01.24 June 6, 2017
+
+	* Update EEPROM addresses
+	* Fixed host commands that generate CRC32 checksums for the bootloader, application, and application table
+	* Fixed issue with M33 Manager flashing ROMs that have an uneven number of bytes
+
 V00.00.01.23 October 20, 2016
 
 	* Fixed rounding issue that could cause floating point number to be formatted incorrectly
