@@ -1,4 +1,4 @@
-// Header gaurd
+// Header guard
 #ifndef COMMON_H
 #define COMMON_H
 
@@ -15,6 +15,7 @@
 	#include <windows.h>
 	#include <tchar.h>
 #endif
+#include "working/resources.h"
 
 
 using namespace std;
@@ -23,16 +24,6 @@ using namespace std;
 // Definitions
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
-
-
-// Packed files
-#include "icon_png.h"
-#include "refresh_png.h"
-#include TOSTRING(IME_HEADER)
-#include TOSTRING(M3D_HEADER)
-#include "M3D_cat.h"
-#include "M3D_inf.h"
-#include "_90_micro_3d_local_rules.h"
 
 
 // Function prototypes

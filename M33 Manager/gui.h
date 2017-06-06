@@ -1,4 +1,4 @@
-// Header gaurd
+// Header guard
 #ifndef GUI_H
 #define GUI_H
 

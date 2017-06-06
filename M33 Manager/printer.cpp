@@ -67,6 +67,20 @@ void sleepUs(uint64_t microseconds) {
 	#endif
 }
 
+template<typename T>
+T minValue(const T &a, const T &b) {
+	
+	// Return the smaller of the two values
+	return a <= b ? a : b;
+}
+
+template<typename T>
+T maxValue(const T &a, const T &b) {
+	
+	// Return the larger of the two values
+	return a >= b ? a : b;
+}
+
 // Check if using Windows
 #ifdef WINDOWS
 
@@ -879,6 +893,17 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					return false;
 				}
 				
+				// Check if updating filament temperature failed
+				if(!eepromKeepIntWithinRange(EEPROM_FILAMENT_TEMPERATURE_OFFSET, EEPROM_FILAMENT_TEMPERATURE_LENGTH, EEPROM_FILAMENT_TEMPERATURE_MIN, EEPROM_FILAMENT_TEMPERATURE_MAX, EEPROM_FILAMENT_TEMPERATURE_DEFAULT)) {
+				
+					// Log if logging details
+					if(logFunction && logDetails)
+						logFunction("Updating filament temperature failed");
+
+					// Return false
+					return false;
+				}
+				
 				// Check if updating speed limit X failed
 				if(!eepromKeepFloatWithinRange(EEPROM_SPEED_LIMIT_X_OFFSET, EEPROM_SPEED_LIMIT_X_LENGTH, EEPROM_SPEED_LIMIT_X_MIN, EEPROM_SPEED_LIMIT_X_MAX, EEPROM_SPEED_LIMIT_X_DEFAULT)) {
 				
@@ -1035,6 +1060,17 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 						// Return false
 						return false;
 					}
+					
+					// Check if updating external bed height failed
+					if(!eepromKeepFloatWithinRange(EEPROM_EXTERNAL_BED_HEIGHT_OFFSET, EEPROM_EXTERNAL_BED_HEIGHT_LENGTH, EEPROM_EXTERNAL_BED_HEIGHT_MIN, EEPROM_EXTERNAL_BED_HEIGHT_MAX, EEPROM_EXTERNAL_BED_HEIGHT_DEFAULT)) {
+				
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating external bed height failed");
+
+						// Return false
+						return false;
+					}
 				}
 				
 				// Check if updating last recorded Z value failed
@@ -1077,6 +1113,8 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				uint8_t xJerkSensitivity = eepromGetInt(EEPROM_X_JERK_SENSITIVITY_OFFSET, EEPROM_X_JERK_SENSITIVITY_LENGTH);
 				uint8_t yJerkSensitivity = eepromGetInt(EEPROM_Y_JERK_SENSITIVITY_OFFSET, EEPROM_Y_JERK_SENSITIVITY_LENGTH);
 				float calibrateZ0Correction = eepromGetFloat(EEPROM_CALIBRATE_Z0_CORRECTION_OFFSET, EEPROM_CALIBRATE_Z0_CORRECTION_LENGTH);
+				bool expandPrintableRegion = eepromGetInt(EEPROM_EXPAND_PRINTABLE_REGION_OFFSET, EEPROM_EXPAND_PRINTABLE_REGION_LENGTH);
+				float externalBedHeight = eepromGetFloat(EEPROM_EXTERNAL_BED_HEIGHT_OFFSET, EEPROM_EXTERNAL_BED_HEIGHT_LENGTH);
 				
 				// Set if firmware is valid
 				validFirmware = chipCrc == eepromCrc;
@@ -1088,7 +1126,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					validBedPosition = eepromGetInt(EEPROM_SAVED_X_STATE_OFFSET, EEPROM_SAVED_X_STATE_LENGTH) && eepromGetInt(EEPROM_SAVED_Y_STATE_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH) && eepromGetInt(EEPROM_SAVED_Z_STATE_OFFSET, EEPROM_SAVED_Z_STATE_LENGTH);
 				
 				// Set if bed orientation is valid
-				validBedOrientation = bedOrientationVersion && (bedOrientationBackRight || bedOrientationBackLeft || bedOrientationFrontLeft || bedOrientationFrontRight);
+				validBedOrientation = (bedOrientationVersion && bedOrientationVersion != UINT8_MAX) && (bedOrientationBackRight || bedOrientationBackLeft || bedOrientationFrontLeft || bedOrientationFrontRight);
 				
 				// Log values if logging details
 				if(logFunction && logDetails) {
@@ -1120,6 +1158,8 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					logFunction("Using " + to_string(xJerkSensitivity) + " / " + to_string(EEPROM_X_JERK_SENSITIVITY_MAX) + " X jerk homing sensitivity");
 					logFunction("Using " + to_string(yJerkSensitivity) + " / " + to_string(EEPROM_Y_JERK_SENSITIVITY_MAX) + " Y jerk homing sensitivity");
 					logFunction("Using " + to_string(calibrateZ0Correction) + "mm calibrate Z0 correction");
+					logFunction(static_cast<string>("Using ") + (expandPrintableRegion ? "expanded" : "standard") + " printable region");
+					logFunction("Using " + to_string(externalBedHeight) + "mm external bed height");
 					logFunction(static_cast<string>("Firmware is ") + (validFirmware ? "valid" : "corrupt"));
 					logFunction(static_cast<string>("Bed position is ") + (validBedPosition ? "valid" : "invalid"));
 					logFunction(static_cast<string>("Bed orientation is ") + (validBedOrientation ? "valid" : "invalid"));
@@ -1441,20 +1481,38 @@ bool Printer::installFirmware(const string &file) {
 
 	// Check if ROM isn't encrypted
 	if(static_cast<uint8_t>(romBuffer[0]) == 0x0C || static_cast<uint8_t>(romBuffer[0]) == 0xFD) {
-
+		
+		// Check if ROM requires padding
+		if(romBuffer.length() % 2 != 0 && romBuffer.length() < CHIP_TOTAL_MEMORY)
+			
+			// Add padding to ROM
+			romBuffer.push_back(0xFF);
+		
 		// Encrypt the ROM
 		string encryptedRomBuffer;
 		for(uint16_t i = 0; i < romBuffer.length(); i++)
 
-			// Check if padding wasn't required
+			// Check if padding isn't required
 			if(i % 2 != 0 || i != romBuffer.length() - 1)
 
 				// Encrypt the ROM
 				encryptedRomBuffer.push_back(romEncryptionTable[static_cast<uint8_t>(romBuffer[i + (i % 2 ? -1 : 1)])]);			
-	
+			
+			// Otherwise
+			else
+			
+				// Add padding
+				encryptedRomBuffer.push_back(romEncryptionTable[0xFF]);
+			
 		// Set encrypted ROM
 		romBuffer = encryptedRomBuffer;
 	}
+	
+	// Check if ROM requires padding
+	if(romBuffer.length() % 2 != 0 && romBuffer.length() < CHIP_TOTAL_MEMORY)
+			
+		// Add padding to ROM
+		romBuffer.push_back(romEncryptionTable[0xFF]);
 
 	// Check if ROM is too big
 	if(romBuffer.length() > CHIP_TOTAL_MEMORY) {
@@ -1564,9 +1622,24 @@ bool Printer::installFirmware(const string &file) {
 			// Check if data to be written exists
 			uint32_t position = j + CHIP_PAGE_SIZE * i * 2;
 			if(position < romBuffer.length()) {
+			
+				// Check if padding is required
+				if(position % 2 == 0 && position == romBuffer.length() - 1) {
 
-				// Check if sending value failed
-				if(!sendRequestAscii(romBuffer[position + (position % 2 ? -1 : 1)], false)) {
+					// Check if sending padding failed
+					if(!sendRequestAscii(romEncryptionTable[0xFF], false)) {
+				
+						// Log error
+						if(logFunction)
+							logFunction("Writing data failed");
+				
+						// Return false
+						return false;
+					}
+				}
+
+				// Otherwise check if sending value failed
+				else if(!sendRequestAscii(romBuffer[position + (position % 2 ? -1 : 1)], false)) {
 				
 					// Log error
 					if(logFunction)
@@ -1656,7 +1729,7 @@ bool Printer::installFirmware(const string &file) {
 	for(uint16_t i = 0; i < CHIP_TOTAL_MEMORY; i++) {
 
 		// Check if data exists in the ROM
-		if (i < romBuffer.length()) {
+		if(i < romBuffer.length()) {
 	
 			// Check if padding is required
 			if(i % 2 == 0 && i == romBuffer.length() - 1)
@@ -1783,6 +1856,141 @@ bool Printer::installFirmware(const string &file) {
 			// Log last recorded Z value status
 			if(logFunction)
 				logFunction("Successfully saved converted last recorded Z value");
+			
+			// Check if saving expand printable region in EEPROM failed
+			if(!eepromWriteInt(EEPROM_EXPAND_PRINTABLE_REGION_OFFSET, EEPROM_EXPAND_PRINTABLE_REGION_LENGTH, EEPROM_EXPAND_PRINTABLE_REGION_DEFAULT ? 1 : 0)) {
+		
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save expand printable region");
+			
+				// Return false
+				return false;
+			}
+		
+			// Log expand printable region status
+			if(logFunction)
+				logFunction("Successfully saved expand printable region");
+			
+			// Check if saving external bed height in EEPROM failed
+			if(!eepromWriteFloat(EEPROM_EXTERNAL_BED_HEIGHT_OFFSET, EEPROM_EXTERNAL_BED_HEIGHT_LENGTH, EEPROM_EXTERNAL_BED_HEIGHT_DEFAULT)) {
+		
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save external bed height");
+			
+				// Return false
+				return false;
+			}
+		
+			// Log external bed height status
+			if(logFunction)
+				logFunction("Successfully saved external bed height");
+			
+			// Check if saving calibrate Z0 correction in EEPROM failed
+			if(!eepromWriteFloat(EEPROM_CALIBRATE_Z0_CORRECTION_OFFSET, EEPROM_CALIBRATE_Z0_CORRECTION_LENGTH, EEPROM_CALIBRATE_Z0_CORRECTION_DEFAULT)) {
+		
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save calibrate Z0 correction");
+			
+				// Return false
+				return false;
+			}
+		
+			// Log calibrate Z0 correction status
+			if(logFunction)
+				logFunction("Successfully saved calibrate Z0 correction");
+			
+			// Check if saving X jerk sensitivity in EEPROM failed
+			if(!eepromWriteInt(EEPROM_X_JERK_SENSITIVITY_OFFSET, EEPROM_X_JERK_SENSITIVITY_LENGTH, EEPROM_X_JERK_SENSITIVITY_DEFAULT)) {
+		
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save X jerk sensitivity");
+			
+				// Return false
+				return false;
+			}
+		
+			// Log X jerk sensitivity status
+			if(logFunction)
+				logFunction("Successfully saved X jerk sensitivity");
+			
+			// Check if saving Y jerk sensitivity in EEPROM failed
+			if(!eepromWriteInt(EEPROM_Y_JERK_SENSITIVITY_OFFSET, EEPROM_Y_JERK_SENSITIVITY_LENGTH, EEPROM_Y_JERK_SENSITIVITY_DEFAULT)) {
+		
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save Y jerk sensitivity");
+			
+				// Return false
+				return false;
+			}
+		
+			// Log Y jerk sensitivity status
+			if(logFunction)
+				logFunction("Successfully saved Y jerk sensitivity");
+			
+			// Check if saving X motor steps/mm in EEPROM failed
+			if(!eepromWriteFloat(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_X_MOTOR_STEPS_PER_MM_LENGTH, EEPROM_X_MOTOR_STEPS_PER_MM_DEFAULT)) {
+		
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save X motor steps/mm");
+			
+				// Return false
+				return false;
+			}
+		
+			// Log X motor steps/mm status
+			if(logFunction)
+				logFunction("Successfully saved X motor steps/mm");
+			
+			// Check if saving Y motor steps/mm in EEPROM failed
+			if(!eepromWriteFloat(EEPROM_Y_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_Y_MOTOR_STEPS_PER_MM_LENGTH, EEPROM_Y_MOTOR_STEPS_PER_MM_DEFAULT)) {
+		
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save Y motor steps/mm");
+			
+				// Return false
+				return false;
+			}
+		
+			// Log Y motor steps/mm status
+			if(logFunction)
+				logFunction("Successfully saved Y motor steps/mm");
+			
+			// Check if saving Z motor steps/mm in EEPROM failed
+			if(!eepromWriteFloat(EEPROM_Z_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_Z_MOTOR_STEPS_PER_MM_LENGTH, EEPROM_Z_MOTOR_STEPS_PER_MM_DEFAULT)) {
+		
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save Z motor steps/mm");
+			
+				// Return false
+				return false;
+			}
+		
+			// Log Z motor steps/mm status
+			if(logFunction)
+				logFunction("Successfully saved Z motor steps/mm");
+			
+			// Check if saving E motor steps/mm in EEPROM failed
+			if(!eepromWriteFloat(EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH, EEPROM_E_MOTOR_STEPS_PER_MM_DEFAULT)) {
+		
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save E motor steps/mm");
+			
+				// Return false
+				return false;
+			}
+		
+			// Log E motor steps/mm status
+			if(logFunction)
+				logFunction("Successfully saved E motor steps/mm");
 		}
 	}
 	
@@ -1811,20 +2019,20 @@ bool Printer::installFirmware(const string &file) {
 				logFunction("Successfully saved converted last recorded Z value");
 		}
 			
-		// Check if clearing calibrate Z0 correction and X and Y sensitivity, value, direction, and validity in EEPROM failed
-		if(!eepromWriteInt(EEPROM_CALIBRATE_Z0_CORRECTION_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_CALIBRATE_Z0_CORRECTION_OFFSET, 0)) {
+		// Check if clearing expand printable region, external bed height, calibrate Z0 correction, and X and Y jerk sensitivity, value, direction, and validity in EEPROM failed
+		if(!eepromWriteInt(EEPROM_EXPAND_PRINTABLE_REGION_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_EXPAND_PRINTABLE_REGION_OFFSET, 0)) {
 
 			// Log error
 			if(logFunction)
-				logFunction("Failed to clear calibrate Z0 correction and X and Y sensitivity, value, direction, and validity");
+				logFunction("Failed to clear expand printable region, external bed height, calibrate Z0 correction, and X and Y jerk sensitivity, value, direction, and validity");
 
 			// Return false
 			return false;
 		}
 		
-		// Log X and Y value, direction, and validity status
+		// Log expand printable region, external bed height, calibrate Z0 correction, and X and Y jerk sensitivity, value, direction, and validity status
 		if(logFunction)
-			logFunction("Successfully cleared out calibrate Z0 correction and X and Y sensitivity, value, direction, and validity");
+			logFunction("Successfully cleared out expand printable region, external bed height, calibrate Z0 correction, and X and Y jerk sensitivity, value, direction, and validity");
 		
 		// Check if clearing motor's steps/mm failed
 		if(!eepromWriteInt(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH + EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET - EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, 0)) {
@@ -2857,8 +3065,8 @@ bool Printer::eepromKeepIntWithinRange(uint16_t offset, uint8_t length, uint32_t
 	uint32_t value = eepromGetInt(offset, length);
 	if(value < min || value > max)
 		
-		// Return if setting value to its default was successful
-		return eepromWriteInt(offset, length, defaultValue);
+		// Return if setting clamped value was successful
+		return eepromWriteInt(offset, length, minValue(max, maxValue(min, value)));
 	
 	// Return true
 	return true;
@@ -2868,10 +3076,16 @@ bool Printer::eepromKeepFloatWithinRange(uint16_t offset, uint8_t length, float 
 
 	// Check if value is not a number or out of range
 	float value = eepromGetFloat(offset, length);
-	if(isnan(value) || value < min || value > max)
+	if(isnan(value))
 		
 		// Return if setting value to its default was successful
 		return eepromWriteFloat(offset, length, defaultValue);
+	
+	// Otherwise check if value is out of range
+	else if(value < min || value > max)
+	
+		// Return if setting clamped value was successful
+		return eepromWriteFloat(offset, length, minValue(max, maxValue(min, value)));
 	
 	// Return true
 	return true;
