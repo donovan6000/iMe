@@ -1048,7 +1048,7 @@ int main() {
 										break;
 									#endif
 									
-									// M20, M21, M22, M80, M81, M110, M111, or M999
+									// M20, M21, M22, M80, M81, M110, M111, M400, or M999
 									case 20:
 									case 21:
 									case 22:
@@ -1056,6 +1056,7 @@ int main() {
 									case 81:
 									case 110:
 									case 111:
+									case 400:
 									case 999:
 			
 										// Set response to confirmation

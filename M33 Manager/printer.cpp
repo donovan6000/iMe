@@ -1683,6 +1683,9 @@ bool Printer::installFirmware(const string &file) {
 				logFunction("Remove last line");
 			logFunction(to_string(static_cast<double>(i + 1) / pagesToWrite * 100) + "% complete");
 		}
+		
+		// Delay
+		sleepUs(20000);
 	}
 
 	// Check if address wasn't acknowledged

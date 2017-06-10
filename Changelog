@@ -1,5 +1,9 @@
 Changelog:
 
+V00.00.01.25 June X, 2017
+
+	* Implements M400 command
+
 V00.00.01.24 June 6, 2017
 
 	* Update EEPROM addresses
