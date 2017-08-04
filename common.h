@@ -17,6 +17,9 @@
 // Unit conversions
 #define INCHES_TO_MILLIMETERS_SCALAR 25.4
 #define MILLIMETERS_TO_INCHES_SCALAR (1 / INCHES_TO_MILLIMETERS_SCALAR)
+#define MICROSECONDS_TO_HUNDREDS_OF_MICROSECONDS_SCALAR (1.0 / 100)
+#define MILLISECONDS_TO_HUNDREDS_OF_MICROSECONDS_SCALAR (1000 * MICROSECONDS_TO_HUNDREDS_OF_MICROSECONDS_SCALAR)
+#define SECONDS_TO_HUNDREDS_OF_MICROSECONDS_SCALAR (1000000 * MICROSECONDS_TO_HUNDREDS_OF_MICROSECONDS_SCALAR)
 
 // Integer limits
 #define UINT12_MAX static_cast<uint16_t>(pow(2, 12) - 1)
@@ -30,6 +33,17 @@
 #define MICROCONTROLLER_VOLTAGE 3.3
 #define ADC_VREF_VOLTAGE 2.6
 
+// Delays
+#define delayMicroseconds(parameter) delayHundredsOfMicroseconds(parameter * MICROSECONDS_TO_HUNDREDS_OF_MICROSECONDS_SCALAR)
+#define delayMilliseconds(parameter) delayHundredsOfMicroseconds(parameter * MILLISECONDS_TO_HUNDREDS_OF_MICROSECONDS_SCALAR)
+#define delaySeconds(parameter) delayHundredsOfMicroseconds(parameter * SECONDS_TO_HUNDREDS_OF_MICROSECONDS_SCALAR)
+
+
+// Global variables
+
+// Emergency stop request
+extern uint8_t emergencyStopRequest;
+
 
 // Function prototypes
 
@@ -37,61 +51,67 @@
 Name: ulltoa
 Purpose: Converts an unsigned long long to string
 */
-void ulltoa(uint64_t value, char *buffer);
+void ulltoa(uint64_t value, char *buffer) noexcept;
 
 /*
 Name: lltoa
 Purpose: Converts a long long to string
 */
-void lltoa(int64_t value, char *buffer);
+void lltoa(int64_t value, char *buffer) noexcept;
 
 /*
 Name: ftoa
 Purpose: Converts a float to a string
 */
-void ftoa(float value, char *buffer);
+void ftoa(float value, char *buffer) noexcept;
 
 /*
 Name: strtoull
 Purpose: Converts a string to an unsigned long long
 */
-uint64_t strtoull(const char *nptr, char **endptr = nullptr);
+uint64_t strtoull(const char *nptr, char **endptr = nullptr) noexcept;
 
 /*
 Name: strtoll
 Purpose: Converts a string to a long long
 */
-int64_t strtoll(const char *nptr, char **endptr = nullptr);
+int64_t strtoll(const char *nptr, char **endptr = nullptr) noexcept;
 
 /*
 Name: strtof
 Purpose: Converts a string to a float
 */
-float strtof(const char *nptr, char **endptr = nullptr);
+float strtof(const char *nptr, char **endptr = nullptr) noexcept;
 
 /*
 Name: Send data to USB
 Purpose: Sends data to the USB host
 */
-void sendDataToUsb(const char *data, bool checkBufferSize = false);
+void sendDataToUsb(const char *data, bool checkBufferSize = false) noexcept;
 
 /*
 Name: Get value in range
 Purpose: Returns a value limited by the ranges min and max
 */
-float getValueInRange(float value, float minValue, float maxValue);
+float getValueInRange(float value, float minValue, float maxValue) noexcept;
 
 /*
 Name: Minimum one ceil
 Purpose: Returns the ceiling of the value that is at least one
 */
-uint32_t minimumOneCeil(float value);
+uint32_t minimumOneCeil(float value) noexcept;
 
 /*
-Name: Leading pad buffer
-Purpose: Adds leading padding to buffer to make it meet the size specified
+Name: Delay hundreds of microseconds
+Purpose: Delays the specified number of hundreds of microseconds or until an emergency stop has occured
 */
-void leadingPadBuffer(char *buffer, uint8_t size = 2, char padding = '0');
+void delayHundredsOfMicroseconds(uint16_t hundredsOfMicroseconds, bool *condition = nullptr) noexcept;
+
+/*
+Name: Lower case
+Purpose: Returns if a provided character converted to lower case
+*/
+char lowerCase(char value) noexcept;
 
 
 #endif

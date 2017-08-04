@@ -959,6 +959,49 @@ udi_cdc_read_buf_loop_wait:
 	return 0;
 }
 
+// Function added by donovan6000
+iram_size_t udi_cdc_multi_read_buf_and_ignore(uint8_t port, void* buf, iram_size_t size)
+{
+	irqflags_t flags;
+	uint8_t *ptr_buf = (uint8_t *)buf;
+	iram_size_t copy_nb;
+	uint16_t pos;
+	uint8_t buf_sel;
+	bool again;
+
+#if UDI_CDC_PORT_NB == 1 // To optimize code
+	port = 0;
+#endif
+
+udi_cdc_read_buf_loop_wait:
+	// Check available data
+	flags = cpu_irq_save();
+	pos = udi_cdc_rx_pos[port];
+	buf_sel = udi_cdc_rx_buf_sel[port];
+	again = pos >= udi_cdc_rx_buf_nb[port][buf_sel];
+	cpu_irq_restore(flags);
+	while (again) {
+		if (!udi_cdc_data_running) {
+			return size;
+		}
+		goto udi_cdc_read_buf_loop_wait;
+	}
+
+	// Read data
+	copy_nb = udi_cdc_rx_buf_nb[port][buf_sel] - pos;
+	iram_size_t *total = copy_nb >= size ? &size : &copy_nb;
+	memcpy(ptr_buf, &udi_cdc_rx_buf[port][buf_sel][pos], *total);
+	udi_cdc_rx_pos[port] += copy_nb;
+	ptr_buf += copy_nb;
+	udi_cdc_rx_start(port);
+	size -= *total;
+
+	if (size) {
+		goto udi_cdc_read_buf_loop_wait;
+	}
+	return 0;
+}
+
 static iram_size_t udi_cdc_multi_read_no_polling(uint8_t port, void* buf, iram_size_t size)
 {
 	uint8_t *ptr_buf = (uint8_t *)buf;

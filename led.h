@@ -10,16 +10,22 @@
 
 
 // LED class
-class Led {
+class Led final {
 
 	// Public
 	public:
 	
 		// Initialize
-		static void initialize();
+		static void initialize() noexcept;
 		
 		// Set brightness
-		static void setBrightness(uint8_t brightness);
+		static void setBrightness(uint8_t brightness) noexcept;
+		
+		// Reset
+		static void reset() noexcept;
+		
+		// Is on
+		static bool isOn() noexcept;
 };
 
 

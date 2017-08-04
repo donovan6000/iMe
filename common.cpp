@@ -9,7 +9,7 @@ extern "C" {
 
 
 // Supporting function implementation
-void ulltoa(uint64_t value, char *buffer) {
+void ulltoa(uint64_t value, char *buffer) noexcept {
 
 	// Initialize variables
 	uint8_t i = INT_BUFFER_SIZE - sizeof('-') - 1;
@@ -29,7 +29,7 @@ void ulltoa(uint64_t value, char *buffer) {
 	memmove(buffer, &buffer[i], INT_BUFFER_SIZE - i - sizeof('-'));
 }
 
-void lltoa(int64_t value, char *buffer) {
+void lltoa(int64_t value, char *buffer) noexcept {
 
 	// Convert value to string
 	if(value < 0) {
@@ -40,7 +40,7 @@ void lltoa(int64_t value, char *buffer) {
 		ulltoa(value, buffer);
 }
 
-void ftoa(float value, char *buffer) {
+void ftoa(float value, char *buffer) noexcept {
 
 	// Initialize variables
 	uint8_t i = FLOAT_BUFFER_SIZE - 1;
@@ -69,7 +69,7 @@ void ftoa(float value, char *buffer) {
 	
 	// Go through all decimals
 	temp = value * pow(10, NUMBER_OF_DECIMAL_PLACES);
-	for(uint8_t k = NUMBER_OF_DECIMAL_PLACES; k; k--) {
+	for(uint8_t k = NUMBER_OF_DECIMAL_PLACES; k; --k) {
 	
 		// Set decimal digit in buffer
 		buffer[j + k] = temp % 10 + 0x30;
@@ -84,17 +84,17 @@ void ftoa(float value, char *buffer) {
 	memmove(buffer, &buffer[i], FLOAT_BUFFER_SIZE - i);
 }
 
-uint64_t strtoull(const char *nptr, char **endptr) {
+uint64_t strtoull(const char *nptr, char **endptr) noexcept {
 
 	// Initialize variables
 	uint64_t value = 0;
 	
 	// Skip plus sign
 	if(*nptr == '+' && isdigit(nptr[1]))
-		nptr++;
+		++nptr;
 	
 	// Go through all characters
-	for(; isdigit(*nptr); nptr++) {
+	for(; isdigit(*nptr); ++nptr) {
 	
 		// Set digit in value
 		value *= 10;
@@ -109,13 +109,13 @@ uint64_t strtoull(const char *nptr, char **endptr) {
 	return value;
 }
 
-int64_t strtoll(const char *nptr, char **endptr) {
+int64_t strtoll(const char *nptr, char **endptr) noexcept {
 
 	// Return value converted to a long long
 	return *nptr == '-' && isdigit(nptr[1]) ? strtoull(nptr + sizeof('-'), endptr) * -1 : strtoull(nptr, endptr);
 }
 
-float strtof(const char *nptr, char **endptr) {
+float strtof(const char *nptr, char **endptr) noexcept {
 
 	// Initialize variables
 	float value;
@@ -128,7 +128,7 @@ float strtof(const char *nptr, char **endptr) {
 		negative = *nptr == '-';
 		
 		// Skip sign
-		nptr++;
+		++nptr;
 	}
 	
 	// Get the integer and fractional part of the value
@@ -154,7 +154,7 @@ float strtof(const char *nptr, char **endptr) {
 			if(*nptr == '.' && isdigit(nptr[1]))
 
 				// Move to first decimal digit
-				nptr++;
+				++nptr;
 		}
 		
 		// Clear current value
@@ -162,7 +162,7 @@ float strtof(const char *nptr, char **endptr) {
 	
 		// Go through all characters
 		uint8_t numberOfDigits = 0;
-		for(; isdigit(*nptr); nptr++)
+		for(; isdigit(*nptr); ++nptr)
 	
 			// Check if value is valid
 			if(firstPass || numberOfDigits != FLT_DIG) {
@@ -172,14 +172,14 @@ float strtof(const char *nptr, char **endptr) {
 				*currentValue += *nptr - 0x30;
 				
 				// Increment number of digits
-				numberOfDigits++;
+				++numberOfDigits;
 			}
 		
 		// Check if getting fractional part of the value
 		if(!firstPass) {
 		
 			// Convert current value into a fractional value
-			for(uint8_t i = 0; i < numberOfDigits; i++)
+			for(uint8_t i = numberOfDigits; i > 0; --i)
 				decimalValue /= 10;
 	
 			// Append fractional value to integer value
@@ -198,38 +198,39 @@ float strtof(const char *nptr, char **endptr) {
 	return negative ? value * -1 : value;
 }
 
-void sendDataToUsb(const char *data, bool checkBufferSize) {
+void sendDataToUsb(const char *data, bool checkBufferSize) noexcept {
 
 	// Check if data can be sent
 	uint8_t length = strlen(data);
-	if(!checkBufferSize || udi_cdc_get_free_tx_buffer() >= length)
+	if(!checkBufferSize || udi_cdc_multi_get_free_tx_buffer(UDI_CDC_PORT_NB - 1) >= length)
 	
 		// Send data
-		udi_cdc_write_buf(data, length);
+		udi_cdc_multi_write_buf(UDI_CDC_PORT_NB - 1, data, length);
 }
 
-float getValueInRange(float value, float minValue, float maxValue) {
+float getValueInRange(float value, float minValue, float maxValue) noexcept {
 
 	// Return value limited by range
 	return min(maxValue, max(minValue, value));
 }
 
-uint32_t minimumOneCeil(float value) {
+uint32_t minimumOneCeil(float value) noexcept {
 
 	// Return ceiling of value that is at least one
 	return getValueInRange(ceil(value), 1, UINT32_MAX);
 }
 
-void leadingPadBuffer(char *buffer, uint8_t size, char padding) {
+void delayHundredsOfMicroseconds(uint16_t hundredsOfMicroseconds, bool *condition) noexcept {
 
-	// Check if buffer is smaller that the specified size
-	uint8_t bufferSize = strlen(buffer);
-	if(bufferSize < size) {
+	// Delay until an emergency stop has occured, or until condition is false or total number of hundreds of microseconds has passed
+	for(; !emergencyStopRequest && (condition ? *condition : true) && hundredsOfMicroseconds; --hundredsOfMicroseconds)
 	
-		// Shift buffer toward the end
-		memmove(&buffer[size - bufferSize], buffer, bufferSize + 1);
-		
-		// Prepend padding to buffer
-		memset(buffer, padding, size - bufferSize);
-	}
+		// Delay one hundred microsecond
+		delay_us(100);
+}
+
+char lowerCase(char value) noexcept {
+
+	// Return value as upper case
+	return value | ('A' ^ 'a');
 }

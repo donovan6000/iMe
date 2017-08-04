@@ -16,6 +16,7 @@ extern "C" {
 #define IDEAL_HEATER_RESISTANCE_M 245.0
 #define IDEAL_HEATER_TEMPERATURE_MEASUREMENT_B -450.0
 #define HEATER_VOLTAGE_TO_TEMPERATURE_SCALAR (-IDEAL_HEATER_RESISTANCE_M / IDEAL_HEATER_TEMPERATURE_MEASUREMENT_B * 4)
+#define INVALID_HEATER_CALIBRATION_MODE 0
 #define MAX_SUPPORTED_HEATER_CALIBRATION_MODE 1
 
 // Heater Pins
@@ -39,12 +40,10 @@ extern "C" {
 
 
 // Static class variables
-bool Heater::emergencyStopOccured;
-bool Heater::isWorking = false;
+bool Heater::isWorking;
 
 
 // Global variables
-uint8_t temperatureIntervalCounter;
 float idealTemperature;
 float actualTemperature;
 adc_config heaterReadAdcController;
@@ -56,25 +55,35 @@ float heaterTemperatureMeasurementB;
 float heaterResistanceM;
 
 
+// Function prototypes
+
+/*
+Name: Get heater value
+Purpose: Returns heater's ADC value
+*/
+int16_t getHeaterValue(bool testConnection) noexcept;
+
+
 // Supporting function implementation
-int16_t getHeaterValue(bool testConnection) {
+int16_t getHeaterValue(bool testConnection) noexcept {
 
 	// Get heater value
 	adc_write_configuration(&HEATER_READ_ADC, &heaterReadAdcController);
 	adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &heaterReadAdcChannel);
 	
 	int32_t heaterValue = 0;
-	for(uint8_t i = 0; i < (testConnection ? 1 : HEATER_READ_ADC_SAMPLE_SIZE); i++) {
+	uint8_t sampleSize = testConnection ? 1 : HEATER_READ_ADC_SAMPLE_SIZE;
+	for(uint8_t i = sampleSize; i > 0; --i) {
 		adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 		adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 		heaterValue += adc_get_signed_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 	}
 	
 	// Return heater value
-	return heaterValue / (testConnection ? 1 : HEATER_READ_ADC_SAMPLE_SIZE);
+	return heaterValue / sampleSize;
 }
 
-void Heater::initialize() {
+void Heater::initialize() noexcept {
 
 	// Configure heater select and enable pins
 	ioport_set_pin_dir(HEATER_MODE_SELECT_PIN, IOPORT_DIR_OUTPUT);
@@ -118,10 +127,7 @@ void Heater::initialize() {
 	tc_enable(&TEMPERATURE_TIMER);
 	tc_set_wgm(&TEMPERATURE_TIMER, TC_WG_NORMAL);
 	tc_write_period(&TEMPERATURE_TIMER, sysclk_get_cpu_hz() / 1024 * UPDATE_TEMPERATURE_MILLISECONDS / 1000);
-	tc_set_overflow_interrupt_callback(&TEMPERATURE_TIMER, []() -> void {
-	
-		// Increment temperature interval counter
-		temperatureIntervalCounter++;
+	tc_set_overflow_interrupt_callback(&TEMPERATURE_TIMER, []() noexcept -> void {
 		
 		// Check if setting the temperature and heater is working
 		if(idealTemperature != HEATER_OFF_TEMPERATURE && testConnection()) {
@@ -130,14 +136,14 @@ void Heater::initialize() {
 			ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_ON);
 			
 			// Wait enough time for heater voltage to stabilize
-			delay_us(500);
+			delayMicroseconds(500);
 	
 			// Get resistance value
 			adc_write_configuration(&HEATER_READ_ADC, &resistanceReadAdcController);
 			adcch_write_configuration(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL, &resistanceReadAdcChannel);
 		
 			uint32_t resistanceValue = 0;
-			for(uint8_t i = 0; i < HEATER_READ_ADC_SAMPLE_SIZE; i++) {
+			for(uint8_t i = 0; i < HEATER_READ_ADC_SAMPLE_SIZE; ++i) {
 				adc_start_conversion(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 				adc_wait_for_interrupt_flag(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
 				resistanceValue += adc_get_unsigned_result(&HEATER_READ_ADC, HEATER_READ_ADC_CHANNEL);
@@ -171,7 +177,7 @@ void Heater::initialize() {
 	tc_write_clock_source(&TEMPERATURE_TIMER, TC_CLKSEL_DIV1024_gc);
 }
 
-bool Heater::testConnection() {
+bool Heater::testConnection() noexcept {
 
 	// Prevent updating temperature
 	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
@@ -189,7 +195,7 @@ bool Heater::testConnection() {
 	return isWorking;
 }
 
-bool Heater::setTemperature(uint16_t value, bool wait) {
+bool Heater::setTemperature(uint16_t value, bool wait) noexcept {
 
 	// Set if heater is working
 	testConnection();
@@ -213,38 +219,37 @@ bool Heater::setTemperature(uint16_t value, bool wait) {
 		while(wait) {
 		
 			// Break if an emergency stop occured or heater isn't working
-			if(emergencyStopOccured || !isWorking)
+			if(emergencyStopRequest || !isWorking)
 				
 				// Break
 				break;
 		
 			// Set response to temperature
-			char buffer[FLOAT_BUFFER_SIZE + strlen("T:\n")];
-			strcpy(buffer, "T:");
+			char buffer[FLOAT_BUFFER_SIZE + sizeof("T:\n") - 1];
+			#if STORE_CONSTANTS_IN_PROGRAM_SPACE == true
+				strcpy_P(buffer, reinterpret_cast<PGM_P>(pgm_read_ptr(PSTR("T:"))));
+			#else
+				strcpy(buffer, "T:");
+			#endif
 			
 			// Prevent updating temperature
 			tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
 			
 			// Set if done heating
-			bool doneHeating = ioport_get_pin_level(HEATER_MODE_SELECT_PIN) != (lowerNewValue ? HEATER_OFF : HEATER_ON);
+			bool doneHeating = ioport_get_pin_output_level(HEATER_MODE_SELECT_PIN) != (lowerNewValue ? HEATER_OFF : HEATER_ON);
 			
-			// Check if done heating, but temperature doesn't look correct
-			if(doneHeating && (lowerNewValue ? actualTemperature >= idealTemperature : actualTemperature <= idealTemperature))
+			// Append correctly looking temperature to response
+			ftoa(doneHeating && (lowerNewValue ? actualTemperature >= idealTemperature : actualTemperature <= idealTemperature) ? idealTemperature + (lowerNewValue ? -1 : 1) / pow(10, NUMBER_OF_DECIMAL_PLACES) : actualTemperature, &buffer[sizeof("T:") - 1]);
 			
-				// Append correctly looking temperature to response
-				ftoa(idealTemperature + (lowerNewValue ? -1 : 1) / pow(10, NUMBER_OF_DECIMAL_PLACES), &buffer[strlen("T:")]);
-			
-			// Otherwise
-			else
-			
-				// Append temperature to response
-				ftoa(actualTemperature, &buffer[strlen("T:")]);
-
 			// Allow updating temperature
 			tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
 			
 			// Append newline to response
-			strcat(buffer, "\n");
+			#if STORE_CONSTANTS_IN_PROGRAM_SPACE == true
+				strcat_P(buffer, reinterpret_cast<PGM_P>(pgm_read_ptr(PSTR("\n"))));
+			#else
+				strcat(buffer, "\n");
+			#endif
 		
 			// Send temperature
 			sendDataToUsb(buffer, true);
@@ -255,21 +260,8 @@ bool Heater::setTemperature(uint16_t value, bool wait) {
 				// Break
 				break;
 			
-			// Prevent updating temperature
-			tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
-			
-			// Restart temperature timer
-			tc_restart(&TEMPERATURE_TIMER);
-			temperatureIntervalCounter = 0;
-			
-			// Allow updating temperature
-			tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
-			
-			// Delay one second or until an emergency stop occurs or heater stops working
-			for(; temperatureIntervalCounter < 1000 / UPDATE_TEMPERATURE_MILLISECONDS && !emergencyStopOccured && isWorking;)
-			
-				// Delay so that interrupts can be triggered (Not sure if this is required because of compiler optimizations or a silicon error)
-				delay_cycles(1);
+			// Delay one second or until heater stops working
+			delayHundredsOfMicroseconds(1 * SECONDS_TO_HUNDREDS_OF_MICROSECONDS_SCALAR, &isWorking);
 		}
 	}
 	
@@ -283,7 +275,7 @@ bool Heater::setTemperature(uint16_t value, bool wait) {
 	return true;
 }
 
-float Heater::getTemperature() {
+float Heater::getTemperature() noexcept {
 
 	// Set if heater is working
 	testConnection();
@@ -301,25 +293,7 @@ float Heater::getTemperature() {
 	return value;
 }
 
-bool Heater::isHeating() {
-
-	// Set if heater is working
-	testConnection();
-
-	// Prevent updating temperature
-	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
-
-	// Set if heating
-	bool heating = idealTemperature != HEATER_OFF_TEMPERATURE;
-	
-	// Allow updating temperature
-	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
-	
-	// Return if heating
-	return heating;
-}
-
-void Heater::clearTemperature() {
+void Heater::clearTemperature() noexcept {
 
 	// Prevent updating temperature
 	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
@@ -334,7 +308,7 @@ void Heater::clearTemperature() {
 	ioport_set_pin_level(HEATER_MODE_SELECT_PIN, HEATER_OFF);
 }
 
-bool Heater::updateHeaterChanges(bool enableUpdatingTemperature) {
+bool Heater::updateHeaterChanges(bool enableUpdatingTemperature) noexcept {
 
 	// Prevent updating temperature
 	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
@@ -349,7 +323,7 @@ bool Heater::updateHeaterChanges(bool enableUpdatingTemperature) {
 	nvm_eeprom_read_buffer(EEPROM_HEATER_RESISTANCE_M_OFFSET, &heaterResistanceM, EEPROM_HEATER_RESISTANCE_M_LENGTH);
 	
 	// Check if heater calibration mode isn't supported
-	if(!heaterCalibrationMode || heaterCalibrationMode > MAX_SUPPORTED_HEATER_CALIBRATION_MODE) {
+	if(heaterCalibrationMode == INVALID_HEATER_CALIBRATION_MODE || heaterCalibrationMode > MAX_SUPPORTED_HEATER_CALIBRATION_MODE) {
 	
 		// Clear temperature
 		clearTemperature();
@@ -368,11 +342,26 @@ bool Heater::updateHeaterChanges(bool enableUpdatingTemperature) {
 	return true;
 }
 
-void Heater::reset() {
+void Heater::reset() noexcept {
 
 	// Clear temperature
 	clearTemperature();
+}
+
+bool Heater::isOn() noexcept {
+
+	// Set if heater is working
+	testConnection();
+
+	// Prevent updating temperature
+	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_OFF);
+
+	// Set if on
+	bool on = idealTemperature != HEATER_OFF_TEMPERATURE;
 	
-	// Clear mergency stop occured
-	emergencyStopOccured = false;
+	// Allow updating temperature
+	tc_set_overflow_interrupt_level(&TEMPERATURE_TIMER, TC_INT_LVL_LO);
+	
+	// Return if heater is on
+	return on;
 }

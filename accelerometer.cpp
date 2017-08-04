@@ -6,6 +6,7 @@ extern "C" {
 	#include <asf.h>
 }
 #include "accelerometer.h"
+#include "common.h"
 
 
 // Definitions
@@ -45,19 +46,14 @@ extern "C" {
 #define CTRL_REG2 0x2B
 #define CTRL_REG2_RST 0b01000000
 
-// Accelerations
-enum {ACCELERATION_X, ACCELERATION_Y, ACCELERATION_Z, NUMBER_OF_ACCELERATION_AXES};
-
 
 // Static class variables
-int16_t Accelerometer::xAcceleration;
-int16_t Accelerometer::yAcceleration;
-int16_t Accelerometer::zAcceleration;
-bool Accelerometer::isWorking = false;
+int16_t Accelerometer::accelerations[3];
+bool Accelerometer::isWorking;
 
 
 // Supporting function implementation
-void Accelerometer::initialize() {
+void Accelerometer::initialize() noexcept {
 	
 	// Configure enable, SDA, and SCL pins
 	ioport_set_pin_dir(ACCELEROMETER_ENABLE_PIN, IOPORT_DIR_OUTPUT);
@@ -79,7 +75,7 @@ void Accelerometer::initialize() {
 	twi_master_enable(&TWI_MASTER);
 }
 
-bool Accelerometer::testConnection() {
+bool Accelerometer::testConnection() noexcept {
 
 	// Check if accelerometer has the correct ID
 	uint8_t buffer;
@@ -89,7 +85,7 @@ bool Accelerometer::testConnection() {
 		if(writeValue(CTRL_REG2, CTRL_REG2_RST)) {
 		
 			// Wait enough time for accelerometer to initialize
-			delay_ms(2);
+			delayMilliseconds(2);
 		
 			// Check if setting the output data rate frequency to 400Hz and enable active mode was successful
 			if(writeValue(CTRL_REG1, 0) && writeValue(CTRL_REG1, CTRL_REG1_DR0 | CTRL_REG1_ACTIVE))
@@ -102,11 +98,11 @@ bool Accelerometer::testConnection() {
 	return isWorking = false;
 }
 
-bool Accelerometer::readAccelerationValues() {
+bool Accelerometer::readAccelerationValues() noexcept {
 
 	// Go through each axis
-	int32_t averages[NUMBER_OF_ACCELERATION_AXES] = {0, 0, 0};
-	for(uint8_t i = 0; i < ACCELEROMETER_SAMPLE_SIZE; i++) {
+	int32_t averages[NUMBER_OF_ACCELERATION_AXES] = {};
+	for(uint8_t i = 0; i < ACCELEROMETER_SAMPLE_SIZE; ++i) {
 		
 		// Wait until data is available
 		while(!dataAvailable())
@@ -125,24 +121,19 @@ bool Accelerometer::readAccelerationValues() {
 			break;
 		
 		// Get acceleration
-		for(uint8_t j = 0; j < NUMBER_OF_ACCELERATION_AXES; j++)
+		for(uint8_t j = 0; j < NUMBER_OF_ACCELERATION_AXES; ++j)
 			averages[j] += ((values[j * 2] << 8) | values[j * 2 + 1]) >> 4;
 	}
 	
-	// Get average acceleration
-	for(uint8_t i = 0; i < NUMBER_OF_ACCELERATION_AXES; i++)
-		averages[i] /= ACCELEROMETER_SAMPLE_SIZE;
-	
-	// Set acceleration values and account for accelerometer's orientation
-	xAcceleration = averages[ACCELERATION_Z];
-	yAcceleration = averages[ACCELERATION_Y];
-	zAcceleration = averages[ACCELERATION_X];
+	// Set acceleration values to average acceleration
+	for(uint8_t i = 0; i < NUMBER_OF_ACCELERATION_AXES; ++i)
+		accelerations[i] = averages[i] / ACCELEROMETER_SAMPLE_SIZE;
 	
 	// Return if accelerometer is working
 	return isWorking;
 }
 
-bool Accelerometer::dataAvailable() {
+bool Accelerometer::dataAvailable() noexcept {
 
 	// Return if data is available
 	uint8_t buffer;
@@ -150,25 +141,25 @@ bool Accelerometer::dataAvailable() {
 	return buffer & (STATUS_XDR | STATUS_YDR | STATUS_ZDR);
 }
 
-bool Accelerometer::sendCommand(uint8_t command) {
+bool Accelerometer::sendCommand(uint8_t command) noexcept {
 
 	// Return if sending command was successful
 	return transmit(command);
 }
 
-bool Accelerometer::writeValue(uint8_t address, uint8_t value) {
+bool Accelerometer::writeValue(uint8_t address, uint8_t value) noexcept {
 
 	// Return if writing value was successful
 	return transmit(address, value, true);
 }
 
-bool Accelerometer::readValue(uint8_t address, uint8_t *responseBuffer, uint8_t responseLength) {
+bool Accelerometer::readValue(uint8_t address, uint8_t *responseBuffer, uint8_t responseLength) noexcept {
 
 	// Return if receiving response was successful
 	return transmit(address, 0, false, responseBuffer, responseLength);
 }
 
-bool Accelerometer::transmit(uint8_t command, uint8_t value, bool sendValue, uint8_t *responseBuffer, uint8_t responseLength) {
+bool Accelerometer::transmit(uint8_t command, uint8_t value, bool sendValue, uint8_t *responseBuffer, uint8_t responseLength) noexcept {
 	
 	// Create packet
 	twi_package_t packet;

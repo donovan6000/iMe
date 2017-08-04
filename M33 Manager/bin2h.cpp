@@ -1,4 +1,5 @@
 // Header files
+#include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -6,92 +7,68 @@
 using namespace std;
 
 
-// Function prototypes
-
-// Set Unicode locale
-static bool setUnicodeLocale() noexcept;
-
-// Converts a string to a wstring
-static wstring stringToWstring(const char *text) noexcept;
-static wstring stringToWstring(const string &text) noexcept;
-
-// Converts a wstring to a string
-static string wstringToString(const wchar_t *text) noexcept;
-static string wstringToString(const wstring &text) noexcept;
-
-
 // Main function
 int main(int argc, char *argv[]) noexcept {
-
-	// Check if setting a Unicode locale failed
-	if(!setUnicodeLocale()) {
-	
-		// Display message
-		wcout << L"System does not meet the minimum localization requirements" << endl;
-	
-		// Return failure
-		return EXIT_FAILURE;
-	}
 	
 	// Check if parameters are invalid
 	if(argc < 2) {
 	
 		// Display error
-		wcout << L"File name not provided" << endl;
+		cout << "File name not provided" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
 	}
 	
 	// Check if help argument was specified
-	if(stringToWstring(argv[1]) == L"-h" || stringToWstring(argv[1]) == L"--help") {
+	if(!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) {
 	
 		// Display message
-		wcout << L"Usage: ./bin2h \"fileToConvert\"" << endl;
+		cout << "Usage: ./bin2h \"fileToConvert\"" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
 	}
 	
 	// Set output file name
-	wstring outputFileName = stringToWstring(argv[1]);
+	string outputFileName = argv[1];
 	
 	// Convert output file name to proper format
-	wstring::size_type offset = outputFileName.find_last_of(L'/');
-	if(offset != wstring::npos)
+	string::size_type offset = outputFileName.find_last_of('/');
+	if(offset != string::npos)
 		outputFileName.erase(0, offset + 1);
 	
-	for(wchar_t &character : outputFileName)
-		if(character == L'.' || character == L'-')
-			character = L'_';
+	for(char &character : outputFileName)
+		if(character == '.' || character == '-')
+			character = '_';
 	
-	if(iswdigit(outputFileName.front()))
-		outputFileName.insert(outputFileName.begin(), L'_');
+	if(isdigit(outputFileName.front()))
+		outputFileName.insert(outputFileName.begin(), '_');
 
 	// Set header guard name
-	wstring headerGaurdName = outputFileName;
+	string headerGaurdName = outputFileName;
 	
 	// Convert header guard name to proper format
-	for(wchar_t &character : headerGaurdName) {
-		if(character == L' ')
-			character = L'_';
-		character = towupper(character);
+	for(char &character : headerGaurdName) {
+		if(character == ' ' || character == '+')
+			character = '_';
+		character = toupper(character);
 	}
 	
 	// Set variable name
-	wstring variableName = outputFileName;
+	string variableName = outputFileName;
 	
 	// Convert variable name to proper format
-	for(wstring::size_type i = 0; i < variableName.length(); ++i)
-		if(variableName[i] == L' ' || variableName[i] == L'_') {
+	for(string::size_type i = 0; i < variableName.length(); ++i)
+		if(variableName[i] == ' ' || variableName[i] == '_' || variableName[i] == '+') {
 			variableName.erase(i, 1);
-			variableName[i] = towupper(variableName[i]);
+			variableName[i] = toupper(variableName[i]);
 		}
 	
-	variableName.front() = towlower(variableName.front());
+	variableName.front() = tolower(variableName.front());
 	
-	if(iswdigit(variableName.front()))
-		variableName = L"_" + variableName;
+	if(isdigit(variableName.front()))
+		variableName = "_" + variableName;
 	
 	// Check if resources are packed
 	#ifdef PACKED
@@ -101,10 +78,10 @@ int main(int argc, char *argv[]) noexcept {
 	#endif
 	
 	// Check if not packed and resource isn't icon
-	if(!packed && outputFileName != L"icon_png") {
+	if(!packed && outputFileName != "icon_png") {
 	
 		// Print message
-		wcout << outputFileName << L" not used" << endl;
+		cout << outputFileName << " not used" << endl;
 	
 		// Return success
 		return EXIT_SUCCESS;
@@ -115,7 +92,7 @@ int main(int argc, char *argv[]) noexcept {
 	if(!input) {
 	
 		// Display error
-		wcout << L"Opening input file failed" << endl;
+		cout << "Opening input file failed" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
@@ -126,7 +103,7 @@ int main(int argc, char *argv[]) noexcept {
 	if(begin == -1) {
 	
 		// Display error
-		wcout << L"Reading input file failed" << endl;
+		cout << "Reading input file failed" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
@@ -136,7 +113,7 @@ int main(int argc, char *argv[]) noexcept {
 	if(!input.seekg(0, input.end)) {
 	
 		// Display error
-		wcout << L"Reading input file failed" << endl;
+		cout << "Reading input file failed" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
@@ -147,7 +124,7 @@ int main(int argc, char *argv[]) noexcept {
 	if(end == -1) {
 	
 		// Display error
-		wcout << L"Reading input file failed" << endl;
+		cout << "Reading input file failed" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
@@ -157,76 +134,76 @@ int main(int argc, char *argv[]) noexcept {
 	if(!input.seekg(0, input.beg)) {
 	
 		// Display error
-		wcout << L"Reading input file failed" << endl;
+		cout << "Reading input file failed" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
 	}
 	
 	// Check if opening output file failed
-	wofstream output(wstringToString(outputFileName + L".h"), wofstream::binary);
+	ofstream output(outputFileName + ".h", ofstream::binary);
 	if(!output) {
 	
 		// Display error
-		wcout << L"Opening output file failed" << endl;
+		cout << "Opening output file failed" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
 	}
 	
 	// Check if opening resources file failed
-	wofstream resources(wstringToString(L"resources.h"), wofstream::binary | wofstream::app);
+	ofstream resources("resources.h", ofstream::binary | ofstream::app);
 	if(!resources) {
 	
 		// Display error
-		wcout << L"Opening resources file failed" << endl;
+		cout << "Opening resources file failed" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
 	}
 
 	// Write header guard to output
-	output << L"// Header guard" << endl << L"#ifndef " << headerGaurdName << L"_H" << endl << L"#define " << headerGaurdName << L"_H" << endl << endl << endl;
+	output << "// Header guard" << endl << "#ifndef " << headerGaurdName << "_H" << endl << "#define " << headerGaurdName << "_H" << endl << endl << endl;
 	
 	// Write size to output
-	output << L"// Constants" << endl << endl << L"// Size" << endl << L"const uintmax_t " << variableName << L"Size = " << to_wstring(end - begin) << L';' << endl << endl;
+	output << "// Constants" << endl << endl << "// Size" << endl << "const uintmax_t " << variableName << "Size = " << to_string(end - begin) << ';' << endl << endl;
 	
 	// Write start of data to output
-	output << L"// Data" << endl << L"const uint8_t " << variableName << L"Data[] = {";
+	output << "// Data" << endl << "const uint8_t " << variableName << "Data[] = {";
 	
 	// Go through all characters in the input
 	for(char character; input.get(character);) {
 		
 		// Write character's hexadecimal representation to output
-		output << L"0x" << hex << uppercase << setw(2) << setfill(L'0') << static_cast<uint8_t>(character);
+		output << "0x" << hex << uppercase << setw(2) << setfill('0') << (static_cast<uint16_t>(character) & 0xFF);
 		
 		// Check if at least one more character exists in the file
 		if(input.peek() != ifstream::traits_type::eof())
 		
 			// Write a comma to output
-			output << L", ";
+			output << ", ";
 	}
 	
 	// Write end of data to output
-	output << L"};" << endl << endl << endl;
+	output << "};" << endl << endl << endl;
 	
 	// Write end of header guard to output
-	output << L"#endif";
+	output << "#endif";
 	
 	// Append output to resources
-	resources << L"#include \"" << outputFileName << L".h\"" << endl;
+	resources << "#include \"" << outputFileName << ".h\"" << endl;
 	
 	// Check if reading input failed
 	if(!input.eof()) {
 	
 		// Delete output file
-		remove(wstringToString(outputFileName + L".h").c_str());
+		remove((outputFileName + ".h").c_str());
 		
 		// Delete resources file
-		remove(wstringToString(L"resources.h").c_str());
+		remove("resources.h");
 	
 		// Display error
-		wcout << L"Reading input file failed" << endl;
+		cout << "Reading input file failed" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
@@ -236,13 +213,13 @@ int main(int argc, char *argv[]) noexcept {
 	if(!output) {
 	
 		// Delete output file
-		remove(wstringToString(outputFileName + L".h").c_str());
+		remove((outputFileName + ".h").c_str());
 		
 		// Delete resources file
-		remove(wstringToString(L"resources.h").c_str());
+		remove("resources.h");
 	
 		// Display error
-		wcout << L"Writing output file failed" << endl;
+		cout << "Writing output file failed" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
@@ -256,13 +233,13 @@ int main(int argc, char *argv[]) noexcept {
 	if(!input) {
 	
 		// Delete output file
-		remove(wstringToString(outputFileName + L".h").c_str());
+		remove((outputFileName + ".h").c_str());
 		
 		// Delete resources file
-		remove(wstringToString(L"resources.h").c_str());
+		remove("resources.h");
 	
 		// Display error
-		wcout << L"Closing input file failed" << endl;
+		cout << "Closing input file failed" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
@@ -275,13 +252,13 @@ int main(int argc, char *argv[]) noexcept {
 	if(!output) {
 	
 		// Delete output file
-		remove(wstringToString(outputFileName + L".h").c_str());
+		remove((outputFileName + ".h").c_str());
 		
 		// Delete resources file
-		remove(wstringToString(L"resources.h").c_str());
+		remove("resources.h");
 	
 		// Display error
-		wcout << L"Closing output file failed" << endl;
+		cout << "Closing output file failed" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
@@ -294,102 +271,18 @@ int main(int argc, char *argv[]) noexcept {
 	if(!resources) {
 	
 		// Delete resources file
-		remove(wstringToString(L"resources.h").c_str());
+		remove("resources.h");
 	
 		// Display error
-		wcout << L"Closing resources file failed" << endl;
+		cout << "Closing resources file failed" << endl;
 		
 		// Return failure
 		return EXIT_FAILURE;
 	}
 	
 	// Print message
-	wcout << outputFileName << L" generated successfully" << endl;
+	cout << outputFileName << " generated successfully" << endl;
 	
 	// Return success
 	return EXIT_SUCCESS;
-}
-
-
-// Supporting function implementation
-bool setUnicodeLocale() noexcept {
-
-	// Check if setting locale to en_US.UTF-8 failed
-	try {
-		locale::global(static_cast<locale>("en_US.UTF-8"));
-	}
-	
-	catch(const runtime_error &error) {
-	
-		// Check if setting locale to C.UTF-8 failed
-		try {
-			locale::global(static_cast<locale>("C.UTF-8"));
-		}
-	
-		// Set locale to system's locale
-		catch(const runtime_error &error) {
-			locale::global(static_cast<locale>(""));
-		}
-	}
-	
-	// Set locale of existing streams
-	cout.imbue(locale());
-	cerr.imbue(locale());
-	clog.imbue(locale());
-	cin.imbue(locale());
-	wcout.imbue(locale());
-	wcerr.imbue(locale());
-	wclog.imbue(locale());
-	wcin.imbue(locale());
-	
-	// Return if locale is UTF-8
-	return cout.getloc().name().length() >= sizeof("UTF-8") - 1 && cout.getloc().name().substr(cout.getloc().name().length() - (sizeof("UTF-8") - 1)) == "UTF-8";
-}
-
-wstring stringToWstring(const char *text) noexcept {
-
-	// Check if converting will fail
-	mbstate_t state = mbstate_t();
-	size_t length = mbsrtowcs(nullptr, &text, 0, &state);
-	if(length == static_cast<size_t>(-1))
-	
-		// Return an empty string
-		return L"";
-	
-	// Convert string to a wide string
-	wchar_t returnValue[length + 1];
-	mbsrtowcs(returnValue, &text, length + 1, &state);
-	
-	// Return wide string
-	return returnValue;
-}
-
-wstring stringToWstring(const string &text) noexcept {
-
-	// Return wide string
-	return stringToWstring(text.c_str());
-}
-
-string wstringToString(const wchar_t *text) noexcept {
-
-	// Check if converting will fail
-	mbstate_t state = mbstate_t();
-	size_t length = wcsrtombs(nullptr, &text, 0, &state);
-	if(length == static_cast<size_t>(-1))
-	
-		// Return an empty string
-		return "";
-	
-	// Convert wide string to string
-	char returnValue[length + 1];
-	wcsrtombs(returnValue, &text, length + 1, &state);
-	
-	// Return wide string
-	return returnValue;
-}
-
-string wstringToString(const wstring &text) noexcept {
-
-	// Return string
-	return wstringToString(text.c_str());
 }

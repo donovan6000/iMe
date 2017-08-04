@@ -1895,7 +1895,7 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 		#ifdef WINDOWS
 
 			// Check if creating drivers file failed
-			ofstream fout(getTemporaryLocation() + "M3D.cat", ios::binary);
+			ofstream fout(getTemporaryLocation() + "M3D_v2.cat", ios::binary);
 			if(fout.fail())
 			
 				// Return message
@@ -1910,7 +1910,7 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 				fout.close();
 
 				// Check if creating drivers file failed
-				fout.open(getTemporaryLocation() + "M3D.inf", ios::binary);
+				fout.open(getTemporaryLocation() + "M3D_v2.inf", ios::binary);
 				if(fout.fail())
 				
 					// Return message
@@ -1942,7 +1942,7 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 					SecureZeroMemory(&processInfo, sizeof(processInfo));
 
 					TCHAR command[MAX_PATH];
-					_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + getTemporaryLocation() + "M3D.inf\"").c_str());
+					_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + getTemporaryLocation() + "M3D_v2.inf\"").c_str());
 
 					if(!CreateProcess(nullptr, command, nullptr, nullptr, false, CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &processInfo))
 					
@@ -2005,17 +2005,65 @@ void MyFrame::installDrivers(wxCommandEvent& event) {
 						fout.put(_90Micro3dLocalRulesData[i]);
 					fout.close();
 
-					// Check if applying udev rule failed
-					if(system("udevadm control --reload-rules") || system("udevadm trigger"))
-					
+					// Check if creating udev rule failed
+					fout.open("/etc/udev/rules.d/91-micro-3d-heatbed-local.rules", ios::binary);
+					if(fout.fail())
+				
 						// Return message
-						return {"Failed to apply udev rule", wxOK | wxICON_ERROR | wxCENTRE};
-	
+						return {"Failed to unpack udev rule", wxOK | wxICON_ERROR | wxCENTRE};
+
 					// Otherwise
-					else
+					else {
+
+						// Unpack udev rule
+						for(uint64_t i = 0; i < _91Micro3dHeatbedLocalRulesSize; i++)
+							fout.put(_91Micro3dHeatbedLocalRulesData[i]);
+						fout.close();
+						
+						// Check if creating udev rule failed
+						fout.open("/etc/udev/rules.d/92-m3d-pro-local.rules", ios::binary);
+						if(fout.fail())
+				
+							// Return message
+							return {"Failed to unpack udev rule", wxOK | wxICON_ERROR | wxCENTRE};
+
+						// Otherwise
+						else {
+
+							// Unpack udev rule
+							for(uint64_t i = 0; i < _92M3dProLocalRulesSize; i++)
+								fout.put(_92M3dProLocalRulesData[i]);
+							fout.close();
+							
+							// Check if creating udev rule failed
+							fout.open("/etc/udev/rules.d/93-micro+-local.rules", ios::binary);
+							if(fout.fail())
+				
+								// Return message
+								return {"Failed to unpack udev rule", wxOK | wxICON_ERROR | wxCENTRE};
+
+							// Otherwise
+							else {
+
+								// Unpack udev rule
+								for(uint64_t i = 0; i < _93Micro_localRulesSize; i++)
+									fout.put(_93Micro_localRulesData[i]);
+								fout.close();
+						
+								// Check if applying udev rule failed
+								if(system("udevadm control --reload-rules") || system("udevadm trigger"))
 					
-						// Return message
-						return {"Drivers successfully installed. You might need to reconnect the printer to the computer for the drivers to take effect.", wxOK | wxICON_INFORMATION | wxCENTRE};
+									// Return message
+									return {"Failed to apply udev rule", wxOK | wxICON_ERROR | wxCENTRE};
+	
+								// Otherwise
+								else
+					
+									// Return message
+									return {"Drivers successfully installed. You might need to reconnect the printer to the computer for the drivers to take effect.", wxOK | wxICON_INFORMATION | wxCENTRE};
+							}
+						}
+					}
 				}
 			}
 		#endif
@@ -2552,6 +2600,8 @@ void MyFrame::savePrinterSetting(wxCommandEvent& event) {
 					error = !printer.eepromWriteFloat(offset, length, stof(value));
 				else if(type == EEPROM_STRING)
 					error = !printer.eepromWriteString(offset, length, value);
+				else if(type == EEPROM_BOOL)
+					error = !printer.eepromWriteInt(offset, length, toLowerCase(value) == "false" ? 0 : 1);
 		
 				// Check if saving value in EEPROM was successful
 				if(!error)
@@ -2598,6 +2648,8 @@ void MyFrame::setPrinterSettingValue() {
 		value = to_string(printer.eepromGetFloat(offset, length));
 	else if(type == EEPROM_STRING)
 		value = printer.eepromGetString(offset, length);
+	else if(type == EEPROM_BOOL)
+		value = printer.eepromGetInt(offset, length) == 0 ? "False" : "True";
 	
 	// Clean up floating point values
 	if(type == EEPROM_FLOAT) {

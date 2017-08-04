@@ -1,8 +1,21 @@
 Changelog:
 
-V00.00.01.25 June X, 2017
+V00.00.01.25 August 4, 2017
 
 	* Implements M400 command
+	* Implements builtin skew compensation
+	* G32 will now invalidate the bed orientation before calibrating it so that an energency stop doesn't result in a valid bed orientation that wasn't finished
+	* External bed height and expand printable region settings are now used when keeping movements in bounds
+	* Uses Atmel Software Framework's CRC driver for all CRC functionality
+	* Fixed issue where one byte would be lost when receiving more than 64 bytes at once from USB
+	* Fixed issue where emergency stop wouldn't interrupt a G4 delay command
+	* Fixed issue where commands sent after an emergency stop would be lost until the command queue was fully empty
+	* Underscore characters will replace characters in the serial number that are non-alphanumeric in the USB descriptor and M115 response
+	* All of the printer's peripherals will be set to their default state (heater off, motors off, LED max brightness, fan off) when printer is inactive for 10 minutes
+	* Homing wont be performed when extruder is so high that it'll run into the printer's frame if it homes
+	* Trippled the command queue size
+	* Double the allowed request size
+	* Keeping movements in bounds now accounts for bed leveling and skew compensation
 
 V00.00.01.24 June 6, 2017
 

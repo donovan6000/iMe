@@ -127,7 +127,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 						#ifdef WINDOWS
 			
 							// Check if creating drivers file failed
-							ofstream fout(getTemporaryLocation() + "M3D.cat", ios::binary);
+							ofstream fout(getTemporaryLocation() + "M3D_v2.cat", ios::binary);
 							if(fout.fail()) {
 					
 								// Display error
@@ -143,7 +143,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 							fout.close();
 					
 							// Check if creating drivers file failed
-							fout.open(getTemporaryLocation() + "M3D.inf", ios::binary);
+							fout.open(getTemporaryLocation() + "M3D_v2.inf", ios::binary);
 							if(fout.fail()) {
 					
 								// Display error
@@ -176,7 +176,7 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 							SecureZeroMemory(&processInfo, sizeof(processInfo));
 						
 							TCHAR command[MAX_PATH];
-							_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + getTemporaryLocation() + "M3D.inf\"").c_str());
+							_tcscpy(command, (path + "\\" + executablePath + "\\pnputil.exe -i -a \"" + getTemporaryLocation() + "M3D_v2.inf\"").c_str());
 						
 							if(!CreateProcess(nullptr, command, nullptr, nullptr, false, CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &processInfo)) {
 
@@ -238,6 +238,54 @@ bool installFirmware(const string &firmwareLocation, const string &serialPort);
 							// Unpack udev rule
 							for(uint64_t i = 0; i < _90Micro3dLocalRulesSize; i++)
 								fout.put(_90Micro3dLocalRulesData[i]);
+							fout.close();
+							
+							// Check if creating udev rule file failed
+							fout.open("/etc/udev/rules.d/91-micro-3d-heatbed-local.rules", ios::binary);
+							if(fout.fail()) {
+					
+								// Display error
+								cout << "Failed to unpack udev rule" << endl;
+						
+								// Return
+								return EXIT_FAILURE;
+							}
+					
+							// Unpack udev rule
+							for(uint64_t i = 0; i < _91Micro3dHeatbedLocalRulesSize; i++)
+								fout.put(_91Micro3dHeatbedLocalRulesData[i]);
+							fout.close();
+							
+							// Check if creating udev rule file failed
+							fout.open("/etc/udev/rules.d/92-m3d-pro-local.rules", ios::binary);
+							if(fout.fail()) {
+					
+								// Display error
+								cout << "Failed to unpack udev rule" << endl;
+						
+								// Return
+								return EXIT_FAILURE;
+							}
+					
+							// Unpack udev rule
+							for(uint64_t i = 0; i < _92M3dProLocalRulesSize; i++)
+								fout.put(_92M3dProLocalRulesData[i]);
+							fout.close();
+							
+							// Check if creating udev rule file failed
+							fout.open("/etc/udev/rules.d/93-micro+-local.rules", ios::binary);
+							if(fout.fail()) {
+					
+								// Display error
+								cout << "Failed to unpack udev rule" << endl;
+						
+								// Return
+								return EXIT_FAILURE;
+							}
+					
+							// Unpack udev rule
+							for(uint64_t i = 0; i < _93Micro_localRulesSize; i++)
+								fout.put(_93Micro_localRulesData[i]);
 							fout.close();
 							
 							// Check if applying udev rule failed

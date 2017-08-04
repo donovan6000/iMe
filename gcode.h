@@ -4,9 +4,6 @@
 
 
 // Definitions
-#define ALLOW_HOST_COMMANDS false
-
-// Parameters
 #define PARAMETER_G_OFFSET 1
 #define PARAMETER_M_OFFSET (1 << 1)
 #define PARAMETER_T_OFFSET (1 << 2)
@@ -27,97 +24,97 @@ typedef uint16_t gcodeParameterOffset;
 
 
 // Gcode class
-class Gcode {
+class Gcode final {
 
 	// Public
 	public:
 		
 		// Parse command
-		void parseCommand(const char *command);
+		void parseCommand(const char *command) noexcept;
 		
 		// Clear command
-		void clearCommand();
+		void clearCommand() noexcept;
 		
 		// Is empty
-		bool isEmpty() const;
+		bool isEmpty() const noexcept;
 		
 		// Has parameter G
-		bool hasParameterG() const;
+		bool hasParameterG() const noexcept;
 		
 		// Get parameter G
-		uint8_t getParameterG() const;
+		uint8_t getParameterG() const noexcept;
 		
 		// Has parameter M
-		bool hasParameterM() const;
+		bool hasParameterM() const noexcept;
 		
 		// Get parameter M
-		uint16_t getParameterM() const;
+		uint16_t getParameterM() const noexcept;
 		
 		// Has parameter T
-		bool hasParameterT() const;
+		bool hasParameterT() const noexcept;
 		
 		// Get parameter T
-		uint8_t getParameterT() const;
+		uint8_t getParameterT() const noexcept;
 		
 		// Has parameter S
-		bool hasParameterS() const;
+		bool hasParameterS() const noexcept;
 		
 		// Get parameter S
-		int32_t getParameterS() const;
+		int32_t getParameterS() const noexcept;
 		
 		// Has parameter P
-		bool hasParameterP() const;
+		bool hasParameterP() const noexcept;
 		
 		// Get parameter P
-		int32_t getParameterP() const;
+		int32_t getParameterP() const noexcept;
 		
 		// Has parameter X
-		bool hasParameterX() const;
+		bool hasParameterX() const noexcept;
 		
 		// Get parameter X
-		float getParameterX() const;
+		float getParameterX() const noexcept;
 		
 		// Has parameter Y
-		bool hasParameterY() const;
+		bool hasParameterY() const noexcept;
 		
 		// Get parameter Y
-		float getParameterY() const;
+		float getParameterY() const noexcept;
 		
 		// Has parameter Z
-		bool hasParameterZ() const;
+		bool hasParameterZ() const noexcept;
 		
 		// Get parameter Z
-		float getParameterZ() const;
+		float getParameterZ() const noexcept;
 		
 		// Has parameter F
-		bool hasParameterF() const;
+		bool hasParameterF() const noexcept;
 		
 		// Get parameter F
-		float getParameterF() const;
+		float getParameterF() const noexcept;
 		
 		// Has parameter E
-		bool hasParameterE() const;
+		bool hasParameterE() const noexcept;
 		
 		// Get parameter E
-		float getParameterE() const;
+		float getParameterE() const noexcept;
 		
 		// Has parameter N
-		bool hasParameterN() const;
+		bool hasParameterN() const noexcept;
 		
 		// Get parameter N
-		uint64_t getParameterN() const;
+		uint64_t getParameterN() const noexcept;
 		
 		#if ALLOW_HOST_COMMANDS == true
 		
 			// Has host command
-			bool hasHostCommand() const;
+			bool hasHostCommand() const noexcept;
 		
 			// Get host command
-			const char *getHostCommand() const;
+			const char *getHostCommand() const noexcept;
 		#endif
 		
 		// Has valid checksum
-		bool hasValidChecksum() const;
+		bool hasValidChecksum() const noexcept;
 		
 		// Is parsed
 		bool isParsed;

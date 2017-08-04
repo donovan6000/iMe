@@ -314,6 +314,16 @@ static inline bool ioport_get_pin_level(ioport_pin_t pin)
 }
 
 /**
+ * \brief Get current value of an IOPORT pin, which has been configured as an
+ * output.
+ *
+ * \param pin IOPORT pin to read
+ * \return Current logical value of the specified pin
+ */
+// Function added by donovan6000
+#define ioport_get_pin_output_level(pin) arch_ioport_get_pin_output_level(pin)
+
+/**
  * \brief Get current value of several IOPORT pins in a single port, which have
  * been configured as an inputs.
  *

@@ -537,6 +537,18 @@ int udi_cdc_multi_getc(uint8_t port);
 iram_size_t udi_cdc_multi_read_buf(uint8_t port, void* buf, iram_size_t size);
 
 /**
+ * \brief Reads a RAM buffer on CDC line and ignores remaining characters in the line
+ *
+ * \param port       Communication port number to manage
+ * \param buf       Values read
+ * \param size      Number of values read
+ *
+ * \return the number of data remaining
+ */
+// Function added by donovan6000
+iram_size_t udi_cdc_multi_read_buf_and_ignore(uint8_t port, void* buf, iram_size_t size);
+
+/**
  * \brief Gets the number of free byte in TX buffer
  *
  * \param port       Communication port number to manage

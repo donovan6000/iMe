@@ -303,6 +303,9 @@ __always_inline static bool arch_ioport_get_pin_level(ioport_pin_t pin)
 	return base->IN & arch_ioport_pin_to_mask(pin);
 }
 
+// Function added by donovan6000
+#define arch_ioport_get_pin_output_level(pin) bool(arch_ioport_pin_to_base(pin)->OUT & arch_ioport_pin_to_mask(pin))
+
 __always_inline static ioport_port_mask_t arch_ioport_get_port_level(
 		ioport_port_t port, ioport_port_mask_t mask)
 {

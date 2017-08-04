@@ -1,11 +1,18 @@
 // Header files
+extern "C" {
+	#include <asf.h>
+}
 #include <math.h>
 #include <string.h>
 #include "vector.h"
 
 
+// Definitions
+#define NUMBER_OF_COMPONENTS 4
+
+
 // Supporting function implementation
-void Vector::initialize(float x, float y, float z, float e) {
+void Vector::initialize(float x, float y, float z, float e) noexcept {
 
 	// Set vector components
 	this->x = x;
@@ -14,133 +21,120 @@ void Vector::initialize(float x, float y, float z, float e) {
 	this->e = e;
 }
 
-float Vector::getLength() const {
+float Vector::getLength() const noexcept {
 
+	// Get length squared
+	float lengthSquared = 0;
+	for(int8_t i = NUMBER_OF_COMPONENTS - 1; i >= 0; --i)
+		lengthSquared += pow((*this)[i], 2);
+	
 	// Return length
-	return sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2) + pow(e, 2));
+	return sqrt(lengthSquared);
 }
 
-void Vector::normalize() {
+void Vector::normalize() noexcept {
 
 	// Get length
 	float length = getLength();
 	
 	// Normalize components
-	x /= length;
-	y /= length;
-	z /= length;
-	e /= length;
+	for(int8_t i = NUMBER_OF_COMPONENTS - 1; i >= 0; --i)
+		(*this)[i] /= length;
 }
 
-Vector Vector::operator+(const Vector &addend) const {
+Vector Vector::operator+(const Vector &addend) const noexcept {
 
 	// Initialize variables
 	Vector vector;
 	
 	// Set vector components
-	vector.x = x + addend.x;
-	vector.y = y + addend.y;
-	vector.z = z + addend.z;
-	vector.e = e + addend.e;
+	for(int8_t i = NUMBER_OF_COMPONENTS - 1; i >= 0; --i)
+		vector[i] = (*this)[i] + addend[i];
 	
 	// Return vector
 	return vector;
 }
 
-Vector &Vector::operator+=(const Vector &addend) {
+Vector &Vector::operator+=(const Vector &addend) noexcept {
 
 	// Set vector components
-	x += addend.x;
-	y += addend.y;
-	z += addend.z;
-	e += addend.e;
+	for(int8_t i = NUMBER_OF_COMPONENTS - 1; i >= 0; --i)
+		(*this)[i] += addend[i];
 	
 	// Return self
 	return *this;
 }
 
-Vector Vector::operator-(const Vector &subtrahend) const {
+Vector Vector::operator-(const Vector &subtrahend) const noexcept {
 
 	// Initialize variables
 	Vector vector;
 	
 	// Set vector components
-	vector.x = x - subtrahend.x;
-	vector.y = y - subtrahend.y;
-	vector.z = z - subtrahend.z;
-	vector.e = e - subtrahend.e;
+	for(int8_t i = NUMBER_OF_COMPONENTS - 1; i >= 0; --i)
+		vector[i] = (*this)[i] - subtrahend[i];
 	
 	// Return vector
 	return vector;
 }
 
-Vector &Vector::operator-=(const Vector &subtrahend) {
+Vector &Vector::operator-=(const Vector &subtrahend) noexcept {
 
 	// Set vector components
-	x -= subtrahend.x;
-	y -= subtrahend.y;
-	z -= subtrahend.z;
-	e -= subtrahend.e;
+	for(int8_t i = NUMBER_OF_COMPONENTS - 1; i >= 0; --i)
+		(*this)[i] -= subtrahend[i];
 	
 	// Return self
 	return *this;
 }
 
-Vector Vector::operator*(float multiplier) const {
+Vector Vector::operator*(float multiplier) const noexcept {
 
 	// Initialize variables
 	Vector vector;
 	
 	// Set vector components
-	vector.x = x * multiplier;
-	vector.y = y * multiplier;
-	vector.z = z * multiplier;
-	vector.e = e * multiplier;
+	for(int8_t i = NUMBER_OF_COMPONENTS - 1; i >= 0; --i)
+		vector[i] = (*this)[i] * multiplier;
 	
 	// Return vector
 	return vector;
 }
 
-Vector &Vector::operator*=(float multiplier) {
+Vector &Vector::operator*=(float multiplier) noexcept {
 
 	// Set vector components
-	x *= multiplier;
-	y *= multiplier;
-	z *= multiplier;
-	e *= multiplier;
+	for(int8_t i = NUMBER_OF_COMPONENTS - 1; i >= 0; --i)
+		(*this)[i] *= multiplier;
 	
 	// Return self
 	return *this;
 }
 
-Vector Vector::operator/(float divisor) const {
+Vector Vector::operator/(float divisor) const noexcept {
 
 	// Initialize variables
 	Vector vector;
 	
 	// Set vector components
-	vector.x = x / divisor;
-	vector.y = y / divisor;
-	vector.z = z / divisor;
-	vector.e = e / divisor;
+	for(int8_t i = NUMBER_OF_COMPONENTS - 1; i >= 0; --i)
+		vector[i] = (*this)[i] / divisor;
 	
 	// Return vector
 	return vector;
 }
 
-Vector &Vector::operator/=(float divisor) {
+Vector &Vector::operator/=(float divisor) noexcept {
 
 	// Set vector components
-	x /= divisor;
-	y /= divisor;
-	z /= divisor;
-	e /= divisor;
+	for(int8_t i = NUMBER_OF_COMPONENTS - 1; i >= 0; --i)
+		(*this)[i] /= divisor;
 	
 	// Return self
 	return *this;
 }
 
-const float& Vector::operator[](int index) const {
+const float& Vector::operator[](int index) const noexcept {
 	
 	// Return indexed value
 	switch(index) {
@@ -160,14 +154,14 @@ const float& Vector::operator[](int index) const {
 	}
 }
 
-float &Vector::operator[](int index) {
+float &Vector::operator[](int index) noexcept {
 	
 	// Return indexed value
 	switch(index) {
 	
 		case 0:
 			return x;
-		
+
 		case 1:
 			return y;
 		
@@ -180,14 +174,8 @@ float &Vector::operator[](int index) {
 	}
 }
 
-Vector &Vector::operator=(const Vector &vector) {
+Vector &Vector::operator=(const Vector &vector) noexcept {
 
-	// Check if not calling on self
-	if(this != &vector)
-
-		// Copy values
-		memcpy(this, &vector, sizeof(Vector));
-	
-	// Return self
-	return *this;
+	// Copy values and return self
+	return *reinterpret_cast<Vector *>(memmove(this, &vector, sizeof(Vector)));
 }
