@@ -1,15 +1,15 @@
 # Target platform options: WINDOWS32, WINDOWS64, MACOS, LINUX32, LINUX64
 NAME = "M33 Manager"
-VERSION = 0.15
+VERSION = 0.16
 TARGET_PLATFORM = LINUX64
 USE_GUI = TRUE
-IME_ROM_VERSION_STRING = 1900000124
+IME_ROM_VERSION_STRING = 1900000125
 M3D_ROM_VERSION_STRING = 2016040401
 
 SRCS = main.cpp printer.cpp gcode.cpp common.cpp
 OBJ_FILES = $(addprefix working/,$(notdir $(SRCS:.cpp=.o)))
-CFLAGS = -Wall -Wno-unused-function -std=c++11 -O3 -D VERSION=$(VERSION) -D IME_ROM_VERSION_STRING=$(IME_ROM_VERSION_STRING) -D IME_HEX_SIZE=iMe$(IME_ROM_VERSION_STRING)HexSize -D IME_HEX_DATA=iMe$(IME_ROM_VERSION_STRING)HexData -D M3D_ROM_VERSION_STRING=$(M3D_ROM_VERSION_STRING) -D M3D_HEX_SIZE=m3D$(M3D_ROM_VERSION_STRING)HexSize -D M3D_HEX_DATA=m3D$(M3D_ROM_VERSION_STRING)HexData
-CFLAGS_GENERIC = -D PACKED -Wall -Wno-unused-function -std=c++11 -O3
+CFLAGS = -Wall -Wno-unused-function -std=c++11 -O3 -finput-charset=UTF-8 -fexec-charset=UTF-8 -D VERSION=$(VERSION) -D IME_ROM_VERSION_STRING=$(IME_ROM_VERSION_STRING) -D IME_HEX_SIZE=iMe$(IME_ROM_VERSION_STRING)HexSize -D IME_HEX_DATA=iMe$(IME_ROM_VERSION_STRING)HexData -D M3D_ROM_VERSION_STRING=$(M3D_ROM_VERSION_STRING) -D M3D_HEX_SIZE=m3D$(M3D_ROM_VERSION_STRING)HexSize -D M3D_HEX_DATA=m3D$(M3D_ROM_VERSION_STRING)HexData
+CFLAGS_GENERIC = -D PACKED -Wall -Wno-unused-function -std=c++11 -O3 -finput-charset=UTF-8 -fexec-charset=UTF-8
 LIBS =
 EXTRA_FILES = 
 PROGRAM_NAME = $(subst $\",,$(NAME))
@@ -115,6 +115,9 @@ externalResources:
 	cd "./working" && find "../resources/files" -type f -exec "./bin2h" "{}" \;
 	cd "./working" && "./bin2h" "../../iMe $(IME_ROM_VERSION_STRING).hex"
 	cd "./working" && "./bin2h" "../resources/Linux/90-micro-3d-local.rules"
+	cd "./working" && "./bin2h" "../resources/Linux/91-micro-3d-heatbed-local.rules"
+	cd "./working" && "./bin2h" "../resources/Linux/92-m3d-pro-local.rules"
+	cd "./working" && "./bin2h" "../resources/Linux/93-micro+-local.rules"
 	cd "./working" && "./bin2h" "../resources/Windows/M3D_v2.cat"
 	cd "./working" && "./bin2h" "../resources/Windows/M3D_v2.inf"
 	

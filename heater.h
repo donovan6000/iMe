@@ -11,34 +11,31 @@
 
 
 // Heater class
-class Heater {
+class Heater final {
 
 	// Public
 	public:
 	
 		// Initialize
-		static void initialize();
+		static void initialize() noexcept;
 		
 		// Test connection
-		static bool testConnection();
+		static bool testConnection() noexcept;
 		
 		// Set temperature
-		static bool setTemperature(uint16_t value, bool wait = false);
+		static bool setTemperature(uint16_t value, bool wait = false) noexcept;
 		
 		// Get temperature
-		static float getTemperature();
-		
-		// Is heating
-		static bool isHeating();
+		static float getTemperature() noexcept;
 		
 		// Reset
-		static void reset();
+		static void reset() noexcept;
+		
+		// Is on
+		static bool isOn() noexcept;
 		
 		// Update heater changes
-		static bool updateHeaterChanges(bool enableUpdatingTemperature = true);
-		
-		// Emergency stop occured
-		static bool emergencyStopOccured;
+		static bool updateHeaterChanges(bool enableUpdatingTemperature = true) noexcept;
 		
 		// Is working
 		static bool isWorking;
@@ -47,7 +44,7 @@ class Heater {
 	private:
 	
 		// Clear temperature
-		static void clearTemperature();
+		static void clearTemperature() noexcept;
 };
 
 

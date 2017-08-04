@@ -1,7 +1,14 @@
 # Firmware name and version
 NAME = "iMe"
-FIRMWARE_VERSION = 00.00.01.24
-ROM_VERSION_STRING = 1900000124
+FIRMWARE_VERSION = 00.00.01.25
+ROM_VERSION_STRING = 1900000125
+
+ENABLE_DEBUG_FEATURES = false
+ALLOW_USELESS_COMMANDS = false
+ALLOW_HOST_COMMANDS = false
+STORE_CONSTANTS_IN_PROGRAM_SPACE = false
+REGULATE_EXTRUDER_CURRENT = false
+ENABLE_BOUNDARY_ENFORCING = true
 
 FIRMWARE_NAME = $(subst $\",,$(NAME))
 
@@ -34,6 +41,7 @@ CSRCS = src/ASF/common/boards/user_board/init.c \
 	src/ASF/common/services/usb/udc/udc.c \
 	src/ASF/xmega/drivers/adc/adc.c \
 	src/ASF/xmega/drivers/adc/xmega_bcd/adc_bcd.c \
+	src/ASF/xmega/drivers/crc/crc.c \
 	src/ASF/xmega/drivers/nvm/nvm.c \
 	src/ASF/xmega/drivers/tc/tc.c \
 	src/ASF/xmega/drivers/twi/twim.c \
@@ -82,6 +90,7 @@ INCPATH = . \
 	src/ASF/xmega/drivers/adc \
 	src/ASF/xmega/drivers/adc/xmega_bcd \
 	src/ASF/xmega/drivers/cpu \
+	src/ASF/xmega/drivers/crc \
 	src/ASF/xmega/drivers/nvm \
 	src/ASF/xmega/drivers/pmic \
 	src/ASF/xmega/drivers/sleep \
@@ -96,9 +105,9 @@ INCPATH = . \
 	src/config
 
 # Compiler flags
-FLAGS = -D BOARD=USER_BOARD -D FIRMWARE_NAME="$(FIRMWARE_NAME)" -D FIRMWARE_VERSION=$(FIRMWARE_VERSION) -Os -mmcu=atxmega32c4 -Wall -Wno-maybe-uninitialized -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -fno-strict-aliasing -Werror-implicit-function-declaration -Wpointer-arith -mcall-prologues -mstrict-X -maccumulate-args -fno-tree-ter -mrelax -flto -flto-partition=1to1
+FLAGS = -D BOARD=USER_BOARD -D FIRMWARE_NAME="$(FIRMWARE_NAME)" -D FIRMWARE_VERSION=$(FIRMWARE_VERSION) -D ENABLE_DEBUG_FEATURES=$(ENABLE_DEBUG_FEATURES) -D ALLOW_USELESS_COMMANDS=$(ALLOW_USELESS_COMMANDS) -D ALLOW_HOST_COMMANDS=$(ALLOW_HOST_COMMANDS) -D STORE_CONSTANTS_IN_PROGRAM_SPACE=$(STORE_CONSTANTS_IN_PROGRAM_SPACE) -D REGULATE_EXTRUDER_CURRENT=$(REGULATE_EXTRUDER_CURRENT) -D ENABLE_BOUNDARY_ENFORCING=$(ENABLE_BOUNDARY_ENFORCING) -Os -finput-charset=UTF-8 -fexec-charset=UTF-8 -mmcu=atxmega32c4 -Wall -Wno-maybe-uninitialized -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -fno-strict-aliasing -Werror-implicit-function-declaration -Wpointer-arith -mcall-prologues -mstrict-X -maccumulate-args -fno-tree-ter -mrelax -flto -flto-partition=1to1
 ASFLAGS = -std=c++14 -x assembler-with-cpp
-CFLAGS = -std=gnu99 -x c -Wstrict-prototypes -Wmissing-prototypes
+CFLAGS = -std=gnu99 -x c -Wstrict-prototypes
 CPPFLAGS = -std=c++14 -x c++
 LFLAGS = -Wl,--start-group -Wl,--end-group -Wl,--gc-sections
 

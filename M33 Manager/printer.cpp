@@ -357,7 +357,7 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 									
 									// Log end of successful connection
 									if(logFunction)
-										logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareTypeAsString(firmwareType) + " firmware V" + getFirmwareRelease());
+										logFunction("Connected to " + (getSerialNumber().empty() ? "a printer" : getSerialNumber()) + " at " + getCurrentSerialPort() + " running " + getFirmwareTypeAsString(firmwareType) + " firmware V" + getFirmwareRelease());
 
 									// Return true
 									return true;
@@ -479,7 +479,7 @@ bool Printer::connect(const string &serialPort, bool connectingToNewPrinter) {
 								
 								// Log end of successful connection
 								if(logFunction)
-									logFunction("Connected to " + getSerialNumber() + " at " + getCurrentSerialPort() + " running " + getFirmwareTypeAsString(firmwareType) + " firmware V" + getFirmwareRelease());
+									logFunction("Connected to " + (getSerialNumber().empty() ? "a printer" : getSerialNumber()) + " at " + getCurrentSerialPort() + " running " + getFirmwareTypeAsString(firmwareType) + " firmware V" + getFirmwareRelease());
 
 								// Return true
 								return true;
@@ -639,92 +639,101 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				
 				// Log printer color if logging details
 				if(logFunction && logDetails) {
+			
+					string printerColor = "unknown";
+					if(serialNumber.length() >= 2) {
+						if(serialNumber.substr(0, 2) == "BK")
+							printerColor = "black";
+						else if(serialNumber.substr(0, 2) == "WH")
+							printerColor = "white";
+						else if(serialNumber.substr(0, 2) == "BL")
+							printerColor = "blue";
+						else if(serialNumber.substr(0, 2) == "GR")
+							printerColor = "green";
+						else if(serialNumber.substr(0, 2) == "OR")
+							printerColor = "orange";
+						else if(serialNumber.substr(0, 2) == "CL")
+							printerColor = "clear";
+						else if(serialNumber.substr(0, 2) == "SL")
+							printerColor = "silver";
+						else if(serialNumber.substr(0, 2) == "PL")
+							printerColor = "purple";
+					}
 				
-					string printerColor;
-					if(serialNumber.substr(0, 2) == "BK")
-						printerColor = "black";
-					else if(serialNumber.substr(0, 2) == "WH")
-						printerColor = "white";
-					else if(serialNumber.substr(0, 2) == "BL")
-						printerColor = "blue";
-					else if(serialNumber.substr(0, 2) == "GR")
-						printerColor = "green";
-					else if(serialNumber.substr(0, 2) == "OR")
-						printerColor = "orange";
-					else if(serialNumber.substr(0, 2) == "CL")
-						printerColor = "clear";
-					else if(serialNumber.substr(0, 2) == "SL")
-						printerColor = "silver";
-					else if(serialNumber.substr(0, 2) == "PL")
-						printerColor = "purple";
-					
 					logFunction("Printer's color is " + printerColor);
 				}
-				
+			
 				// Get fan type
 				fanTypes fanType = static_cast<fanTypes>(eepromGetInt(EEPROM_FAN_TYPE_OFFSET, EEPROM_FAN_TYPE_LENGTH));
-		
-				// Check if fan needs updating
-				if(!fanType || fanType == NO_FAN) {
 	
-					// Set fan type to HengLiXin
-					fanType = HENGLIXIN;
-		
-					// Check if device is newer
-					if(stoi(serialNumber.substr(2, 6)) >= 150602)
-		
-						// Set fan type to Shenzhew
-						fanType = SHENZHEW;
-				}
+				// Check if fan needs updating
+				if(!fanType || fanType == NO_FAN)
 				
+					// Check if serial number's date isn't malformed
+					if(serialNumber.length() >= 8) {
+					
+						string serialNumbersDate = serialNumber.substr(2, 6);
+						if(all_of(serialNumbersDate.begin(), serialNumbersDate.end(), ::isdigit)) {
+
+							// Set fan type to HengLiXin
+							fanType = HENGLIXIN;
+	
+							// Check if device is newer
+							if(stoi(serialNumber.substr(2, 6)) >= 150602)
+	
+								// Set fan type to Shenzhew
+								fanType = SHENZHEW;
+						}
+					}
+			
 				// Check if updating fan calibration failed
 				if(!setFanType(fanType, logDetails))
-				
+			
 					// Return false
 					return false;
-				
+			
 				// Log fan type if logging details
 				if(logFunction && logDetails) {
-				
+			
 					string fanString;
 					switch(fanType) {
 						case HENGLIXIN:
 							fanString = "a HengLiXin";
 						break;
-						
+					
 						case LISTENER:
 							fanString = "a Listener";
 						break;
-						
+					
 						case SHENZHEW:
 							fanString = "a Shenzhew";
 						break;
-						
+					
 						case XINYUJIE:
 							fanString = "a Xinyujie";
 						break;
-						
+					
 						case CUSTOM_FAN :
 							fanString = "a custom";
 						break;
-						
+					
 						case NO_FAN:
 							fanString = "no";
 						break;
-						
+					
 						default:
 							fanString = "an unknown";
 					}
-					
+				
 					logFunction("Using " + fanString + " fan");
 				}
-				
+			
 				// Check if using a printer that can't use extruder currents above 500mA
-				if(serialNumber.substr(0, 13) == "BK15033001100" || serialNumber.substr(0, 13) == "BK15040201050" || serialNumber.substr(0, 13) == "BK15040301050" || serialNumber.substr(0, 13) == "BK15040602050" || serialNumber.substr(0, 13) == "BK15040801050" || serialNumber.substr(0, 13) == "BK15040802100" || serialNumber.substr(0, 13) == "GR15032702100" || serialNumber.substr(0, 13) == "GR15033101100" || serialNumber.substr(0, 13) == "GR15040601100" || serialNumber.substr(0, 13) == "GR15040701100" || serialNumber.substr(0, 13) == "OR15032701100" || serialNumber.substr(0, 13) == "SL15032601050")
-	
+				if(serialNumber.length() >= 13 && (serialNumber.substr(0, 13) == "BK15033001100" || serialNumber.substr(0, 13) == "BK15040201050" || serialNumber.substr(0, 13) == "BK15040301050" || serialNumber.substr(0, 13) == "BK15040602050" || serialNumber.substr(0, 13) == "BK15040801050" || serialNumber.substr(0, 13) == "BK15040802100" || serialNumber.substr(0, 13) == "GR15032702100" || serialNumber.substr(0, 13) == "GR15033101100" || serialNumber.substr(0, 13) == "GR15040601100" || serialNumber.substr(0, 13) == "GR15040701100" || serialNumber.substr(0, 13) == "OR15032701100" || serialNumber.substr(0, 13) == "SL15032601050"))
+
 					// Check if setting extruder current to 500mA failed
 					if(!setExtruderCurrent(500, logDetails))
-				
+			
 						// Return false
 						return false;
 				
@@ -1071,6 +1080,39 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 						// Return false
 						return false;
 					}
+					
+					// Check if updating skew X failed
+					if(!eepromKeepFloatWithinRange(EEPROM_SKEW_X_OFFSET, EEPROM_SKEW_X_LENGTH, EEPROM_SKEW_X_MIN, EEPROM_SKEW_X_MAX, EEPROM_SKEW_X_DEFAULT)) {
+				
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating skew X failed");
+
+						// Return false
+						return false;
+					}
+				
+					// Check if updating skew Y failed
+					if(!eepromKeepFloatWithinRange(EEPROM_SKEW_Y_OFFSET, EEPROM_SKEW_Y_LENGTH, EEPROM_SKEW_Y_MIN, EEPROM_SKEW_Y_MAX, EEPROM_SKEW_Y_DEFAULT)) {
+				
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating skew Y failed");
+
+						// Return false
+						return false;
+					}
+					
+					// Check if updating heatbed temperature failed
+					if(!eepromKeepIntWithinRange(EEPROM_HEATBED_TEMPERATURE_OFFSET, EEPROM_HEATBED_TEMPERATURE_LENGTH, EEPROM_HEATBED_TEMPERATURE_MIN, EEPROM_HEATBED_TEMPERATURE_MAX, EEPROM_HEATBED_TEMPERATURE_DEFAULT)) {
+				
+						// Log if logging details
+						if(logFunction && logDetails)
+							logFunction("Updating heatbed temperature failed");
+
+						// Return false
+						return false;
+					}
 				}
 				
 				// Check if updating last recorded Z value failed
@@ -1115,6 +1157,8 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 				float calibrateZ0Correction = eepromGetFloat(EEPROM_CALIBRATE_Z0_CORRECTION_OFFSET, EEPROM_CALIBRATE_Z0_CORRECTION_LENGTH);
 				bool expandPrintableRegion = eepromGetInt(EEPROM_EXPAND_PRINTABLE_REGION_OFFSET, EEPROM_EXPAND_PRINTABLE_REGION_LENGTH);
 				float externalBedHeight = eepromGetFloat(EEPROM_EXTERNAL_BED_HEIGHT_OFFSET, EEPROM_EXTERNAL_BED_HEIGHT_LENGTH);
+				float skewX = eepromGetFloat(EEPROM_SKEW_X_OFFSET, EEPROM_SKEW_X_LENGTH);
+				float skewY = eepromGetFloat(EEPROM_SKEW_Y_OFFSET, EEPROM_SKEW_Y_LENGTH);
 				
 				// Set if firmware is valid
 				validFirmware = chipCrc == eepromCrc;
@@ -1163,6 +1207,8 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					logFunction(static_cast<string>("Firmware is ") + (validFirmware ? "valid" : "corrupt"));
 					logFunction(static_cast<string>("Bed position is ") + (validBedPosition ? "valid" : "invalid"));
 					logFunction(static_cast<string>("Bed orientation is ") + (validBedOrientation ? "valid" : "invalid"));
+					logFunction("Using " + to_string(skewX) + "mm skew X");
+					logFunction("Using " + to_string(skewY) + "mm skew Y");
 				}
 				
 				// Check if reading EEPROM was successful
@@ -1615,6 +1661,9 @@ bool Printer::installFirmware(const string &file) {
 			// Return false
 			return false;
 		}
+		
+		// Delay
+		sleepUs(50);
 
 		// Go through all values for the page
 		for(int j = 0; j < CHIP_PAGE_SIZE * 2; j++) {
@@ -1664,6 +1713,9 @@ bool Printer::installFirmware(const string &file) {
 					return false;
 				}
 			}
+			
+			// Delay
+			sleepUs(50);
 		}
 
 		// Check if page failed to be written to
@@ -1991,6 +2043,51 @@ bool Printer::installFirmware(const string &file) {
 			// Log E motor steps/mm status
 			if(logFunction)
 				logFunction("Successfully saved E motor steps/mm");
+			
+			// Check if saving skew X in EEPROM failed
+			if(!eepromWriteFloat(EEPROM_SKEW_X_OFFSET, EEPROM_SKEW_X_LENGTH, EEPROM_SKEW_X_DEFAULT)) {
+		
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save skew X");
+			
+				// Return false
+				return false;
+			}
+		
+			// Log skew X status
+			if(logFunction)
+				logFunction("Successfully saved skew X");
+			
+			// Check if saving skew Y in EEPROM failed
+			if(!eepromWriteFloat(EEPROM_SKEW_Y_OFFSET, EEPROM_SKEW_Y_LENGTH, EEPROM_SKEW_Y_DEFAULT)) {
+		
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save skew Y");
+			
+				// Return false
+				return false;
+			}
+		
+			// Log skew X status
+			if(logFunction)
+				logFunction("Successfully saved skew Y");
+			
+			// Check if saving heatbed temperature in EEPROM failed
+			if(!eepromWriteInt(EEPROM_HEATBED_TEMPERATURE_OFFSET, EEPROM_HEATBED_TEMPERATURE_LENGTH, EEPROM_HEATBED_TEMPERATURE_DEFAULT)) {
+		
+				// Log error
+				if(logFunction)
+					logFunction("Failed to save heatbed temperature");
+			
+				// Return false
+				return false;
+			}
+		
+			// Log heatbed temperature status
+			if(logFunction)
+				logFunction("Successfully saved heatbed temperature");
 		}
 	}
 	
@@ -2019,20 +2116,20 @@ bool Printer::installFirmware(const string &file) {
 				logFunction("Successfully saved converted last recorded Z value");
 		}
 			
-		// Check if clearing expand printable region, external bed height, calibrate Z0 correction, and X and Y jerk sensitivity, value, direction, and validity in EEPROM failed
-		if(!eepromWriteInt(EEPROM_EXPAND_PRINTABLE_REGION_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_EXPAND_PRINTABLE_REGION_OFFSET, 0)) {
+		// Check if clearing heatbed temperature, skew X and Y, expand printable region, external bed height, calibrate Z0 correction, and X and Y jerk sensitivity, value, direction, and validity in EEPROM failed
+		if(!eepromWriteInt(EEPROM_HEATBED_TEMPERATURE_OFFSET, EEPROM_SAVED_Y_STATE_LENGTH + EEPROM_SAVED_Y_STATE_OFFSET - EEPROM_HEATBED_TEMPERATURE_OFFSET, 0)) {
 
 			// Log error
 			if(logFunction)
-				logFunction("Failed to clear expand printable region, external bed height, calibrate Z0 correction, and X and Y jerk sensitivity, value, direction, and validity");
+				logFunction("Failed to clear heatbed temperature, skew X and Y, expand printable region, external bed height, calibrate Z0 correction, and X and Y jerk sensitivity, value, direction, and validity");
 
 			// Return false
 			return false;
 		}
 		
-		// Log expand printable region, external bed height, calibrate Z0 correction, and X and Y jerk sensitivity, value, direction, and validity status
+		// Log heatbed temperature, skew X and Y, expand printable region, external bed height, calibrate Z0 correction, and X and Y jerk sensitivity, value, direction, and validity status
 		if(logFunction)
-			logFunction("Successfully cleared out expand printable region, external bed height, calibrate Z0 correction, and X and Y jerk sensitivity, value, direction, and validity");
+			logFunction("Successfully cleared out heatbed temperature, skew X and Y, expand printable region, external bed height, calibrate Z0 correction, and X and Y jerk sensitivity, value, direction, and validity");
 		
 		// Check if clearing motor's steps/mm failed
 		if(!eepromWriteInt(EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, EEPROM_E_MOTOR_STEPS_PER_MM_LENGTH + EEPROM_E_MOTOR_STEPS_PER_MM_OFFSET - EEPROM_X_MOTOR_STEPS_PER_MM_OFFSET, 0)) {
@@ -3093,6 +3190,12 @@ bool Printer::eepromKeepFloatWithinRange(uint16_t offset, uint8_t length, float 
 
 string Printer::getSerialNumber() {
 
+	// Check if serial number is malformed
+	if(serialNumber.length() != EEPROM_SERIAL_NUMBER_LENGTH || !all_of(serialNumber.begin(), serialNumber.end(), ::isalnum))
+	
+		// Return an empty string
+		return "";
+
 	// Return serial number
 	return serialNumber.substr(0, 2) + '-' + serialNumber.substr(2, 2) + '-' + serialNumber.substr(4, 2) + '-' + serialNumber.substr(6, 2) + '-' + serialNumber.substr(8, 2) + '-' + serialNumber.substr(10, 3) + '-' + serialNumber.substr(13, 13);
 }
@@ -3239,6 +3342,10 @@ vector<string> Printer::getEepromSettingsNames() {
 	settingsNames.push_back("X jerk homing sensitivity");
 	settingsNames.push_back("Y jerk homing sensitivity");
 	settingsNames.push_back("Calibrate Z0 correction");
+	settingsNames.push_back("External bed height");
+	settingsNames.push_back("Expand printable region");
+	settingsNames.push_back("Skew X");
+	settingsNames.push_back("Skew Y");
 	
 	// Return settings names
 	return settingsNames;
@@ -3366,6 +3473,26 @@ void Printer::getEepromOffsetLengthAndType(const string &name, uint16_t &offset,
 		offset = EEPROM_CALIBRATE_Z0_CORRECTION_OFFSET;
 		length = EEPROM_CALIBRATE_Z0_CORRECTION_LENGTH;
 		type = EEPROM_CALIBRATE_Z0_CORRECTION_TYPE;
+	}
+	else if(name == "External bed height") {
+		offset = EEPROM_EXTERNAL_BED_HEIGHT_OFFSET;
+		length = EEPROM_EXTERNAL_BED_HEIGHT_LENGTH;
+		type = EEPROM_EXTERNAL_BED_HEIGHT_TYPE;
+	}
+	else if(name == "Expand printable region") {
+		offset = EEPROM_EXPAND_PRINTABLE_REGION_OFFSET;
+		length = EEPROM_EXPAND_PRINTABLE_REGION_LENGTH;
+		type = EEPROM_EXPAND_PRINTABLE_REGION_TYPE;
+	}
+	else if(name == "Skew X") {
+		offset = EEPROM_SKEW_X_OFFSET;
+		length = EEPROM_SKEW_X_LENGTH;
+		type = EEPROM_SKEW_X_TYPE;
+	}
+	else if(name == "Skew Y") {
+		offset = EEPROM_SKEW_Y_OFFSET;
+		length = EEPROM_SKEW_Y_LENGTH;
+		type = EEPROM_SKEW_Y_TYPE;
 	}
 }
 

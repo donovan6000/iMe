@@ -34,5 +34,11 @@ Purpose: Returns the location of a temporary directory
 */
 string getTemporaryLocation();
 
+/*
+Name: To lower case
+Purpose: Returns the string converted to lower case
+*/
+string toLowerCase(const string &text);
+
 
 #endif

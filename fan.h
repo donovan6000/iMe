@@ -11,16 +11,22 @@
 
 
 // Fan class
-class Fan {
+class Fan final {
 
 	// Public
 	public:
 	
 		// Initialize
-		static void initialize();
+		static void initialize() noexcept;
 		
 		// Set speed
-		static void setSpeed(uint8_t speed);
+		static void setSpeed(uint8_t speed) noexcept;
+		
+		// Reset
+		static void reset() noexcept;
+		
+		// Is on
+		static bool isOn() noexcept;
 };
 
 
