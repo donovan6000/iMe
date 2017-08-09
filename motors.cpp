@@ -141,35 +141,39 @@ Purpose: Performs actions for all motors that are still moving
 */
 void updateMotorsStepTimer() noexcept;
 
-/*
-Name: Calculate plance normal vector
-Purpose: Returns the normal vector for the plane whos corners are each specified value
-*/
-inline Vector calculatePlaneNormalVector(const Vector &v1, const Vector &v2, const Vector &v3) noexcept;
+// Check if bed leveling is enabled
+#if ENABLE_BED_LEVELING_COMPENSATION == true
 
-/*
-Name: Generate plane equation
-Purpose: Returns a plane whos corners are each specified value
-*/
-Vector generatePlaneEquation(const Vector &v1, const Vector &v2, const Vector &v3) noexcept;
+	/*
+	Name: Calculate plance normal vector
+	Purpose: Returns the normal vector for the plane whos corners are each specified value
+	*/
+	inline Vector calculatePlaneNormalVector(const Vector &v1, const Vector &v2, const Vector &v3) noexcept;
 
-/*
-Name: Get Z from XY and plane
-Purpose: Returns a plane's Z value at the provided point
-*/
-float getZFromXYAndPlane(const Vector &point, const Vector &planeABC) noexcept;
+	/*
+	Name: Generate plane equation
+	Purpose: Returns a plane whos corners are each specified value
+	*/
+	Vector generatePlaneEquation(const Vector &v1, const Vector &v2, const Vector &v3) noexcept;
 
-/*
-Name: Sign
-Purpose: Returns the direction of the first point in relation to the other points
-*/
-float sign(const Vector &p1, const Vector &p2, const Vector &p3) noexcept;
+	/*
+	Name: Get Z from XY and plane
+	Purpose: Returns a plane's Z value at the provided point
+	*/
+	float getZFromXYAndPlane(const Vector &point, const Vector &planeABC) noexcept;
 
-/*
-Name: Is point in triangle
-Purpose: Returns if a specified point is in the triangle whos corners are each specified value
-*/
-bool isPointInTriangle(const Vector &pt, const Vector &v1, const Vector &v2, const Vector &v3) noexcept;
+	/*
+	Name: Sign
+	Purpose: Returns the direction of the first point in relation to the other points
+	*/
+	float sign(const Vector &p1, const Vector &p2, const Vector &p3) noexcept;
+
+	/*
+	Name: Is point in triangle
+	Purpose: Returns if a specified point is in the triangle whos corners are each specified value
+	*/
+	bool isPointInTriangle(const Vector &pt, const Vector &v1, const Vector &v2, const Vector &v3) noexcept;
+#endif
 
 
 // Supporting function implementation
@@ -236,56 +240,60 @@ void updateMotorsStepTimer() noexcept {
 			motorsStepAction(static_cast<Axes>(i));
 }
 
-Vector calculatePlaneNormalVector(const Vector &v1, const Vector &v2, const Vector &v3) noexcept {
+// Check if bed leveling is enabled
+#if ENABLE_BED_LEVELING_COMPENSATION == true
 
-	// Initialize variables
-	Vector vector1 = v2 - v1;
-	Vector vector2 = v3 - v1;
+	Vector calculatePlaneNormalVector(const Vector &v1, const Vector &v2, const Vector &v3) noexcept {
+
+		// Initialize variables
+		Vector vector1 = v2 - v1;
+		Vector vector2 = v3 - v1;
 	
-	// Return normal vector
-	return {vector1[1] * vector2[2] - vector2[1] * vector1[2], vector1[2] * vector2[0] - vector2[2] * vector1[0], vector1[0] * vector2[1] - vector2[0] * vector1[1], 0};
-}
+		// Return normal vector
+		return {vector1[1] * vector2[2] - vector2[1] * vector1[2], vector1[2] * vector2[0] - vector2[2] * vector1[0], vector1[0] * vector2[1] - vector2[0] * vector1[1], 0};
+	}
 
-Vector generatePlaneEquation(const Vector &v1, const Vector &v2, const Vector &v3) noexcept {
+	Vector generatePlaneEquation(const Vector &v1, const Vector &v2, const Vector &v3) noexcept {
 
-	// Initialize variables
-	Vector vector = calculatePlaneNormalVector(v1, v2, v3);
+		// Initialize variables
+		Vector vector = calculatePlaneNormalVector(v1, v2, v3);
 	
-	// Return plane equation
-	return {vector[0], vector[1], vector[2], -(vector[0] * v1[0] + vector[1] * v1[1] + vector[2] * v1[2])};
-}
+		// Return plane equation
+		return {vector[0], vector[1], vector[2], -(vector[0] * v1[0] + vector[1] * v1[1] + vector[2] * v1[2])};
+	}
 
-float getZFromXYAndPlane(const Vector &point, const Vector &planeABC) noexcept {
+	float getZFromXYAndPlane(const Vector &point, const Vector &planeABC) noexcept {
 
-	// Return Z
-	return planeABC[2] ? (planeABC[0] * point.x + planeABC[1] * point.y + planeABC[3]) / -planeABC[2] : 0;
-}
+		// Return Z
+		return planeABC[2] ? (planeABC[0] * point.x + planeABC[1] * point.y + planeABC[3]) / -planeABC[2] : 0;
+	}
 
-float sign(const Vector &p1, const Vector &p2, const Vector &p3) noexcept {
+	float sign(const Vector &p1, const Vector &p2, const Vector &p3) noexcept {
 
-	// Return sign
-	return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
-}
+		// Return sign
+		return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+	}
 
-bool isPointInTriangle(const Vector &pt, const Vector &v1, const Vector &v2, const Vector &v3) noexcept {
+	bool isPointInTriangle(const Vector &pt, const Vector &v1, const Vector &v2, const Vector &v3) noexcept {
 
-	// Initialize variables
-	Vector vector1 = v1 - v2 + v1 - v3;
-	vector1.normalize();
-	Vector vector2 = v1 + vector1 * 0.01;
-	vector1 = v2 - v1 + v2 - v3;
-	vector1.normalize();
-	Vector vector3 = v2 + vector1 * 0.01;
-	vector1 = v3 - v1 + v3 - v2;
-	vector1.normalize();
-	Vector vector4 = v3 + vector1 * 0.01;
+		// Initialize variables
+		Vector vector1 = v1 - v2 + v1 - v3;
+		vector1.normalize();
+		Vector vector2 = v1 + vector1 * 0.01;
+		vector1 = v2 - v1 + v2 - v3;
+		vector1.normalize();
+		Vector vector3 = v2 + vector1 * 0.01;
+		vector1 = v3 - v1 + v3 - v2;
+		vector1.normalize();
+		Vector vector4 = v3 + vector1 * 0.01;
 	
-	// Return if inside triangle
-	bool flag = sign(pt, vector2, vector3) < 0;
-	bool flag2 = sign(pt, vector3, vector4) < 0;
-	bool flag3 = sign(pt, vector4, vector2) < 0;
-	return flag == flag2 && flag2 == flag3;
-}
+		// Return if inside triangle
+		bool flag = sign(pt, vector2, vector3) < 0;
+		bool flag2 = sign(pt, vector3, vector4) < 0;
+		bool flag3 = sign(pt, vector4, vector2) < 0;
+		return flag == flag2 && flag2 == flag3;
+	}
+#endif
 
 bool Motors::areMotorsMoving() noexcept {
 
@@ -324,54 +332,62 @@ void Motors::stopMotorsStepTimer() noexcept {
 	updateMotorsStepTimer();
 }
 
-float Motors::getHeightAdjustmentRequired(float x, float y) noexcept {
+// Check if bed leveling is enabled
+#if ENABLE_BED_LEVELING_COMPENSATION == true
 
-	// Initialize variables
-	Vector point;
-	point.initialize(x, y);
+	float Motors::getHeightAdjustmentRequired(float x, float y) noexcept {
+
+		// Initialize variables
+		Vector point;
+		point.initialize(x, y);
 	
-	// Return height adjustment
-	if(x <= frontLeftVector.x && y >= backRightVector.y)
-		return (getZFromXYAndPlane(point, backPlane) + getZFromXYAndPlane(point, leftPlane)) / 2;
+		// Return height adjustment
+		if(x <= frontLeftVector.x && y >= backRightVector.y)
+			return (getZFromXYAndPlane(point, backPlane) + getZFromXYAndPlane(point, leftPlane)) / 2;
 	
-	else if(x <= frontLeftVector.x && y <= frontLeftVector.y)
-		return (getZFromXYAndPlane(point, frontPlane) + getZFromXYAndPlane(point, leftPlane)) / 2;
+		else if(x <= frontLeftVector.x && y <= frontLeftVector.y)
+			return (getZFromXYAndPlane(point, frontPlane) + getZFromXYAndPlane(point, leftPlane)) / 2;
 	
-	else if(x >= frontRightVector.x && y <= frontLeftVector.y)
-		return (getZFromXYAndPlane(point, frontPlane) + getZFromXYAndPlane(point, rightPlane)) / 2;
+		else if(x >= frontRightVector.x && y <= frontLeftVector.y)
+			return (getZFromXYAndPlane(point, frontPlane) + getZFromXYAndPlane(point, rightPlane)) / 2;
 	
-	else if(x >= frontRightVector.x && y >= backRightVector.y)
-		return (getZFromXYAndPlane(point, backPlane) + getZFromXYAndPlane(point, rightPlane)) / 2;
+		else if(x >= frontRightVector.x && y >= backRightVector.y)
+			return (getZFromXYAndPlane(point, backPlane) + getZFromXYAndPlane(point, rightPlane)) / 2;
 	
-	else if(x <= frontLeftVector.x)
-		return getZFromXYAndPlane(point, leftPlane);
+		else if(x <= frontLeftVector.x)
+			return getZFromXYAndPlane(point, leftPlane);
 	
-	else if(x >= frontRightVector.x)
-		return getZFromXYAndPlane(point, rightPlane);
+		else if(x >= frontRightVector.x)
+			return getZFromXYAndPlane(point, rightPlane);
 	
-	else if(y >= backRightVector.y)
-		return getZFromXYAndPlane(point, backPlane);
+		else if(y >= backRightVector.y)
+			return getZFromXYAndPlane(point, backPlane);
 	
-	else if(y <= frontLeftVector.y)
+		else if(y <= frontLeftVector.y)
+			return getZFromXYAndPlane(point, frontPlane);
+	
+		else if(isPointInTriangle(point, centerVector, frontLeftVector, backLeftVector))
+			return getZFromXYAndPlane(point, leftPlane);
+	
+		else if(isPointInTriangle(point, centerVector, frontRightVector, backRightVector))
+			return getZFromXYAndPlane(point, rightPlane);
+	
+		else if(isPointInTriangle(point, centerVector, backLeftVector, backRightVector))
+			return getZFromXYAndPlane(point, backPlane);
+	
 		return getZFromXYAndPlane(point, frontPlane);
-	
-	else if(isPointInTriangle(point, centerVector, frontLeftVector, backLeftVector))
-		return getZFromXYAndPlane(point, leftPlane);
-	
-	else if(isPointInTriangle(point, centerVector, frontRightVector, backRightVector))
-		return getZFromXYAndPlane(point, rightPlane);
-	
-	else if(isPointInTriangle(point, centerVector, backLeftVector, backRightVector))
-		return getZFromXYAndPlane(point, backPlane);
-	
-	return getZFromXYAndPlane(point, frontPlane);
-}
+	}
+#endif
 
-float Motors::getSkewAdjustmentRequired(Axes axis, float height) noexcept {
+// Check if skew compensation is enabled
+#if ENABLE_SKEW_COMPENSATION == true
 
-	// Return skew adjustment
-	return BED_HIGH_MAX_Z - externalBedHeight - BED_LOW_MIN_Z ? height / (BED_HIGH_MAX_Z - externalBedHeight - BED_LOW_MIN_Z) * -(axis == X ? skewX : skewY) : 0;
-}
+	float Motors::getSkewAdjustmentRequired(Axes axis, float height) noexcept {
+
+		// Return skew adjustment
+		return BED_HIGH_MAX_Z - externalBedHeight - BED_LOW_MIN_Z ? height / (BED_HIGH_MAX_Z - externalBedHeight - BED_LOW_MIN_Z) * -(axis == X ? skewX : skewY) : 0;
+	}
+#endif
 
 void Motors::initialize() noexcept {
 
@@ -479,12 +495,16 @@ void Motors::initialize() noexcept {
 	// Initialize accelerometer
 	accelerometer.initialize();
 	
-	// Set vectors
-	backRightVector.initialize(BED_CENTER_X + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_Y + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER);
-	backLeftVector.initialize(BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_Y + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER);
-	frontLeftVector.initialize(BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_Y - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER);
-	frontRightVector.initialize(BED_CENTER_X + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_Y - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER);
-	centerVector.initialize(BED_CENTER_X, BED_CENTER_Y);
+	// Check if bed leveling is enabled
+	#if ENABLE_BED_LEVELING_COMPENSATION == true
+	
+		// Set vectors
+		backRightVector.initialize(BED_CENTER_X + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_Y + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER);
+		backLeftVector.initialize(BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_Y + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER);
+		frontLeftVector.initialize(BED_CENTER_X - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_Y - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER);
+		frontRightVector.initialize(BED_CENTER_X + BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER, BED_CENTER_Y - BED_CALIBRATION_POSITIONS_DISTANCE_FROM_CENTER);
+		centerVector.initialize(BED_CENTER_X, BED_CENTER_Y);
+	#endif
 	
 	// Update bed changes
 	updateBedChanges(false);
@@ -642,47 +662,65 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) noexcept {
 			// Go through all tiers
 			for(Tiers currentTier = LOW_TIER;; currentTier = static_cast<Tiers>(currentTier + 1)) {
 			
-				// Get minimum and maximum X and Y values based on current tier
-				float minValues[2], maxValues[2];
-				switch(currentTier) {
+				// Check if bed leveling or skew compensation is enabled
+				#if ENABLE_BED_LEVELING_COMPENSATION == true || ENABLE_SKEW_COMPENSATION == true
 			
-					case LOW_TIER:
-						minValues[X] = BED_LOW_MIN_X;
-						minValues[Y] = BED_LOW_MIN_Y;
-						maxValues[X] = BED_LOW_MAX_X;
-						maxValues[Y] = BED_LOW_MAX_Y;
-					break;
+					// Get minimum and maximum X and Y values based on current tier
+					float minValues[2], maxValues[2];
+					switch(currentTier) {
 			
-					case MEDIUM_TIER:
-						minValues[X] = BED_MEDIUM_MIN_X;
-						minValues[Y] = BED_MEDIUM_MIN_Y;
-						maxValues[X] = BED_MEDIUM_MAX_X;
-						maxValues[Y] = BED_MEDIUM_MAX_Y;
-					break;
+						case LOW_TIER:
+							minValues[X] = BED_LOW_MIN_X;
+							minValues[Y] = BED_LOW_MIN_Y;
+							maxValues[X] = BED_LOW_MAX_X;
+							maxValues[Y] = BED_LOW_MAX_Y;
+						break;
 			
-					case HIGH_TIER:
-					default:
-						minValues[X] = BED_HIGH_MIN_X;
-						minValues[Y] = BED_HIGH_MIN_Y;
-						maxValues[X] = BED_HIGH_MAX_X;
-						maxValues[Y] = BED_HIGH_MAX_Y;
-				}
+						case MEDIUM_TIER:
+							minValues[X] = BED_MEDIUM_MIN_X;
+							minValues[Y] = BED_MEDIUM_MIN_Y;
+							maxValues[X] = BED_MEDIUM_MAX_X;
+							maxValues[Y] = BED_MEDIUM_MAX_Y;
+						break;
+			
+						case HIGH_TIER:
+						default:
+							minValues[X] = BED_HIGH_MIN_X;
+							minValues[Y] = BED_HIGH_MIN_Y;
+							maxValues[X] = BED_HIGH_MAX_X;
+							maxValues[Y] = BED_HIGH_MAX_Y;
+					}
+				#endif
 				
-				// Set potential X and Y values based on boundaries
-				float potentialValues[] = {
-					getValueInRange(newValues[X], minValues[X], maxValues[X]),
-					getValueInRange(newValues[Y], minValues[Y], maxValues[Y])
-				};
+				// Check if bed leveling is enabled
+				#if ENABLE_BED_LEVELING_COMPENSATION == true
 				
-				// Set potential Z based on height adjustment change
-				float potentialZ = newValues[Z] + getHeightAdjustmentRequired(potentialValues[X], potentialValues[Y]);
+					// Set potential X and Y values based on boundaries
+					float potentialValues[] = {
+						getValueInRange(newValues[X], minValues[X], maxValues[X]),
+						getValueInRange(newValues[Y], minValues[Y], maxValues[Y])
+					};
+				
+					// Set potential Z based on height adjustment change
+					float potentialZ = newValues[Z] + getHeightAdjustmentRequired(potentialValues[X], potentialValues[Y]);
+				
+				// Otherwise
+				#else
+				
+					// Set potential Z based on height adjustment change
+					float potentialZ = newValues[Z];
+				#endif
 				
 				// Check if resulting tier wasn't higher
 				if(currentTier >= getTierAtHeight(potentialZ)) {
 				
-					// Apply limited X and Y values with skewed boundaries
-					newValues[X] = getValueInRange(newValues[X], minValues[X] - getSkewAdjustmentRequired(X, potentialZ), maxValues[X] - getSkewAdjustmentRequired(X, potentialZ));
-					newValues[Y] = getValueInRange(newValues[Y], minValues[Y] - getSkewAdjustmentRequired(Y, potentialZ), maxValues[Y] - getSkewAdjustmentRequired(Y, potentialZ));
+					// Check if skew compensation is enabled
+					#if ENABLE_SKEW_COMPENSATION == true
+				
+						// Apply limited X and Y values with skewed boundaries
+						newValues[X] = getValueInRange(newValues[X], minValues[X] - getSkewAdjustmentRequired(X, potentialZ), maxValues[X] - getSkewAdjustmentRequired(X, potentialZ));
+						newValues[Y] = getValueInRange(newValues[Y], minValues[Y] - getSkewAdjustmentRequired(Y, potentialZ), maxValues[Y] - getSkewAdjustmentRequired(Y, potentialZ));
+					#endif
 					
 					// Break
 					break;
@@ -875,12 +913,16 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) noexcept {
 			memset(currentStateOfValues, INVALID, sizeof(currentStateOfValues));
 			memset(validValues, INVALID, sizeof(validValues));
 		}
-	
-		// Check if compensating for backlash and it's applicable
-		if(tasks & BACKLASH_TASK && (backlashDirections[X] != NONE || backlashDirections[Y] != NONE))
 		
-			// Compensate for backlash
-			compensateForBacklash(backlashDirections[X], backlashDirections[Y]);
+		// Check if backlash compensation is enabled
+		#if ENABLE_BACKLASH_COMPENSATION == true
+	
+			// Check if compensating for backlash and it's applicable
+			if(tasks & BACKLASH_TASK && (backlashDirections[X] != NONE || backlashDirections[Y] != NONE))
+		
+				// Compensate for backlash
+				compensateForBacklash(backlashDirections[X], backlashDirections[Y]);
+		#endif
 		
 		// Split up movement and compensate for bed leveling and skew if set
 		splitUpMovement(tasks & BED_LEVELING_AND_SKEW_TASK);
@@ -1047,79 +1089,83 @@ void Motors::moveToHeight(float height, bool applyBedAndSkewCompensation) noexce
 		currentStateOfValues[Z] = validZ;
 }
 
-void Motors::compensateForBacklash(BacklashDirection backlashDirectionX, BacklashDirection backlashDirectionY) noexcept {
+// Check if backlash compensation is enabled
+#if ENABLE_BACKLASH_COMPENSATION == true
 
-	// Save number of remaining steps for X and Y motors
-	float savedNumberOfRemainingSteps[2];
-	memcpy(savedNumberOfRemainingSteps, motorsNumberOfRemainingSteps, sizeof(savedNumberOfRemainingSteps));
+	void Motors::compensateForBacklash(BacklashDirection backlashDirectionX, BacklashDirection backlashDirectionY) noexcept {
+
+		// Save number of remaining steps for X and Y motors
+		float savedNumberOfRemainingSteps[2];
+		memcpy(savedNumberOfRemainingSteps, motorsNumberOfRemainingSteps, sizeof(savedNumberOfRemainingSteps));
 	
-	// Clear number of remaining steps for X and Y motors
-	memset(motorsNumberOfRemainingSteps, 0, sizeof(savedNumberOfRemainingSteps));
+		// Clear number of remaining steps for X and Y motors
+		memset(motorsNumberOfRemainingSteps, 0, sizeof(savedNumberOfRemainingSteps));
 	
-	// Save pin levels
-	bool savedPinLevels[] = {
-		ioport_get_pin_output_level(MOTOR_X_DIRECTION_PIN),
-		ioport_get_pin_output_level(MOTOR_Y_DIRECTION_PIN)
-	};
+		// Save pin levels
+		bool savedPinLevels[] = {
+			ioport_get_pin_output_level(MOTOR_X_DIRECTION_PIN),
+			ioport_get_pin_output_level(MOTOR_Y_DIRECTION_PIN)
+		};
 	
-	// Initialize G-code
-	Gcode gcode;
-	gcode.valueX = gcode.valueY = 0;
-	gcode.commandParameters = PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
+		// Initialize G-code
+		Gcode gcode;
+		gcode.valueX = gcode.valueY = 0;
+		gcode.commandParameters = PARAMETER_X_OFFSET | PARAMETER_Y_OFFSET | PARAMETER_F_OFFSET;
 	
-	// Set backlash X
-	if(backlashDirectionX != NONE) {
-		nvm_eeprom_read_buffer(EEPROM_BACKLASH_X_OFFSET, &gcode.valueX, EEPROM_BACKLASH_X_LENGTH);
-		if(backlashDirectionX == NEGATIVE)
-			gcode.valueX *= -1;
+		// Set backlash X
+		if(backlashDirectionX != NONE) {
+			nvm_eeprom_read_buffer(EEPROM_BACKLASH_X_OFFSET, &gcode.valueX, EEPROM_BACKLASH_X_LENGTH);
+			if(backlashDirectionX == NEGATIVE)
+				gcode.valueX *= -1;
+		}
+	
+		// Set backlash Y
+		if(backlashDirectionY != NONE) {
+			nvm_eeprom_read_buffer(EEPROM_BACKLASH_Y_OFFSET, &gcode.valueY, EEPROM_BACKLASH_Y_LENGTH);
+			if(backlashDirectionY == NEGATIVE)
+				gcode.valueY *= -1;
+		}
+	
+		// Set backlash speed
+		nvm_eeprom_read_buffer(EEPROM_BACKLASH_SPEED_OFFSET, &gcode.valueF, EEPROM_BACKLASH_SPEED_LENGTH);
+	
+		// Save mode
+		Modes savedMode = mode;
+	
+		// Set mode to relative
+		mode = RELATIVE;
+	
+		// Save X, Y, and F values
+		float savedXY[2];
+		memcpy(savedXY, currentValues, sizeof(savedXY));
+		float savedF = currentValues[F];
+	
+		// Move by backlash amount
+		move(gcode, NO_TASK);
+	
+		// Disable saving motors state
+		tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
+	
+		// Restore X and Y
+		memcpy(currentValues, savedXY, sizeof(savedXY));
+	
+		// Enable saving motors state
+		tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
+	
+		// Restore F value
+		currentValues[F] = savedF;
+	
+		// Restore mode
+		mode = savedMode;
+	
+		// Restore number of remaining steps for X and Y motors
+		memcpy(motorsNumberOfRemainingSteps, savedNumberOfRemainingSteps, sizeof(savedNumberOfRemainingSteps));
+	
+		// Restore pin levels
+		ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, savedPinLevels[X]);
+		ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, savedPinLevels[Y]);
 	}
-	
-	// Set backlash Y
-	if(backlashDirectionY != NONE) {
-		nvm_eeprom_read_buffer(EEPROM_BACKLASH_Y_OFFSET, &gcode.valueY, EEPROM_BACKLASH_Y_LENGTH);
-		if(backlashDirectionY == NEGATIVE)
-			gcode.valueY *= -1;
-	}
-	
-	// Set backlash speed
-	nvm_eeprom_read_buffer(EEPROM_BACKLASH_SPEED_OFFSET, &gcode.valueF, EEPROM_BACKLASH_SPEED_LENGTH);
-	
-	// Save mode
-	Modes savedMode = mode;
-	
-	// Set mode to relative
-	mode = RELATIVE;
-	
-	// Save X, Y, and F values
-	float savedXY[2];
-	memcpy(savedXY, currentValues, sizeof(savedXY));
-	float savedF = currentValues[F];
-	
-	// Move by backlash amount
-	move(gcode, NO_TASK);
-	
-	// Disable saving motors state
-	tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
-	
-	// Restore X and Y
-	memcpy(currentValues, savedXY, sizeof(savedXY));
-	
-	// Enable saving motors state
-	tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
-	
-	// Restore F value
-	currentValues[F] = savedF;
-	
-	// Restore mode
-	mode = savedMode;
-	
-	// Restore number of remaining steps for X and Y motors
-	memcpy(motorsNumberOfRemainingSteps, savedNumberOfRemainingSteps, sizeof(savedNumberOfRemainingSteps));
-	
-	// Restore pin levels
-	ioport_set_pin_level(MOTOR_X_DIRECTION_PIN, savedPinLevels[X]);
-	ioport_set_pin_level(MOTOR_Y_DIRECTION_PIN, savedPinLevels[Y]);
-}
+#endif
 
 void Motors::splitUpMovement(bool applyBedAndSkewCompensation) noexcept {
 	
@@ -1151,11 +1197,21 @@ void Motors::splitUpMovement(bool applyBedAndSkewCompensation) noexcept {
 	
 		// Set that X, Y, and Z are invalid
 		memset(currentStateOfValues, INVALID, sizeof(currentStateOfValues));
+		
+		// Check if bed leveling is enabled
+		#if ENABLE_BED_LEVELING_COMPENSATION == true
 	
-		// Adjust current X, Y, and Z values to current real position
-		currentValues[Z] += getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
-		currentValues[X] += getSkewAdjustmentRequired(X, currentValues[Z]);
-		currentValues[Y] += getSkewAdjustmentRequired(Y, currentValues[Z]);
+			// Adjust current Z values to current real position
+			currentValues[Z] += getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+		#endif
+		
+		// Check if skew compensation is enabled
+		#if ENABLE_SKEW_COMPENSATION == true
+		
+			// Adjust current X and Y values to current real position
+			currentValues[X] += getSkewAdjustmentRequired(X, currentValues[Z]);
+			currentValues[Y] += getSkewAdjustmentRequired(Y, currentValues[Z]);
+		#endif
 	}
 	
 	// Enable saving motors state
@@ -1205,10 +1261,20 @@ void Motors::splitUpMovement(bool applyBedAndSkewCompensation) noexcept {
 					// Check if applying bed and skew compensation
 					if(applyBedAndSkewCompensation) {
 					
-						// Adjust G-code's X, Y, and Z values to real position
-						gcode.valueZ += getHeightAdjustmentRequired(gcode.valueX, gcode.valueY);
-						gcode.valueX += getSkewAdjustmentRequired(X, gcode.valueZ);
-						gcode.valueY += getSkewAdjustmentRequired(Y, gcode.valueZ);
+						// Check if bed leveling is enabled
+						#if ENABLE_BED_LEVELING_COMPENSATION == true
+					
+							// Adjust G-code's Z values to real position
+							gcode.valueZ += getHeightAdjustmentRequired(gcode.valueX, gcode.valueY);
+						#endif
+						
+						// Check if skew compensation is enabled
+						#if ENABLE_SKEW_COMPENSATION == true
+						
+							// Adjust G-code's X and Y values to real position
+							gcode.valueX += getSkewAdjustmentRequired(X, gcode.valueZ);
+							gcode.valueY += getSkewAdjustmentRequired(Y, gcode.valueZ);
+						#endif
 					}
 				break;
 			
@@ -1253,77 +1319,102 @@ void Motors::updateBedChanges(bool affectValues) noexcept {
 	// Initialize bed height offset
 	static float bedHeightOffset;
 	
-	// Set height adjustment
-	float heightAdjustment = getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+	// Check if bed leveling is enabled
+	#if ENABLE_BED_LEVELING_COMPENSATION == true
+	
+		// Set height adjustment
+		float heightAdjustment = getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
 
-	// Set previous height adjustment
-	float previousHeightAdjustment = heightAdjustment + bedHeightOffset;
+		// Set previous height adjustment
+		float previousHeightAdjustment = heightAdjustment + bedHeightOffset;
 	
-	// Go through all positions
-	for(uint8_t i = 0; i < 4; ++i) {
+		// Go through all positions
+		for(uint8_t i = 0; i < 4; ++i) {
 	
-		// Set position's orientation, offset, and value
-		eeprom_addr_t orientationOffset, offsetOffset;
-		uint8_t orientationLength, offsetLength;
-		float *value;
-		switch(i) {
+			// Set position's orientation, offset, and value
+			eeprom_addr_t orientationOffset, offsetOffset;
+			uint8_t orientationLength, offsetLength;
+			float *value;
+			switch(i) {
 		
-			case 0:
-				orientationOffset = EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET;
-				orientationLength = EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH;
-				offsetOffset = EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET;
-				offsetLength = EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH;
-				value = &backRightVector.z;
-			break;
+				case 0:
+					orientationOffset = EEPROM_BED_ORIENTATION_BACK_RIGHT_OFFSET;
+					orientationLength = EEPROM_BED_ORIENTATION_BACK_RIGHT_LENGTH;
+					offsetOffset = EEPROM_BED_OFFSET_BACK_RIGHT_OFFSET;
+					offsetLength = EEPROM_BED_OFFSET_BACK_RIGHT_LENGTH;
+					value = &backRightVector.z;
+				break;
 			
-			case 1:
-				orientationOffset = EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET;
-				orientationLength = EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH;
-				offsetOffset = EEPROM_BED_OFFSET_BACK_LEFT_OFFSET;
-				offsetLength = EEPROM_BED_OFFSET_BACK_LEFT_LENGTH;
-				value = &backLeftVector.z;
-			break;
+				case 1:
+					orientationOffset = EEPROM_BED_ORIENTATION_BACK_LEFT_OFFSET;
+					orientationLength = EEPROM_BED_ORIENTATION_BACK_LEFT_LENGTH;
+					offsetOffset = EEPROM_BED_OFFSET_BACK_LEFT_OFFSET;
+					offsetLength = EEPROM_BED_OFFSET_BACK_LEFT_LENGTH;
+					value = &backLeftVector.z;
+				break;
 			
-			case 2:
-				orientationOffset = EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET;
-				orientationLength = EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH;
-				offsetOffset = EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET;
-				offsetLength = EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH;
-				value = &frontLeftVector.z;
-			break;
+				case 2:
+					orientationOffset = EEPROM_BED_ORIENTATION_FRONT_LEFT_OFFSET;
+					orientationLength = EEPROM_BED_ORIENTATION_FRONT_LEFT_LENGTH;
+					offsetOffset = EEPROM_BED_OFFSET_FRONT_LEFT_OFFSET;
+					offsetLength = EEPROM_BED_OFFSET_FRONT_LEFT_LENGTH;
+					value = &frontLeftVector.z;
+				break;
 			
-			case 3:
-			default:
-				orientationOffset = EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET;
-				orientationLength = EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH;
-				offsetOffset = EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET;
-				offsetLength = EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH;
-				value = &frontRightVector.z;
+				case 3:
+				default:
+					orientationOffset = EEPROM_BED_ORIENTATION_FRONT_RIGHT_OFFSET;
+					orientationLength = EEPROM_BED_ORIENTATION_FRONT_RIGHT_LENGTH;
+					offsetOffset = EEPROM_BED_OFFSET_FRONT_RIGHT_OFFSET;
+					offsetLength = EEPROM_BED_OFFSET_FRONT_RIGHT_LENGTH;
+					value = &frontRightVector.z;
+			}
+		
+			// Update position vector
+			float orientation, offset;
+			nvm_eeprom_read_buffer(orientationOffset, &orientation, orientationLength);
+			nvm_eeprom_read_buffer(offsetOffset, &offset, offsetLength);
+			*value = orientation + offset;
 		}
-		
-		// Update position vector
-		float orientation, offset;
-		nvm_eeprom_read_buffer(orientationOffset, &orientation, orientationLength);
-		nvm_eeprom_read_buffer(offsetOffset, &offset, offsetLength);
-		*value = orientation + offset;
-	}
 	
-	// Update planes
-	backPlane = generatePlaneEquation(backLeftVector, backRightVector, centerVector);
-	leftPlane = generatePlaneEquation(backLeftVector, frontLeftVector, centerVector);
-	rightPlane = generatePlaneEquation(backRightVector, frontRightVector, centerVector);
-	frontPlane = generatePlaneEquation(frontLeftVector, frontRightVector, centerVector);
+		// Update planes
+		backPlane = generatePlaneEquation(backLeftVector, backRightVector, centerVector);
+		leftPlane = generatePlaneEquation(backLeftVector, frontLeftVector, centerVector);
+		rightPlane = generatePlaneEquation(backRightVector, frontRightVector, centerVector);
+		frontPlane = generatePlaneEquation(frontLeftVector, frontRightVector, centerVector);
+	
+	// Otherwise
+	#else
+	
+		// Set previous height adjustment
+		float previousHeightAdjustment = bedHeightOffset;
+	#endif
 	
 	// Update bed height offset
 	nvm_eeprom_read_buffer(EEPROM_BED_HEIGHT_OFFSET_OFFSET, &bedHeightOffset, EEPROM_BED_HEIGHT_OFFSET_LENGTH);
 	
-	// Set previous skew adjustment
-	float previousSkewAdjustmentX = getSkewAdjustmentRequired(X, currentValues[Z] + heightAdjustment);
-	float previousSkewAdjustmentY = getSkewAdjustmentRequired(Y, currentValues[Z] + heightAdjustment);
+	// Check if skew compensation is enabled
+	#if ENABLE_SKEW_COMPENSATION == true
 	
-	// Update X and Y skew values
-	nvm_eeprom_read_buffer(EEPROM_SKEW_X_OFFSET, &skewX, EEPROM_SKEW_X_LENGTH);
-	nvm_eeprom_read_buffer(EEPROM_SKEW_Y_OFFSET, &skewY, EEPROM_SKEW_Y_LENGTH);
+		// Check if bed leveling is enabled
+		#if ENABLE_BED_LEVELING_COMPENSATION == true
+	
+			// Set previous skew adjustment
+			float previousSkewAdjustmentX = getSkewAdjustmentRequired(X, currentValues[Z] + heightAdjustment);
+			float previousSkewAdjustmentY = getSkewAdjustmentRequired(Y, currentValues[Z] + heightAdjustment);
+		
+		// Otherwise
+		#else
+		
+			// Set previous skew adjustment
+			float previousSkewAdjustmentX = getSkewAdjustmentRequired(X, currentValues[Z]);
+			float previousSkewAdjustmentY = getSkewAdjustmentRequired(Y, currentValues[Z]);
+		#endif
+	
+		// Update X and Y skew values
+		nvm_eeprom_read_buffer(EEPROM_SKEW_X_OFFSET, &skewX, EEPROM_SKEW_X_LENGTH);
+		nvm_eeprom_read_buffer(EEPROM_SKEW_Y_OFFSET, &skewY, EEPROM_SKEW_Y_LENGTH);
+	#endif
 	
 	// Update external bed height
 	nvm_eeprom_read_buffer(EEPROM_EXTERNAL_BED_HEIGHT_OFFSET, &externalBedHeight, EEPROM_EXTERNAL_BED_HEIGHT_LENGTH);
@@ -1331,16 +1422,48 @@ void Motors::updateBedChanges(bool affectValues) noexcept {
 	// Check if affecting values
 	if(affectValues) {
 	
-		// Update height adjustment
-		heightAdjustment = getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+		// Check if bed leveling is enabled
+		#if ENABLE_BED_LEVELING_COMPENSATION == true
+	
+			// Update height adjustment
+			heightAdjustment = getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+		#endif
 	
 		// Disable saving motors state
 		tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_OFF);
 		
-		// Set current X, Y, and Z
-		currentValues[Z] += previousHeightAdjustment - heightAdjustment - bedHeightOffset;
-		currentValues[X] += previousSkewAdjustmentX - getSkewAdjustmentRequired(X, currentValues[Z] + heightAdjustment);
-		currentValues[Y] += previousSkewAdjustmentY - getSkewAdjustmentRequired(Y, currentValues[Z] + heightAdjustment);
+		// Check if bed leveling is enabled
+		#if ENABLE_BED_LEVELING_COMPENSATION == true
+		
+			// Set current Z
+			currentValues[Z] += previousHeightAdjustment - heightAdjustment - bedHeightOffset;
+		
+		// Otherwise
+		#else
+		
+			// Set current Z
+			currentValues[Z] += previousHeightAdjustment - bedHeightOffset;
+		
+		#endif
+		
+		// Check if skew compensation is enabled
+		#if ENABLE_SKEW_COMPENSATION == true
+		
+			// Check if bed leveling is enabled
+			#if ENABLE_BED_LEVELING_COMPENSATION == true
+			
+				// Set current X and Y
+				currentValues[X] += previousSkewAdjustmentX - getSkewAdjustmentRequired(X, currentValues[Z] + heightAdjustment);
+				currentValues[Y] += previousSkewAdjustmentY - getSkewAdjustmentRequired(Y, currentValues[Z] + heightAdjustment);
+			
+			// Otherwise
+			#else
+			
+				// Set current X and Y
+				currentValues[X] += previousSkewAdjustmentX - getSkewAdjustmentRequired(X, currentValues[Z]);
+				currentValues[Y] += previousSkewAdjustmentY - getSkewAdjustmentRequired(Y, currentValues[Z]);
+			#endif
+		#endif
 		
 		// Enable saving motors state
 		tc_set_overflow_interrupt_level(&MOTORS_SAVE_TIMER, TC_INT_LVL_LO);
@@ -1435,9 +1558,19 @@ bool Motors::homeXY(bool applyBedAndSkewCompensation) noexcept {
 
 	// Check if enforcing boundaries
 	#if ENABLE_BOUNDARY_ENFORCING == true
+	
+		// Check if bed leveling is enabled
+		#if ENABLE_BED_LEVELING_COMPENSATION == true
 
-		// Check if extruder is too high to successfully home
-		if(currentValues[Z] + getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) + externalBedHeight >= BED_MEDIUM_MAX_Z)
+			// Check if extruder is too high to successfully home
+			if(currentValues[Z] + getHeightAdjustmentRequired(currentValues[X], currentValues[Y]) + externalBedHeight >= BED_MEDIUM_MAX_Z)
+		
+		// Otherwise
+		#else
+		
+			// Check if extruder is too high to successfully home
+			if(currentValues[Z] + externalBedHeight >= BED_MEDIUM_MAX_Z)
+		#endif
 	
 			// Return false
 			return false;
@@ -1558,11 +1691,21 @@ bool Motors::homeXY(bool applyBedAndSkewCompensation) noexcept {
 	
 	// Check if applying bed and skew compensation
 	if(applyBedAndSkewCompensation) {
-	
-		// Set G-code's X, Y, and Z parameters
-		gcode.valueX += getSkewAdjustmentRequired(X, currentValues[Z]);
-		gcode.valueY += getSkewAdjustmentRequired(Y, currentValues[Z]);
-		gcode.valueZ = getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+		
+		// Check if skew compensation is enabled
+		#if ENABLE_SKEW_COMPENSATION == true
+		
+			// Set G-code's X and Y parameters
+			gcode.valueX += getSkewAdjustmentRequired(X, currentValues[Z]);
+			gcode.valueY += getSkewAdjustmentRequired(Y, currentValues[Z]);
+		#endif
+		
+		// Check if bed leveling is enabled
+		#if ENABLE_BED_LEVELING_COMPENSATION == true
+		
+			// Set G-code's Z parameters
+			gcode.valueZ = getHeightAdjustmentRequired(BED_CENTER_X, BED_CENTER_Y) - getHeightAdjustmentRequired(currentValues[X], currentValues[Y]);
+		#endif
 	}
 	
 	// Save mode
@@ -1946,14 +2089,34 @@ bool Motors::calibrateBedOrientation() noexcept {
 	// Check if emergency stop hasn't occured and accelerometer is working
 	if(!emergencyStopRequest && accelerometer.isWorking) {
 	
-		// Set G-code to move to the Y center of bed with skew applied
-		gcode.valueY = BED_CENTER_Y + getSkewAdjustmentRequired(Y, currentValues[Z]);
+		// Check if skew compensation is enabled
+		#if ENABLE_SKEW_COMPENSATION == true
+		
+			// Set G-code to move to the Y center of bed with skew applied
+			gcode.valueY = BED_CENTER_Y + getSkewAdjustmentRequired(Y, currentValues[Z]);
+		
+		// Otherwise
+		#else
+		
+			// Set G-code to move to the Y center of bed
+			gcode.valueY = BED_CENTER_Y;
+		#endif
 		
 		// Move to position
 		move(gcode, BACKLASH_TASK);
 		
-		// Set G-code to move to the X center of bed with skew applied
-		gcode.valueX = BED_CENTER_X + getSkewAdjustmentRequired(X, currentValues[Z]);
+		// Check if skew compensation is enabled
+		#if ENABLE_SKEW_COMPENSATION == true
+		
+			// Set G-code to move to the Y center of bed with skew applied
+			gcode.valueX = BED_CENTER_X + getSkewAdjustmentRequired(X, currentValues[Z]);
+		
+		// Otherwise
+		#else
+		
+			// Set G-code to move to the X center of bed
+			gcode.valueX = BED_CENTER_X;
+		#endif
 		
 		// Move to position
 		move(gcode, BACKLASH_TASK);

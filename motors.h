@@ -110,8 +110,12 @@ class Motors final {
 		// Move to height
 		void moveToHeight(float height, bool applyBedAndSkewCompensation = true) noexcept;
 		
-		// Compensate for backlash
-		void compensateForBacklash(BacklashDirection backlashDirectionX, BacklashDirection backlashDirectionY) noexcept;
+		// Check if backlash compensation is enabled
+		#if ENABLE_BACKLASH_COMPENSATION == true
+		
+			// Compensate for backlash
+			void compensateForBacklash(BacklashDirection backlashDirectionX, BacklashDirection backlashDirectionY) noexcept;
+		#endif
 		
 		// Split up movement
 		void splitUpMovement(bool applyBedAndSkewCompensation) noexcept;
@@ -119,11 +123,19 @@ class Motors final {
 		// Move to Z0
 		bool moveToZ0() noexcept;
 		
-		// Get height adjustment required
-		float getHeightAdjustmentRequired(float x, float y) noexcept;
+		// Check if bed leveling is enabled
+		#if ENABLE_BED_LEVELING_COMPENSATION == true
 		
-		// Get skew adjustment required
-		float getSkewAdjustmentRequired(Axes axis, float height) noexcept;
+			// Get height adjustment required
+			float getHeightAdjustmentRequired(float x, float y) noexcept;
+		#endif
+		
+		// Check if skew compensation is enabled
+		#if ENABLE_SKEW_COMPENSATION == true
+		
+			// Get skew adjustment required
+			float getSkewAdjustmentRequired(Axes axis, float height) noexcept;
+		#endif
 		
 		// Start and stop motors step timer
 		void startMotorsStepTimer() noexcept;
@@ -141,8 +153,10 @@ class Motors final {
 		// Get tier at height
 		inline Tiers getTierAtHeight(float height) noexcept;
 		
-		// Current sense ADC controller and channel
+		// Check iff regulating extruder's current
 		#if REGULATE_EXTRUDER_CURRENT == true
+		
+			// Current sense ADC controller and channel
 			adc_config currentSenseAdcController;
 			adc_channel_config currentSenseAdcChannel;
 		#endif
@@ -150,22 +164,30 @@ class Motors final {
 		// External bed height
 		float externalBedHeight;
 		
-		// Skew values
-		float skewX, skewY;
+		// Check if skew compensation is enabled
+		#if ENABLE_SKEW_COMPENSATION == true
+		
+			// Skew values
+			float skewX, skewY;
+		#endif
 		
 		// Segment start values
 		float startValues[NUMBER_OF_MOTORS];
 		
-		// Vectors
-		Vector backRightVector;
-		Vector backLeftVector;
-		Vector frontLeftVector;
-		Vector frontRightVector;
-		Vector centerVector;
-		Vector backPlane;
-		Vector leftPlane;
-		Vector rightPlane;
-		Vector frontPlane;
+		// Check if bed leveling is enabled
+		#if ENABLE_BED_LEVELING_COMPENSATION == true
+		
+			// Vectors
+			Vector backRightVector;
+			Vector backLeftVector;
+			Vector frontLeftVector;
+			Vector frontRightVector;
+			Vector centerVector;
+			Vector backPlane;
+			Vector leftPlane;
+			Vector rightPlane;
+			Vector frontPlane;
+		#endif
 };
 
 

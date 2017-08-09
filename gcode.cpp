@@ -60,8 +60,8 @@ void Gcode::parseCommand(const char *command) noexcept {
 		// Check if command is a host command
 		if(*firstValidCharacter == '@') {
 	
-			// Check if host commands are allowed
-			#if ALLOW_HOST_COMMANDS == true
+			// Check if host commands are enabled
+			#if ENABLE_HOST_COMMANDS == true
 		
 				// Set command length
 				uint8_t commandLength = min(static_cast<uint8_t>(stopParsingOffset - startParsingOffset - 1), sizeof(hostCommand) - 1);
@@ -206,7 +206,10 @@ void Gcode::clearCommand() noexcept {
 	valueE = 0;
 	valueN = 0;
 	
-	#if ALLOW_HOST_COMMANDS == true
+	// Check if host commands are enabled
+	#if ENABLE_HOST_COMMANDS == true
+	
+		// Clear host command
 		*hostCommand = 0;
 	#endif
 }
@@ -349,7 +352,9 @@ uint64_t Gcode::getParameterN() const noexcept {
 	return valueN;
 }
 
-#if ALLOW_HOST_COMMANDS == true
+// Check if host commands are enabled
+#if ENABLE_HOST_COMMANDS == true
+
 	bool Gcode::hasHostCommand() const noexcept {
 
 		// Return is host command is set

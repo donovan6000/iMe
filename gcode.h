@@ -104,7 +104,8 @@ class Gcode final {
 		// Get parameter N
 		uint64_t getParameterN() const noexcept;
 		
-		#if ALLOW_HOST_COMMANDS == true
+		// Check if host commands are enabled
+		#if ENABLE_HOST_COMMANDS == true
 		
 			// Has host command
 			bool hasHostCommand() const noexcept;
@@ -135,8 +136,10 @@ class Gcode final {
 		float valueE;
 		uint64_t valueN;
 		
-		// Host command
-		#if ALLOW_HOST_COMMANDS == true
+		// Check if host commands are enabled
+		#if ENABLE_HOST_COMMANDS == true
+		
+			// Host command
 			char hostCommand[UINT8_MAX + 1];
 		#endif
 };
