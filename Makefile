@@ -4,11 +4,14 @@ FIRMWARE_VERSION = 00.00.01.25
 ROM_VERSION_STRING = 1900000125
 
 ENABLE_DEBUG_FEATURES = false
-ALLOW_USELESS_COMMANDS = false
-ALLOW_HOST_COMMANDS = false
+ENABLE_USELESS_COMMANDS = false
+ENABLE_HOST_COMMANDS = false
 STORE_CONSTANTS_IN_PROGRAM_SPACE = false
 REGULATE_EXTRUDER_CURRENT = false
 ENABLE_BOUNDARY_ENFORCING = true
+ENABLE_BACKLASH_COMPENSATION = true
+ENABLE_BED_LEVELING_COMPENSATION = true
+ENABLE_SKEW_COMPENSATION = true
 
 FIRMWARE_NAME = $(subst $\",,$(NAME))
 
@@ -19,12 +22,18 @@ ifeq ($(OS), Windows_NT)
 	SIZE = "C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-size.exe"
 	DUMP = "C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objdump.exe"
 	M33MANAGER = "M33 Manager\M33 Manager.exe"
+	
+	# Linker time optimizations make the firmware larger when using the Windows compiler suite
+	FLAGS = -fno-lto
 else
 	CC = /opt/avr-toolchain/bin/avr-gcc
 	COPY = /opt/avr-toolchain/bin/avr-objcopy
 	SIZE = /opt/avr-toolchain/bin/avr-size
 	DUMP = /opt/avr-toolchain/bin/avr-objdump
 	M33MANAGER = "M33 Manager/M33 Manager"
+	
+	# Linker time optimizations work correctly when using the Linux compiler suite
+	FLAGS = -flto -flto-partition=1to1
 endif
 
 # Assembly source files
@@ -105,7 +114,7 @@ INCPATH = . \
 	src/config
 
 # Compiler flags
-FLAGS = -D BOARD=USER_BOARD -D FIRMWARE_NAME="$(FIRMWARE_NAME)" -D FIRMWARE_VERSION=$(FIRMWARE_VERSION) -D ENABLE_DEBUG_FEATURES=$(ENABLE_DEBUG_FEATURES) -D ALLOW_USELESS_COMMANDS=$(ALLOW_USELESS_COMMANDS) -D ALLOW_HOST_COMMANDS=$(ALLOW_HOST_COMMANDS) -D STORE_CONSTANTS_IN_PROGRAM_SPACE=$(STORE_CONSTANTS_IN_PROGRAM_SPACE) -D REGULATE_EXTRUDER_CURRENT=$(REGULATE_EXTRUDER_CURRENT) -D ENABLE_BOUNDARY_ENFORCING=$(ENABLE_BOUNDARY_ENFORCING) -Os -finput-charset=UTF-8 -fexec-charset=UTF-8 -mmcu=atxmega32c4 -Wall -Wno-maybe-uninitialized -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -fno-strict-aliasing -Werror-implicit-function-declaration -Wpointer-arith -mcall-prologues -mstrict-X -maccumulate-args -fno-tree-ter -mrelax -flto -flto-partition=1to1
+FLAGS += -D BOARD=USER_BOARD -D FIRMWARE_NAME="$(FIRMWARE_NAME)" -D FIRMWARE_VERSION=$(FIRMWARE_VERSION) -D ENABLE_DEBUG_FEATURES=$(ENABLE_DEBUG_FEATURES) -D ENABLE_USELESS_COMMANDS=$(ENABLE_USELESS_COMMANDS) -D ENABLE_HOST_COMMANDS=$(ENABLE_HOST_COMMANDS) -D STORE_CONSTANTS_IN_PROGRAM_SPACE=$(STORE_CONSTANTS_IN_PROGRAM_SPACE) -D REGULATE_EXTRUDER_CURRENT=$(REGULATE_EXTRUDER_CURRENT) -D ENABLE_BOUNDARY_ENFORCING=$(ENABLE_BOUNDARY_ENFORCING) -D ENABLE_BACKLASH_COMPENSATION=$(ENABLE_BACKLASH_COMPENSATION) -D ENABLE_BED_LEVELING_COMPENSATION=$(ENABLE_BED_LEVELING_COMPENSATION) -D ENABLE_SKEW_COMPENSATION=$(ENABLE_SKEW_COMPENSATION) -Os -finput-charset=UTF-8 -fexec-charset=UTF-8 -mmcu=atxmega32c4 -Wall -Wno-maybe-uninitialized -funsigned-char -funsigned-bitfields -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -fno-strict-aliasing -Werror-implicit-function-declaration -Wpointer-arith -mcall-prologues -mstrict-X -maccumulate-args -fno-tree-ter -mrelax
 ASFLAGS = -std=c++14 -x assembler-with-cpp
 CFLAGS = -std=gnu99 -x c -Wstrict-prototypes
 CPPFLAGS = -std=c++14 -x c++

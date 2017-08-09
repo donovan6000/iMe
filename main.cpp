@@ -308,8 +308,8 @@ int __attribute__((OS_main)) main() noexcept {
 						// Clear response buffer
 						*responseBuffer = 0;
 
-						// Check if host commands are allowed
-						#if ALLOW_HOST_COMMANDS == true
+						// Check if host commands are enabled
+						#if ENABLE_HOST_COMMANDS == true
 
 							// Check if command is a host command
 							if(requests[currentProcessingRequest].commandParameters & PARAMETER_HOST_COMMAND_OFFSET) {
@@ -1486,8 +1486,8 @@ int __attribute__((OS_main)) main() noexcept {
 											}
 										break;
 						
-										// Check if useless commands are allowed
-										#if ALLOW_USELESS_COMMANDS == true
+										// Check if useless commands are enabled
+										#if ENABLE_USELESS_COMMANDS == true
 						
 											// M404
 											case 404:
@@ -1518,8 +1518,8 @@ int __attribute__((OS_main)) main() noexcept {
 											#endif
 										break;
 						
-										// Check if useless commands are allowed
-										#if ALLOW_USELESS_COMMANDS == true
+										// Check if useless commands are enabled
+										#if ENABLE_USELESS_COMMANDS == true
 						
 											// M583
 											case 583:
@@ -1615,8 +1615,8 @@ int __attribute__((OS_main)) main() noexcept {
 											}
 										break;
 						
-										// Check if useless commands are allowed
-										#if ALLOW_USELESS_COMMANDS == true
+										// Check if useless commands are enabled
+										#if ENABLE_USELESS_COMMANDS == true
 						
 											// M5321
 											case 5321:
