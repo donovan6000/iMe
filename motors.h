@@ -26,22 +26,22 @@
 #define restoreState() changeState()
 
 // Modes
-enum Modes {RELATIVE, ABSOLUTE};
+enum Modes : uint8_t {RELATIVE, ABSOLUTE};
 
 // Axes
-enum Axes {X, Y, Z, E, F};
+enum Axes : uint8_t {X, Y, Z, E, F};
 
 // Backlash direction
-enum BacklashDirection {NONE, POSITIVE, NEGATIVE};
+enum BacklashDirection : uint8_t {NONE, POSITIVE, NEGATIVE};
 
 // Axes parameter
-enum AxesParameter {DIRECTION, VALIDITY, VALUE};
+enum AxesParameter : uint8_t {DIRECTION, VALIDITY, VALUE};
 
 // Units
-enum Units {MILLIMETERS, INCHES};
+enum Units : uint8_t {MILLIMETERS, INCHES};
 
 // Tiers
-enum Tiers {LOW_TIER, MEDIUM_TIER, HIGH_TIER};
+enum Tiers : uint8_t {LOW_TIER, MEDIUM_TIER, HIGH_TIER};
 
 
 // Motors class

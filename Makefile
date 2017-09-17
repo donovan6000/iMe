@@ -126,7 +126,7 @@ all:
 	$(CC) $(foreach INC, $(addprefix , $(INCPATH)),-I $(INC)) $(FLAGS) $(CFLAGS) -c $(CSRCS)
 	$(CC) $(foreach INC, $(addprefix , $(INCPATH)),-I $(INC)) $(FLAGS) $(CPPFLAGS) -c $(CPPSRCS)
 	$(CC) $(foreach INC, $(addprefix , $(INCPATH)),-I $(INC)) $(FLAGS) $(LFLAGS) *.o -o "$(FIRMWARE_NAME).elf"
-	@$(COPY) -O binary "$(FIRMWARE_NAME).elf" "$(FIRMWARE_NAME) $(ROM_VERSION_STRING).hex"
+	@$(COPY) -S -O binary "$(FIRMWARE_NAME).elf" "$(FIRMWARE_NAME) $(ROM_VERSION_STRING).hex"
 	@$(SIZE) --mcu=atxmega32c4 -C "$(FIRMWARE_NAME).elf"
 	@rm -f *.o "$(FIRMWARE_NAME).elf"
 	@echo $(FIRMWARE_NAME) $(ROM_VERSION_STRING).hex is ready

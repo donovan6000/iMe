@@ -973,7 +973,7 @@ iram_size_t udi_cdc_multi_read_buf_and_ignore(uint8_t port, void* buf, iram_size
 	port = 0;
 #endif
 
-udi_cdc_read_buf_loop_wait:
+udi_cdc_read_buf_and_ignore_loop_wait:
 	// Check available data
 	flags = cpu_irq_save();
 	pos = udi_cdc_rx_pos[port];
@@ -984,7 +984,7 @@ udi_cdc_read_buf_loop_wait:
 		if (!udi_cdc_data_running) {
 			return size;
 		}
-		goto udi_cdc_read_buf_loop_wait;
+		goto udi_cdc_read_buf_and_ignore_loop_wait;
 	}
 
 	// Read data
@@ -997,7 +997,7 @@ udi_cdc_read_buf_loop_wait:
 	size -= *total;
 
 	if (size) {
-		goto udi_cdc_read_buf_loop_wait;
+		goto udi_cdc_read_buf_and_ignore_loop_wait;
 	}
 	return 0;
 }
