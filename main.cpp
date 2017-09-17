@@ -1254,7 +1254,7 @@ int __attribute__((OS_main)) main() noexcept {
 										case 83:
 		
 											// Set extruder mode
-											motors.extruderMode = requests[currentProcessingRequest].valueM == 82 ? Modes::ABSOLUTE : Modes::RELATIVE;
+											motors.extruderMode = requests[currentProcessingRequest].valueM == 82 ? ABSOLUTE : RELATIVE;
 			
 											// Set response to confirmation
 											#if STORE_CONSTANTS_IN_PROGRAM_SPACE == true
@@ -1392,7 +1392,7 @@ int __attribute__((OS_main)) main() noexcept {
 												}
 								
 												// Append motor's current value to response
-												ftoa(motors.currentValues[i] * (motors.units == Units::INCHES ? MILLIMETERS_TO_INCHES_SCALAR : 1), numberBuffer);
+												ftoa(motors.currentValues[i] * (motors.units == INCHES ? MILLIMETERS_TO_INCHES_SCALAR : 1), numberBuffer);
 												strcat(responseBuffer, numberBuffer);
 											}
 										break;
@@ -1407,10 +1407,10 @@ int __attribute__((OS_main)) main() noexcept {
 												cpu_irq_disable();
 								
 												// Go through X, Y, and Z axes	
-												for(Axes currentSaveMotor = Axes::X; currentSaveMotor <= Axes::Z; currentSaveMotor = static_cast<Axes>(currentSaveMotor + 1))
+												for(Axes currentSaveMotor = X; currentSaveMotor <= Z; currentSaveMotor = static_cast<Axes>(currentSaveMotor + 1))
 								
 													// Go through direction, validity, and value axes parameters
-													for(AxesParameter currentSaveParameter = AxesParameter::DIRECTION; currentSaveParameter <= AxesParameter::VALUE; currentSaveParameter = static_cast<AxesParameter>(currentSaveParameter + 1))
+													for(AxesParameter currentSaveParameter = DIRECTION; currentSaveParameter <= VALUE; currentSaveParameter = static_cast<AxesParameter>(currentSaveParameter + 1))
 								
 														// Save current axis's parameter
 														motors.saveState(currentSaveMotor, currentSaveParameter);
@@ -1791,7 +1791,7 @@ int __attribute__((OS_main)) main() noexcept {
 										case 91:
 		
 											// Set modes
-											motors.mode = motors.extruderMode = requests[currentProcessingRequest].valueG == 90 ? Modes::ABSOLUTE : Modes::RELATIVE;
+											motors.mode = motors.extruderMode = requests[currentProcessingRequest].valueG == 90 ? ABSOLUTE : RELATIVE;
 			
 											// Set response to confirmation
 											#if STORE_CONSTANTS_IN_PROGRAM_SPACE == true
@@ -1850,7 +1850,7 @@ int __attribute__((OS_main)) main() noexcept {
 												if(requests[currentProcessingRequest].commandParameters & parameterOffset)
 									
 													// Set motors current value
-													motors.currentValues[i] = *value * (motors.units == Units::INCHES ? INCHES_TO_MILLIMETERS_SCALAR : 1);
+													motors.currentValues[i] = *value * (motors.units == INCHES ? INCHES_TO_MILLIMETERS_SCALAR : 1);
 											}
 							
 											// Enable saving motors state
@@ -1869,7 +1869,7 @@ int __attribute__((OS_main)) main() noexcept {
 										case 21:
 
 											// Set units
-											motors.units = requests[currentProcessingRequest].valueG == 20 ? Units::INCHES : Units::MILLIMETERS;
+											motors.units = requests[currentProcessingRequest].valueG == 20 ? INCHES : MILLIMETERS;
 			
 											// Set response to confirmation
 											#if STORE_CONSTANTS_IN_PROGRAM_SPACE == true
