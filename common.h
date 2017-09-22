@@ -43,6 +43,8 @@
 
 // Emergency stop request
 extern uint8_t emergencyStopRequest;
+extern uint8_t accelerationSampleSize;
+extern bool displayAcceleration;
 
 
 // Function prototypes
@@ -112,6 +114,8 @@ Name: Lower case
 Purpose: Returns if a provided character converted to lower case
 */
 char lowerCase(char value) noexcept;
+
+void sendAccelerations() noexcept;
 
 
 #endif

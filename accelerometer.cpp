@@ -98,11 +98,11 @@ bool Accelerometer::testConnection() noexcept {
 	return isWorking = false;
 }
 
-bool Accelerometer::readAccelerationValues() noexcept {
+bool Accelerometer::readAccelerationValues(uint8_t sampleSize) noexcept {
 
 	// Go through each axis
 	int32_t averages[NUMBER_OF_ACCELERATION_AXES] = {};
-	for(uint8_t i = 0; i < ACCELEROMETER_SAMPLE_SIZE; ++i) {
+	for(uint8_t i = 0; i < sampleSize; ++i) {
 		
 		// Wait until data is available
 		while(!dataAvailable())
@@ -127,7 +127,7 @@ bool Accelerometer::readAccelerationValues() noexcept {
 	
 	// Set acceleration values to average acceleration
 	for(uint8_t i = 0; i < NUMBER_OF_ACCELERATION_AXES; ++i)
-		accelerations[i] = averages[i] / ACCELEROMETER_SAMPLE_SIZE;
+		accelerations[i] = averages[i] / sampleSize;
 	
 	// Return if accelerometer is working
 	return isWorking;

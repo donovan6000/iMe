@@ -5,6 +5,7 @@ extern "C" {
 #include <ctype.h>
 #include <float.h>
 #include <string.h>
+#include "accelerometer.h"
 #include "common.h"
 
 
@@ -233,4 +234,28 @@ char lowerCase(char value) noexcept {
 
 	// Return value as upper case
 	return value | ('A' ^ 'a');
+}
+
+void sendAccelerations() noexcept {
+
+	if(Accelerometer::readAccelerationValues(accelerationSampleSize)) {
+
+		char buffer[sizeof("x:") - 1 + sizeof(" y:") - 1 + sizeof(" z:") - 1 + (sizeof("32767") - 1) * 3 + sizeof("\r\n") - 1 + 1];
+		char buffer2[INT_BUFFER_SIZE];
+	
+		strcpy(buffer, "x:");
+		lltoa(Accelerometer::accelerations[ACCELERATION_X], buffer2);
+		strcat(buffer, buffer2);
+	
+		strcat(buffer, " y:");
+		lltoa(Accelerometer::accelerations[ACCELERATION_Y], buffer2);
+		strcat(buffer, buffer2);
+	
+		strcat(buffer, " z:");
+		lltoa(Accelerometer::accelerations[ACCELERATION_Z], buffer2);
+		strcat(buffer, buffer2);
+		strcat(buffer, "\r\n");
+	
+		sendDataToUsb(buffer, true);
+	}
 }

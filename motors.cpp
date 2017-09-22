@@ -994,6 +994,9 @@ bool Motors::move(const Gcode &gcode, uint8_t tasks) noexcept {
 		// Wait until all motors stop moving or an emergency stop occurs
 		while(areMotorsMoving() && !emergencyStopRequest) {
 		
+			if(displayAcceleration)
+				sendAccelerations();
+		
 			// Check if regulating extruder current
 			#if REGULATE_EXTRUDER_CURRENT == true
 	
@@ -1665,6 +1668,9 @@ bool Motors::homeXY(bool applyBedAndSkewCompensation) noexcept {
 			
 			// Save value
 			lastValue = *accelerometerValue;
+			
+			if(displayAcceleration)
+				sendAccelerations();
 		}
 
 		// Stop motors step timer
@@ -1845,6 +1851,9 @@ bool Motors::moveToZ0() noexcept {
 				}
 				else
 					counter = 0;
+				
+				if(displayAcceleration)
+					sendAccelerations();
 			}
 			
 			// Stop motors step timer

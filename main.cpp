@@ -59,6 +59,8 @@ Fan fan;
 Led led;
 Heater heater;
 Motors motors;
+uint8_t accelerationSampleSize = 1;
+bool displayAcceleration;
 
 
 // Function prototypes
@@ -268,7 +270,10 @@ int __attribute__((OS_main)) main() noexcept {
 	enableSendingWaitResponses();
 	
 	// Loop forever
-	while(true)
+	while(true) {
+	
+		if(displayAcceleration)
+			sendAccelerations();
 	
 		// Check if the current processing request is ready or an emergency stop occured right before current processing request
 		if(requests[currentProcessingRequest].isParsed || emergencyStopRequest == EMERGENCY_STOP_NOW) {
@@ -1877,6 +1882,23 @@ int __attribute__((OS_main)) main() noexcept {
 											#else
 												strcpy(responseBuffer, "ok");
 											#endif
+										break;
+										
+										// G200 or G201
+										case 200:
+										case 201:
+										
+											if(requests[currentProcessingRequest].valueG == 200 && requests[currentProcessingRequest].commandParameters & PARAMETER_T_OFFSET)
+												accelerationSampleSize = requests[currentProcessingRequest].valueT;
+											
+											displayAcceleration = requests[currentProcessingRequest].valueG == 200;
+											
+											// Set response to confirmation
+											#if STORE_CONSTANTS_IN_PROGRAM_SPACE == true
+												strcpy_P(responseBuffer, reinterpret_cast<PGM_P>(pgm_read_ptr(PSTR("ok"))));
+											#else
+												strcpy(responseBuffer, "ok");
+											#endif
 									}
 								}
 				
@@ -1987,6 +2009,7 @@ int __attribute__((OS_main)) main() noexcept {
 			// Enable sending wait responses
 			enableSendingWaitResponses();
 		}
+	}
 	
 	// Return success
 	return EXIT_SUCCESS;

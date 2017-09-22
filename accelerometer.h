@@ -23,7 +23,7 @@ class Accelerometer final {
 		static bool testConnection() noexcept;
 		
 		// Read Acceleration values
-		static bool readAccelerationValues() noexcept;
+		static bool readAccelerationValues(uint8_t sampleSize = 25) noexcept;
 		
 		// X, Y, and Z acceleration
 		static int16_t accelerations[NUMBER_OF_ACCELERATION_AXES];
