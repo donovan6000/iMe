@@ -85,7 +85,7 @@ void disableSendingWaitResponses() noexcept;
 Name: Enable sending wait responses
 Purpose: Enabled sending wait responses every second
 */
-void enableSendingWaitResponses() noexcept;
+void enableSendingWaitResponses(bool resetInactivityCounter = true) noexcept;
 
 /*
 Name: Reverse bits
@@ -173,6 +173,7 @@ int __attribute__((OS_main)) main() noexcept {
 	static uint8_t currentProcessingRequest;
 	static char responseBuffer[RESPONSE_BUFFER_SIZE];
 	static char numberBuffer[INT_BUFFER_SIZE];
+	static bool resetInactivityCounter;
 	
 	// Configure ADC Vref pin
 	ioport_set_pin_dir(ADC_VREF_PIN, IOPORT_DIR_INPUT);
@@ -275,6 +276,9 @@ int __attribute__((OS_main)) main() noexcept {
 		
 			// Disable sending wait responses
 			disableSendingWaitResponses();
+			
+			// Set reset inactivity counter
+			resetInactivityCounter = true;
 	
 			// Check if an emergency stop didn't occured right before current processing request
 			if(emergencyStopRequest != EMERGENCY_STOP_NOW) {
@@ -1325,6 +1329,9 @@ int __attribute__((OS_main)) main() noexcept {
 												#else
 													strcpy(responseBuffer, "Error: Heater isn't working");
 												#endif
+											
+											// Clear reset inactivity counter
+											resetInactivityCounter = false;
 										break;
 		
 										// M106 or M107
@@ -1985,7 +1992,7 @@ int __attribute__((OS_main)) main() noexcept {
 			}
 			
 			// Enable sending wait responses
-			enableSendingWaitResponses();
+			enableSendingWaitResponses(resetInactivityCounter);
 		}
 	
 	// Return success
@@ -2080,10 +2087,16 @@ void disableSendingWaitResponses() noexcept {
 	tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_OFF);
 }
 
-void enableSendingWaitResponses() noexcept {
+void enableSendingWaitResponses(bool resetInactivityCounter) noexcept {
 
-	// Reset wait timer and inactivity counters
-	waitTimerCounter = inactivityCounter = 0;
+	// Reset wait timer
+	waitTimerCounter = 0;
+	
+	// Check if an resetting inactivity counter
+	if(resetInactivityCounter)
+	
+		// Reset inactivity counters
+		inactivityCounter = 0;
 	
 	// Enable sending wait responses
 	tc_set_overflow_interrupt_level(&WAIT_TIMER, TC_INT_LVL_LO);
