@@ -603,7 +603,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 	}
 
 	// Check if printer is still connected
-	if(isConnected())
+	if(isConnected()) {
 	
 		// Log printer's mode if mode didn't change and logging details
 		if(logFunction && !changedMode && logDetails)
@@ -1218,6 +1218,7 @@ bool Printer::collectPrinterInformation(bool logDetails) {
 					return true;
 			}
 		}
+	}
 	
 	// Return false
 	return false;

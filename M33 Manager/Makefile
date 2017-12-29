@@ -44,7 +44,7 @@ ifeq ($(TARGET_PLATFORM), WINDOWS64)
 	WINDRES = "x86_64-w64-mingw32-windres"
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
-		LIBS += -D USE_GUI `/usr/i686-w64-mingw32/bin/wx-config --cxxflags --libs --static`
+		LIBS += -D USE_GUI `/usr/x86_64-w64-mingw32/bin/wx-config --cxxflags --libs --static`
 	endif
 	STRIP = "x86_64-w64-mingw32-strip"
 endif
@@ -69,7 +69,8 @@ ifeq ($(TARGET_PLATFORM), LINUX32)
 	EXECUTABLE = "$(PROGRAM_NAME)"
 	CC = "g++"
 	CCP = "g++"
-	CFLAGS += -pthread -static-libgcc -static-libstdc++ -m32
+	#CFLAGS += -pthread -static-libgcc -static-libstdc++ -m32
+	CFLAGS += -pthread -m32
 	CFLAGS_GENERIC += -static-libgcc -static-libstdc++
 	ARCHIVE = "$(PROGRAM_NAME) Linux.zip"
 	ifeq ($(USE_GUI), TRUE)
@@ -84,7 +85,8 @@ ifeq ($(TARGET_PLATFORM), LINUX64)
 	EXECUTABLE = "$(PROGRAM_NAME)"
 	CC = "g++"
 	CCP = "g++"
-	CFLAGS += -pthread -static-libgcc -static-libstdc++ -m64
+	#CFLAGS += -pthread -static-libgcc -static-libstdc++ -m64
+	CFLAGS += -pthread -m64
 	CFLAGS_GENERIC += -static-libgcc -static-libstdc++
 	ARCHIVE = "$(PROGRAM_NAME) Linux.zip"
 	ifeq ($(USE_GUI), TRUE)

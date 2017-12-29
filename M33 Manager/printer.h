@@ -4,6 +4,7 @@
 
 
 // Header files
+#include <functional>
 #include <string>
 #include <thread>
 #include <mutex>
