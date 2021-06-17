@@ -2788,7 +2788,7 @@ void Printer::updateAvailableSerialPorts() {
 			if(classesToMatch) {
 			
 				// Set dictionary to match modem devices
-				CFDictionarySetValue(classesToMatch, CFSTR(kIOSerialBSDTypeKey), CFSTR(kIOSerialBSDModemType));
+				CFDictionarySetValue(classesToMatch, CFSTR(kIOSerialBSDTypeKey), CFSTR(kIOSerialBSDAllTypes));
 				
 				// Check if getting list of devices was successful
 				io_iterator_t serialPortIterator;

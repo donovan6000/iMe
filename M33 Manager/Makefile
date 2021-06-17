@@ -1,7 +1,7 @@
 # Target platform options: WINDOWS32, WINDOWS64, MACOS, LINUX32, LINUX64
 NAME = "M33 Manager"
 VERSION = 0.16
-TARGET_PLATFORM = LINUX64
+TARGET_PLATFORM = MACOS
 USE_GUI = TRUE
 IME_ROM_VERSION_STRING = 1900000125
 M3D_ROM_VERSION_STRING = 2016040401
@@ -54,12 +54,12 @@ ifeq ($(TARGET_PLATFORM), MACOS)
 	EXECUTABLE = "$(PROGRAM_NAME)"
 	CC = "clang++"
 	CCP = "clang++"
-	CFLAGS += -framework IOKit -framework CoreFoundation -stdlib=libc++ -arch i386 -arch x86_64
+	CFLAGS += -framework IOKit -framework CoreFoundation -stdlib=libc++
 	CFLAGS_GENERIC += -stdlib=libc++
 	ARCHIVE = "$(PROGRAM_NAME) macOS.dmg"
 	ifeq ($(USE_GUI), TRUE)
 		SRCS += gui.cpp
-		LIBS += -D USE_GUI `wx-config --prefix=/usr --cxxflags --libs --static`
+		LIBS += -D USE_GUI `wx-config --cxxflags --libs`
 	endif
 	STRIP = "strip"
 endif
